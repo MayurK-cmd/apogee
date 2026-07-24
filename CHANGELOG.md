@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Bullet summaries of long documents are now deduplicated and coherent.**
+  Bullets mode previously streamed each chunk's bullets straight through with
+  no merge step, so a long multi-chunk document (e.g. a big PDF) could repeat
+  the same point across chunk boundaries. It now runs the same map + reduce
+  shape as the other modes: every chunk is summarized, then a single synthesis
+  pass merges them into one deduplicated list. To avoid the old regression
+  where a fixed 8-14-bullet reduce crushed a whole document down to almost
+  nothing, the reduce pass scales its target bullet count with the number of
+  chunks merged (grows per chunk beyond the first, capped so a very long
+  document stays skimmable). WebLLM and Ollama share this logic, so both
+  backends produce identical output for the same page.
+
 ### Added
 
 - **Resummarize button** on the finished summary card, re-runs the summarize

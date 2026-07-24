@@ -59,11 +59,14 @@ test("summarizeText (bullets) stops issuing new model calls once the signal is a
     ),
   );
 
-  assert.deepStrictEqual(result, ["- first bullet\n"]);
+  // Bullets now goes through the same map-then-reduce path as every other
+  // mode (see below), so an abort before the reduce pass means nothing has
+  // been yielded to the caller yet, not the partial per-chunk bullet.
+  assert.deepStrictEqual(result, []);
   assert.strictEqual(
     calls,
     1,
-    "should not call the model for chunk two after abort",
+    "should not call the model for chunk two, or run the reduce merge, after abort",
   );
 });
 
@@ -88,6 +91,41 @@ test("summarizeText (paragraphs) runs every chunk plus the reduce merge when nev
   assert.strictEqual(calls, 3);
   assert.strictEqual(result.length, 1);
   assert.match(result[0], /^summary of:/);
+});
+
+test("summarizeText (bullets) also runs every chunk plus a final reduce/synthesis merge, not a flat per-chunk concatenation", async () => {
+  let calls = 0;
+  const prompts = [];
+  async function* chatStreamFn(_host, _model, prompt) {
+    calls += 1;
+    prompts.push(prompt);
+    yield calls <= 2 ? `- bullet from chunk ${calls}\n` : "- merged bullet\n";
+  }
+
+  const result = await collect(
+    summarizeText(
+      { text: "irrelevant", mode: "bullets" },
+      {
+        chunkTextFn: () => ["chunk one", "chunk two"],
+        chatStreamFn,
+      },
+    ),
+  );
+
+  // Two map calls (one per chunk) plus one reduce/merge call, same shape as
+  // paragraphs/sentences above, instead of streaming each chunk's raw
+  // bullets straight through with no synthesis step.
+  assert.strictEqual(calls, 3);
+  // Only the final reduce pass's output reaches the caller.
+  assert.deepStrictEqual(result, ["- merged bullet\n"]);
+  // The reduce prompt must be built from both chunks' map output, not just
+  // the last one.
+  assert.match(prompts[2], /bullet from chunk 1/);
+  assert.match(prompts[2], /bullet from chunk 2/);
+  // The reduce pass's bullet-count target must scale with chunk count (see
+  // buildScaledBulletsStyle), not stay at the base single-pass 8-14 - two
+  // chunks scales to 12-18.
+  assert.match(prompts[2], /Output 12-18 concise bullet points/);
 });
 
 test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', still honoring mode", async () => {

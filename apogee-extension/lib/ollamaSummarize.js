@@ -4,15 +4,11 @@
 // same as they did under the old backend-relayed Local Ollama mode.
 
 import { chunkText } from "./chunk.js";
-import { buildSummaryPrompt } from "./prompts.js";
+import { buildSummaryPrompt, buildScaledBulletsStyle } from "./prompts.js";
 import { cleanText } from "./cleaner.js";
 import { chatStream } from "./ollamaClient.js";
 import { getMaxChunkChars } from "./modelLimits.js";
 import { summarizeYoutube } from "./youtubeSummarize.js";
-
-// Matches a bullet marker (•, -, *) or a numbered-list marker (1. / 1)) at
-// the start of a line. Mirrors summaryService.js's BULLET_LINE.
-const BULLET_LINE = /^(?:[•\-*]|\d+[.)])/;
 
 // Upper bound on how many chunks (== sequential model calls) a single summary
 // may fan out into, mirrors summaryService.js's MAX_CHUNKS.
@@ -64,40 +60,14 @@ export async function* summarizeText(
     return;
   }
 
-  // Bullets: emit each chunk's bullets as it finishes so output starts
-  // flowing immediately instead of after every chunk.
-  if (mode === "bullets") {
-    for (const chunk of chunks) {
-      // Checked between chunks, not just forwarded to chatStreamFn, so a
-      // multi-chunk summary (e.g. a long PDF) stops issuing new model calls
-      // right away on cancel instead of grinding through every remaining
-      // chunk before the abort takes effect.
-      if (signal?.aborted) return;
-      const prompt = buildSummaryPrompt(title, url, chunk, mode);
-      let lineBuffer = "";
-      for await (const token of chatStreamFn(host, model, prompt, { signal })) {
-        lineBuffer += token;
-        let newlineIndex;
-        while ((newlineIndex = lineBuffer.indexOf("\n")) !== -1) {
-          const line = lineBuffer.slice(0, newlineIndex);
-          lineBuffer = lineBuffer.slice(newlineIndex + 1);
-          const lineStripped = line.trim();
-          if (BULLET_LINE.test(lineStripped)) {
-            yield lineStripped + "\n";
-          }
-        }
-      }
-      if (lineBuffer) {
-        const lineStripped = lineBuffer.trim();
-        if (BULLET_LINE.test(lineStripped)) {
-          yield lineStripped + "\n";
-        }
-      }
-    }
-    return;
-  }
-
-  // Sentences/paragraphs: summarize every chunk, then merge.
+  // Map every chunk in the requested mode, then run a final reduce/synthesis
+  // pass over all chunk summaries together (also in that mode) rather than
+  // just concatenating them, so points that show up in more than one chunk
+  // get deduplicated into one. Mirrors youtubeSummarize.js's map+assemble
+  // shape. Bullets' reduce pass uses a scaled point-count target (see
+  // buildScaledBulletsStyle) instead of the base style's fixed 8-14, since
+  // that's meant for a single pass, not a merge of many chunks' worth of
+  // content.
   const chunkSummaries = [];
   for (let i = 0; i < chunks.length; i++) {
     if (signal?.aborted) return;
@@ -113,6 +83,14 @@ export async function* summarizeText(
   if (signal?.aborted) return;
   onProgress?.({ stage: "reduce" });
   const combinedText = chunkSummaries.join("\n");
-  const mergePrompt = buildSummaryPrompt(title, url, combinedText, mode);
+  const styleOverride =
+    mode === "bullets" ? buildScaledBulletsStyle(chunks.length) : undefined;
+  const mergePrompt = buildSummaryPrompt(
+    title,
+    url,
+    combinedText,
+    mode,
+    styleOverride,
+  );
   yield* chatStreamFn(host, model, mergePrompt, { signal });
 }

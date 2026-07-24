@@ -1,12 +1,12 @@
 // Client-side prompt templates, ported from apogee-backend/src/prompts/*.txt and apogee-backend/src/services/promptService.js.
 // Used by the WebLLM offscreen engine so it can generate prompts without a backend server.
 
-export const SUMMARY_STYLES = {
-  bullets: [
+function bulletsStyle(min, max) {
+  return [
     "Return only the final answer.",
     "",
     "Rules:",
-    "- Output 8-14 concise bullet points.",
+    `- Output ${min}-${max} concise bullet points.`,
     "- Each bullet must be on its own line.",
     "- Do not write any introduction.",
     "- Do not write any heading.",
@@ -14,7 +14,11 @@ export const SUMMARY_STYLES = {
     "- Do not explain what you are doing.",
     '- Do not prefix the output with phrases like "Here is the summary", "Summary:", or similar.',
     "- Output only the bullet points.",
-  ].join("\n"),
+  ].join("\n");
+}
+
+export const SUMMARY_STYLES = {
+  bullets: bulletsStyle(8, 14),
 
   sentences: [
     "Return only the final answer.",
@@ -47,8 +51,32 @@ export const SUMMARY_STYLES = {
   ].join("\n"),
 };
 
-export function buildSummaryPrompt(title, url, content, mode) {
-  const style = SUMMARY_STYLES[mode] || SUMMARY_STYLES.bullets;
+// Bullets' reduce/synthesis pass (see ollamaSummarize.js's summarizeText)
+// needs a bullet-count target that scales with how many chunks got merged,
+// not the fixed 8-14 SUMMARY_STYLES.bullets uses for a single pass: merging
+// a long, many-chunk document down to always-8-14-bullets loses most of its
+// content, the exact regression a prior fix avoided by not merging bullets
+// at all (see offscreen.js's runSummarize comment). Grows by
+// BULLET_COUNT_STEP per chunk beyond the first, capped at MAX_BULLET_COUNT
+// so a very long document still gets a comprehensive, but still skimmable,
+// list instead of an ever-growing one.
+const BULLET_COUNT_STEP = 4;
+const MAX_BULLET_COUNT = 30;
+
+export function buildScaledBulletsStyle(chunkCount) {
+  const min = Math.min(
+    8 + BULLET_COUNT_STEP * (chunkCount - 1),
+    MAX_BULLET_COUNT - 6,
+  );
+  const max = Math.min(
+    14 + BULLET_COUNT_STEP * (chunkCount - 1),
+    MAX_BULLET_COUNT,
+  );
+  return bulletsStyle(min, max);
+}
+
+export function buildSummaryPrompt(title, url, content, mode, styleOverride) {
+  const style = styleOverride || SUMMARY_STYLES[mode] || SUMMARY_STYLES.bullets;
   return [
     "You are Apogee, a strict factual browser summarizer.",
     "",

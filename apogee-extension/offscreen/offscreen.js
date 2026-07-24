@@ -222,14 +222,16 @@ function reportProgress(text) {
 // Chunk-aware summarization for the small in-browser models, delegated to the
 // shared summarizeText core (lib/ollamaSummarize.js) so WebLLM and Ollama
 // produce identical output for the same page. summarizeText owns the
-// chunking + map-reduce/bullets logic; here we only adapt the WebLLM engine
-// to look like an Ollama-style token stream and forward its tokens.
+// chunking + map-reduce logic; here we only adapt the WebLLM engine to look
+// like an Ollama-style token stream and forward its tokens.
 //
-// This deliberately replaces the old private map-reduce that re-summarized
-// every mode (including bullets) down to a single fixed-size pass: for a long
-// PDF that reduce step collapsed the whole document into ~8-14 bullets (often
-// far fewer). summarizeText instead streams each chunk's bullets through for
-// bullets mode, so the summary now scales with document length.
+// Every mode (including bullets) runs a map pass per chunk then a single
+// reduce/synthesis pass over all chunks' output together, so a long document
+// still reads as one coherent result instead of a flat concatenation of
+// per-chunk output. Bullets' reduce pass scales its target bullet count with
+// how many chunks were merged (see buildScaledBulletsStyle in lib/prompts.js)
+// so a long PDF still gets proportionally more bullets instead of being
+// crushed to a fixed 8-14 total.
 async function runSummarize(eng, pending, emit, signal) {
   // Presents the WebLLM engine as summarizeText's chatStreamFn seam. The
   // host/model args come baked into the prompt already, so they're ignored.
