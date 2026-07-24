@@ -34,7 +34,7 @@ import {
 } from "../lib/constants.js";
 import { getSettings } from "../lib/settings.js";
 import { formatSummaryAsMarkdown } from "../lib/exportFormat.js";
-import { formatTimeSaved } from "../lib/readingTime.js";
+import { formatTimeSaved, formatVideoTimeSaved } from "../lib/readingTime.js";
 import { saveViewState, loadViewState } from "../lib/viewState.js";
 import {
   hashUrl,
@@ -562,15 +562,48 @@ function escapeHtml(text) {
     .replace(/'/g, "&#39;");
 }
 
+// Renders `[label](url)` as a real link before the bold/italic/code passes
+// below run, pulled out into placeholder tokens rather than substituted
+// inline: YouTube video IDs (and their timestamp links, see
+// buildYoutubeAssemblyPrompt in lib/prompts.js) routinely contain `_`/`*`,
+// which would otherwise trip the italic/bold regexes into matching *across*
+// an already-rendered <a href="..."> and corrupting it. Only http(s) URLs
+// are linkified. escapedText is already HTML-entity-escaped by the time
+// this runs (see renderMarkdown), so a `javascript:`/`data:` href couldn't
+// break out of the attribute, but it could still execute on click, which
+// this scheme check rules out.
+
+// Private-Use-Area character bracketing each numeric placeholder below:
+// never appears in real page text, so the restore regex in renderInline
+// matches regardless of what's adjacent (a plain space-delimited digit
+// missed links at the end of a line, exactly where the YouTube assembly
+// prompt's headings/bullets put them; see buildYoutubeAssemblyPrompt).
+const LINK_PLACEHOLDER_MARK = "\uE000";
+
+function extractMarkdownLinks(escapedText) {
+  const links = [];
+  const text = escapedText.replace(
+    /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (match, label, href) => {
+      links.push(
+        `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`,
+      );
+      return `${LINK_PLACEHOLDER_MARK}${links.length - 1}${LINK_PLACEHOLDER_MARK}`;
+    },
+  );
+  return { text, links };
+}
+
 function renderInline(escapedText) {
-  return escapedText
+  const { text, links } = extractMarkdownLinks(escapedText);
+  return text
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/__(.+?)__/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*\n]+?)\*/g, "$1<em>$2</em>")
-    .replace(/(^|[^_])_([^_\n]+?)_/g, "$1<em>$2</em>");
+    .replace(/(^|[^_])_([^_\n]+?)_/g, "$1<em>$2</em>")
+    .replace(/\uE000(\d+)\uE000/g, (_, i) => links[Number(i)]);
 }
-
 function renderMarkdown(source) {
   const lines = escapeHtml(source).split(/\r?\n/);
   let html = "";
@@ -763,12 +796,17 @@ function showSummarizingContext() {
 }
 
 // Only meaningful once a fresh summarize job has finished, since it needs
-// the original page's text (currentPageData) alongside the summary text; a
-// summary loaded straight from cache on popup reopen has no original text
-// on hand, so the badge just stays hidden in that case rather than guessing.
-function updateTimeSavedBadge(originalText, summaryText) {
+// the original page (currentPageData) alongside the summary text; a summary
+// loaded straight from cache on popup reopen has no original page data on
+// hand, so the badge just stays hidden in that case rather than guessing.
+// YouTube pages measure against the video's actual runtime (durationSeconds)
+// rather than the transcript's word count; see formatVideoTimeSaved.
+function updateTimeSavedBadge(pageData, summaryText) {
   if (!timeSavedBadge) return;
-  const label = formatTimeSaved(originalText, summaryText);
+  const label =
+    pageData?.type === "youtube"
+      ? formatVideoTimeSaved(pageData.durationSeconds, summaryText)
+      : formatTimeSaved(pageData?.content, summaryText);
   timeSavedBadge.textContent = label || "";
   timeSavedBadge.classList.toggle("hidden", !label);
 }
@@ -985,7 +1023,7 @@ async function consumeSummaryStream(stream, { tab, promptsCacheKey }) {
   currentSummaryText = text;
   showSummaryContext();
   setSummaryCopyButtonsVisible(!!text.trim());
-  updateTimeSavedBadge(currentPageData?.content, text);
+  updateTimeSavedBadge(currentPageData, text);
   await saveViewState(tab.id, {
     view: "summaryView",
     subview: "summary",
@@ -1120,6 +1158,7 @@ async function summarizeActivePage() {
         url: pageData.url,
         content: pageData.content,
         mode: settings.responseFormat,
+        type: pageData.type,
         finalize,
       }));
     }

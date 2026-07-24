@@ -286,7 +286,7 @@ async function getRelevantAskContent(content, question) {
 // the offscreen document, see the activeStreams comment above).
 async function startOllamaStream(
   streamId,
-  { action, host, model, title, url, content, mode, question, finalize },
+  { action, host, model, title, url, content, mode, type, question, finalize },
 ) {
   const stream = {
     text: "",
@@ -343,6 +343,7 @@ async function startOllamaStream(
         title,
         url,
         mode,
+        type,
         model,
         host: validHost,
         signal: stream.controller.signal,
@@ -371,7 +372,7 @@ async function startOllamaStream(
 // popup close/reopen.
 async function startTransformersStream(
   streamId,
-  { action, model, title, url, content, mode, question, finalize },
+  { action, model, title, url, content, mode, type, question, finalize },
 ) {
   const stream = {
     text: "",
@@ -418,6 +419,7 @@ async function startTransformersStream(
             title,
             url,
             mode,
+            type,
             model,
             signal: stream.controller.signal,
           },
@@ -532,6 +534,7 @@ async function runBackgroundSummarize(tab, { notifyOnFinish }) {
     url: pageData.url,
     content,
     mode: settings.responseFormat,
+    type: pageData.type,
     model,
     finalize,
   };

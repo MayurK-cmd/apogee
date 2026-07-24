@@ -89,3 +89,35 @@ test("summarizeText (paragraphs) runs every chunk plus the reduce merge when nev
   assert.strictEqual(result.length, 1);
   assert.match(result[0], /^summary of:/);
 });
+
+test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', still honoring mode", async () => {
+  const prompts = [];
+  async function* chatStreamFn(_host, _model, prompt) {
+    prompts.push(prompt);
+    yield "brief";
+  }
+
+  const result = await collect(
+    summarizeText(
+      {
+        text: "[0:00] hello world",
+        title: "A Video",
+        url: "https://youtube.com/watch?v=abc",
+        mode: "sentences",
+        type: "youtube",
+      },
+      {
+        chunkTextFn: () => ["[0:00] hello world"],
+        chatStreamFn,
+      },
+    ),
+  );
+
+  assert.deepStrictEqual(result, ["brief"]);
+  // Should hit the YouTube assembly prompt (mentions the video title/URL
+  // and timestamp-link rules), carrying the requested sentences style
+  // rather than always falling back to the bullets style.
+  assert.match(prompts[0], /A Video/);
+  assert.match(prompts[0], /youtube\.com\/watch\?v=abc/);
+  assert.match(prompts[0], /Output exactly 10-15 concise sentences/);
+});

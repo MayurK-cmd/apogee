@@ -18,7 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   server round-trip. Hidden when the gap is negligible (near-empty page, or a
   summary that isn't meaningfully shorter) or when the summary came straight
   from cache on popup reopen, since the original page text isn't held onto
-  in that case.
+  in that case. For YouTube videos the badge instead compares the video's
+  actual runtime against the time to read the summary, since a transcript's
+  word count doesn't track spoken-word runtime the way normal reading speed
+  tracks normal reading.
+- **Timestamped YouTube summaries.** The transcript extractor now threads
+  inline `[MM:SS]` markers through the text (from SponsorBlock/heuristic-
+  cleaned captions), and the summarizer cites them as clickable links back
+  to that moment in the video (`&t=SECONDSs`), inspired by
+  [tantara/openbrief](https://github.com/tantara/openbrief)'s YouTube
+  summarizer. Every point still follows your chosen response format
+  (bullets, sentences, or paragraphs); each one just leads with its
+  timestamp link now. Long videos are condensed in a map pass (one model
+  call per transcript chunk) before a single assembly pass turns the notes
+  into the final summary, the same chunking budget per-model summaries
+  already use.
 
 ## [0.1.8] - 2026-07-21
 

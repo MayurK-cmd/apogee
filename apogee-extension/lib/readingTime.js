@@ -8,14 +8,11 @@ function countWords(text) {
   return trimmed ? trimmed.split(/\s+/).length : 0;
 }
 
-// Returns null when there isn't enough of a gap to be worth bragging about
-// (near-empty original, or a summary that isn't meaningfully shorter), so
-// callers can hide the badge entirely rather than show "~0 min saved".
-export function formatTimeSaved(originalText, summaryText) {
-  const originalWords = countWords(originalText);
-  const summaryWords = countWords(summaryText);
-  const savedMinutes = (originalWords - summaryWords) / AVERAGE_READING_WPM;
-
+// Shared by formatTimeSaved and formatVideoTimeSaved: turns a raw "minutes
+// saved" figure into the badge's label, or null when there isn't enough of a
+// gap to be worth bragging about, so callers can hide the badge entirely
+// rather than show "~0 min saved".
+function formatMinutesSaved(savedMinutes) {
   if (savedMinutes < 0.5) return null;
 
   const savedSeconds = Math.round(savedMinutes * 60);
@@ -23,4 +20,23 @@ export function formatTimeSaved(originalText, summaryText) {
     return `~${savedSeconds}s saved`;
   }
   return `~${Math.round(savedMinutes)} min saved`;
+}
+
+export function formatTimeSaved(originalText, summaryText) {
+  const originalWords = countWords(originalText);
+  const summaryWords = countWords(summaryText);
+  const savedMinutes = (originalWords - summaryWords) / AVERAGE_READING_WPM;
+  return formatMinutesSaved(savedMinutes);
+}
+
+// YouTube variant: a transcript's word count doesn't track the video's
+// actual runtime (spoken word rate vs. silent reading speed differ, and
+// sponsor-stripped/partial transcripts undercount further), so "time saved"
+// for a video is its real runtime minus the time to read the summary,
+// rather than formatTimeSaved's read-the-original-text estimate.
+export function formatVideoTimeSaved(durationSeconds, summaryText) {
+  const summaryWords = countWords(summaryText);
+  const summaryMinutes = summaryWords / AVERAGE_READING_WPM;
+  const savedMinutes = (durationSeconds || 0) / 60 - summaryMinutes;
+  return formatMinutesSaved(savedMinutes);
 }

@@ -155,12 +155,13 @@ class WebLLMProvider {
   /**
    * @returns {Promise<{streamId: string, stream: AsyncGenerator<string>}>}
    */
-  summarize({ title, url, content, mode, finalize }) {
+  summarize({ title, url, content, mode, type, finalize }) {
     return startWebllmStream("summarize", {
       title,
       url,
       content,
       mode,
+      type,
       model: this.model,
       finalize,
     });
@@ -194,12 +195,13 @@ class TransformersProvider {
     this.model = model;
   }
 
-  summarize({ title, url, content, mode, finalize }) {
+  summarize({ title, url, content, mode, type, finalize }) {
     return startTransformersStream("summarize", {
       title,
       url,
       content,
       mode,
+      type,
       model: this.model,
       finalize,
     });
@@ -235,12 +237,13 @@ class DirectOllamaProvider {
     this.host = (host || DEFAULT_OLLAMA_HOST).replace(/\/+$/, "");
   }
 
-  summarize({ title, url, content, mode, finalize }) {
+  summarize({ title, url, content, mode, type, finalize }) {
     return startOllamaStream("summarize", {
       title,
       url,
       content,
       mode,
+      type,
       model: this.model,
       host: this.host,
       finalize,

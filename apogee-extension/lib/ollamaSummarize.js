@@ -8,6 +8,7 @@ import { buildSummaryPrompt } from "./prompts.js";
 import { cleanText } from "./cleaner.js";
 import { chatStream } from "./ollamaClient.js";
 import { getMaxChunkChars } from "./modelLimits.js";
+import { summarizeYoutube } from "./youtubeSummarize.js";
 
 // Matches a bullet marker (•, -, *) or a numbered-list marker (1. / 1)) at
 // the start of a line. Mirrors summaryService.js's BULLET_LINE.
@@ -26,9 +27,21 @@ export const MAX_CHUNKS = 12;
  * `{ stage: "reduce" }` before the final merge.
  */
 export async function* summarizeText(
-  { text, title, url, mode, model, host, signal },
+  { text, title, url, mode, model, host, signal, type },
   { chunkTextFn = chunkText, chatStreamFn = chatStream, onProgress } = {},
 ) {
+  // YouTube still honors `mode`, but always runs a single map+assemble pass
+  // with timestamp links woven through. See youtubeSummarize.js's own
+  // module comment for why that's a separate pipeline rather than another
+  // branch here.
+  if (type === "youtube") {
+    yield* summarizeYoutube(
+      { text, title, url, mode, model, host, signal },
+      { chunkTextFn, chatStreamFn, onProgress },
+    );
+    return;
+  }
+
   const cleanedContent = cleanText(text);
   let chunks = chunkTextFn(cleanedContent, getMaxChunkChars(model));
   if (chunks.length > MAX_CHUNKS) {

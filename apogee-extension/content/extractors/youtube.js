@@ -140,6 +140,26 @@ function inAnyRange(t, ranges) {
   return ranges.some(([start, end]) => t >= start && t <= end);
 }
 
+// "MM:SS", or "H:MM:SS" past the hour mark. Matches the inline markers
+// buildCleanTranscript sprinkles through the transcript text, and what the
+// summarizer is told to copy verbatim into timestamp links (see
+// buildYoutubeAssemblyPrompt in lib/prompts.js).
+function formatTimestamp(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
+  const ss = String(sec).padStart(2, "0");
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+// Minimum gap between inline [MM:SS] markers threaded through the
+// transcript text below: fine enough for the summarizer to cite specific
+// moments, coarse enough not to bloat the token count with one marker per
+// (often very short) caption line.
+const TIMESTAMP_MARKER_INTERVAL_SECONDS = 20;
+
 // High-precision sponsor-read openers, used only as a fallback when a video
 // has no SponsorBlock data. Kept deliberately narrow so we don't cut
 // substantive content; each match drops a ~45s window (a typical read length)
@@ -180,8 +200,12 @@ function heuristicStripSponsors(segments) {
 // asking a small model to "ignore sponsors"). Prefers SponsorBlock's
 // crowdsourced timestamps, fetched via the service worker, which sends only a
 // privacy-preserving 4-char hash prefix of the video id; when a video has no
-// SponsorBlock data, falls back to the local phrase heuristic. Returns a plain
-// transcript string.
+// SponsorBlock data, falls back to the local phrase heuristic. Returns a
+// plain transcript string with inline [MM:SS] markers (see
+// TIMESTAMP_MARKER_INTERVAL_SECONDS) so the summarizer can cite specific
+// moments and build "jump to this part" links (see lib/prompts.js /
+// lib/youtubeSummarize.js), replacing the old flat, marker-free string this
+// used to return.
 async function buildCleanTranscript(segments, videoId) {
   if (!segments.length) return "";
 
@@ -204,11 +228,17 @@ async function buildCleanTranscript(segments, videoId) {
     ? segments.filter((seg) => !inAnyRange(seg.start, ranges))
     : heuristicStripSponsors(segments);
 
-  return kept
-    .map((seg) => seg.text)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  let lastMarked = -Infinity;
+  const parts = [];
+  for (const seg of kept) {
+    if (seg.start - lastMarked >= TIMESTAMP_MARKER_INTERVAL_SECONDS) {
+      parts.push(`[${formatTimestamp(seg.start)}]`);
+      lastMarked = seg.start;
+    }
+    parts.push(seg.text);
+  }
+
+  return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
 // Handles both caption formats: `json3` (an `events[].segs[].utf8` structure)
@@ -368,13 +398,21 @@ async function extractYoutube() {
     cleanedDescription = `${cleanedDescription.slice(0, 500).trim()}…`;
   }
 
+  // Anti-hallucination ceiling for the summarizer's timestamp links (see
+  // buildYoutubeAssemblyPrompt in lib/prompts.js): the last caption actually
+  // seen, not lengthSeconds, since a sponsor-stripped tail or a video with
+  // partial captions means the transcript itself may end earlier.
+  const lastAvailableSeconds = transcriptSegments.length
+    ? transcriptSegments[transcriptSegments.length - 1].start
+    : 0;
+
   let content = `Video Title:\n${title}\n`;
   if (channel) content += `\nChannel: ${channel}\n`;
   if (duration) content += `\nDuration: ${duration}\n`;
   if (info) content += `\n${info}\n`;
   if (cleanedDescription) content += `\nDescription:\n${cleanedDescription}\n`;
   content += transcript
-    ? `\nTranscript:\n${transcript}\n`
+    ? `\nLast transcript timestamp: ${formatTimestamp(lastAvailableSeconds)} (${Math.floor(lastAvailableSeconds)}s)\n\nTranscript:\n${transcript}\n`
     : "\n(No transcript/captions available for this video.)\n";
   if (comments.length > 0) {
     content += `\nTop Comments:\n${comments.map((c) => `- ${c}`).join("\n")}\n`;
@@ -385,5 +423,11 @@ async function extractYoutube() {
     title,
     url: location.href,
     content,
+    // Raw seconds (not the rounded "N min" string folded into `content`
+    // above) so popup.js's time-saved badge can measure against the video's
+    // actual runtime instead of a word-count estimate of the transcript.
+    durationSeconds: videoDetails?.lengthSeconds
+      ? Number(videoDetails.lengthSeconds)
+      : 0,
   };
 }

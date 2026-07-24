@@ -261,6 +261,7 @@ async function runSummarize(eng, pending, emit, signal) {
       title: pending.title,
       url: pending.url,
       mode: pending.mode,
+      type: pending.type,
       model: pending.model,
       signal,
     },
