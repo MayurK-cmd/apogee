@@ -6,7 +6,6 @@ function extractGeneric() {
       title: document.title,
       url: location.href,
       content: document.body.innerText,
-      paywalled: detectPaywall(document),
     };
   }
   return {
@@ -14,6 +13,5 @@ function extractGeneric() {
     title: article.title,
     url: location.href,
     content: article.textContent,
-    paywalled: detectPaywall(document),
   };
 }
