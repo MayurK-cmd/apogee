@@ -27,12 +27,14 @@ Private, in-browser AI summarizer powered by WebGPU, WebAssembly, or your own lo
 
 **Apogee** is an AI browser assistant for articles, videos, emails, and more.
 It runs **entirely in your browser**: on your GPU via WebGPU (Chrome, Edge,
-and other Chromium browsers) or on your CPU via WebAssembly (Firefox). No
-backend, no API keys, no cloud. Just install the extension and go.
+and other Chromium browsers) or on your CPU via WebAssembly, which now works
+everywhere. WebAssembly is the default on Firefox and an opt-in fallback on
+Chromium browsers, useful on machines without WebGPU. No backend, no API
+keys, no cloud. Just install the extension and go.
 
 For power users, Apogee also connects directly to a local Ollama instance over `127.0.0.1` to run larger models.
 
-**TL;DR**: Apogee is an offline-first, private AI assistant that runs entirely in your browser, on WebGPU in Chromium browsers and on WebAssembly in Firefox, with zero cloud dependencies or API keys. It summarizes articles, YouTube videos, and PDFs, and answers questions about them using local retrieval, all with complete privacy. Power users can switch to Local Ollama mode to run larger models on their own machine, still with nothing leaving it. Apogee is designed as a fully local, privacy-respecting alternative to cloud-dependent tools like Mozilla's discontinued Orbit.
+**TL;DR**: Apogee is an offline-first, private AI assistant that runs entirely in your browser, on WebGPU by default in Chromium browsers and on WebAssembly by default in Firefox (also available as an opt-in on Chromium), with zero cloud dependencies or API keys. It summarizes articles, YouTube videos, and PDFs, and answers questions about them using local retrieval, all with complete privacy. Power users can switch to Local Ollama mode to run larger models on their own machine, still with nothing leaving it. Apogee is designed as a fully local, privacy-respecting alternative to cloud-dependent tools like Mozilla's discontinued Orbit.
 
 ## Inspiration: Orbit (Killed by Mozilla)
 
@@ -47,14 +49,16 @@ Apogee fixes Orbit's architectural and privacy flaws by being fully local-first:
 ## How It Works
 
 Apogee runs quantized language models directly in your browser. On Chrome,
-Edge, and other Chromium browsers it uses
+Edge, and other Chromium browsers it defaults to
 [WebLLM](https://github.com/mlc-ai/web-llm), which executes models on your
-GPU via WebGPU. On Firefox it uses
-[Transformers.js](https://github.com/huggingface/transformers.js), which
-runs smaller ONNX models on your CPU via WebAssembly and performs well on a
-modern CPU. In both cases the first use downloads the model weights (roughly
-270 MB to 2.2 GB depending on the model) and caches them locally. After
-that, everything runs offline.
+GPU via WebGPU. On Firefox, which has no WebGPU offscreen support, it
+defaults to [Transformers.js](https://github.com/huggingface/transformers.js)
+instead, which runs smaller ONNX models on your CPU via WebAssembly and
+performs well on a modern CPU. Transformers.js is also available as an
+opt-in alternative in Settings on Chrome and Edge, for machines without
+WebGPU or as a lighter-weight option. In every case the first use downloads
+the model weights (roughly 270 MB to 2.2 GB depending on the model) and
+caches them locally. After that, everything runs offline.
 
 Prefer larger models? Switch to Local Ollama mode and the extension talks
 directly to your own Ollama instance over `127.0.0.1`, with no separate
@@ -97,7 +101,7 @@ Home page.
 
 Apogee offers two modes of operation to balance ease-of-use and raw capabilities:
 
-| In-Browser AI (WebLLM on Chrome/Edge, Transformers.js on Firefox) | Local Ollama                                                     |
+| In-Browser AI (WebLLM by default on Chrome/Edge, Transformers.js by default on Firefox and opt-in everywhere) | Local Ollama                                                     |
 | --------------------------------------------------------------- | ---------------------------------------------------------------- |
 | **Model Size**: Small, fast models (~270 MB to 2.2 GB)          | **Model Size**: Larger, more capable models (4B to 8B+)          |
 | **Setup**: Zero setup required; automatic download on first run | **Setup**: Requires installing Ollama (no separate backend to run) |
@@ -115,7 +119,7 @@ Apogee offers two modes of operation to balance ease-of-use and raw capabilities
 | Llama 3.2 1B            | ~700 MB       | Lightweight, fast          |
 | Phi 3.5 Mini            | ~2.2 GB       | Stronger reasoning         |
 
-### Transformers.js (WASM/CPU, Firefox only)
+### Transformers.js (WASM/CPU, default on Firefox, opt-in on Chrome/Edge)
 
 | Model                    | Download Size | Best For                          |
 | ------------------------ | -------------- | ---------------------------------- |
@@ -126,14 +130,18 @@ Apogee offers two modes of operation to balance ease-of-use and raw capabilities
 Runs via [Transformers.js](https://github.com/huggingface/transformers.js)
 (ONNX models on the WASM backend). Chosen specifically because it never
 spawns a Worker (onnxruntime-web's proxy mode is hardcoded off), unlike
-WebGPU-based WebLLM (needs an offscreen document Firefox doesn't have) or
 wllama (needs a `blob:`-URL Worker, which both Chrome's and Firefox's
-extension CSP block). Generation is single-threaded (extension pages aren't
-cross-origin-isolated, so no `SharedArrayBuffer`) and context is capped at
-4096 tokens to keep latency reasonable on CPU. On a modern/fast CPU this
-still summarizes well with the default SmolLM2 360M model; on older or
-low-power hardware, expect noticeably slower generation, and consider
-switching to **Local Ollama** instead.
+extension CSP block). On Firefox, which has no offscreen document or WebGPU,
+it runs directly in the background page and is the only in-browser option.
+On Chrome/Edge it runs in the same offscreen document WebLLM uses and is
+offered as an opt-in alternative in Settings, useful on machines without
+WebGPU. Its own WASM runtime ships bundled inside the extension package
+rather than being fetched from a CDN at runtime. Generation is
+single-threaded (extension pages aren't cross-origin-isolated, so no
+`SharedArrayBuffer`) and context is capped at 4096 tokens to keep latency
+reasonable on CPU. On a modern/fast CPU this still summarizes well with the
+default SmolLM2 360M model; on older or low-power hardware, expect noticeably
+slower generation, and consider switching to **Local Ollama** instead.
 
 ## Supported Ollama Models
 
@@ -161,14 +169,14 @@ offscreen document). Anything Chromium-based accepts the same build.
 
 | Browser              | WebLLM (In-Browser AI, WebGPU)    | Transformers.js (In-Browser AI, WASM) | Local Ollama | Notes                                                          |
 | --------------------- | -------------------------------- | --------------------------------------- | ------------ | --------------------------------------------------------------- |
-| Chrome 113+           | Yes                               | No                                       | Yes          | Primary target, most tested                                    |
-| Edge 113+             | Yes                               | No                                       | Yes          | Chromium-based, same engine as Chrome                          |
-| Dia                   | Yes                               | No                                       | Yes          | Chromium-based                                                  |
-| Brave                 | Should work                       | No                                       | Yes          | Chromium-based; WebGPU may need enabling in `brave://flags`, not independently verified |
-| Opera / Opera GX      | Should work                       | No                                       | Yes          | Chromium-based, not independently verified                      |
-| Vivaldi               | Should work                       | No                                       | Yes          | Chromium-based, not independently verified                      |
-| Arc                   | Should work                       | No                                       | Yes          | Chromium-based, not independently verified                      |
-| Firefox 140+          | No                                | Yes (default)                           | Yes          | Firefox's WebExtensions implementation has no `browser.offscreen` API, which WebLLM needs to run WebGPU outside a visible tab (a service worker can't access WebGPU directly). Transformers.js needs neither WebGPU nor a Worker, so it runs directly in Firefox's background page instead, and is the default in-browser provider there. The Firefox build declares `strict_min_version: 140.0` (needed for the manifest's `data_collection_permissions` key), older Firefox will refuse to install it rather than fail silently. |
+| Chrome 113+           | Yes, default                     | Yes, opt-in in Settings                 | Yes          | Primary target, most tested                                    |
+| Edge 113+             | Yes, default                     | Yes, opt-in in Settings                 | Yes          | Chromium-based, same engine as Chrome                          |
+| Dia                   | Yes, default                     | Yes, opt-in in Settings                 | Yes          | Chromium-based                                                  |
+| Brave                 | Should work                       | Should work                            | Yes          | Chromium-based; WebGPU may need enabling in `brave://flags`, not independently verified |
+| Opera / Opera GX      | Should work                       | Should work                            | Yes          | Chromium-based, not independently verified                      |
+| Vivaldi               | Should work                       | Should work                            | Yes          | Chromium-based, not independently verified                      |
+| Arc                   | Should work                       | Should work                            | Yes          | Chromium-based, not independently verified                      |
+| Firefox 140+          | No                                | Yes, default                           | Yes          | Firefox's WebExtensions implementation has no `browser.offscreen` API, which WebLLM needs to run WebGPU outside a visible tab (a service worker can't access WebGPU directly). Transformers.js needs neither WebGPU nor a Worker, so it runs directly in Firefox's background page instead, and is the default in-browser provider there. The Firefox build declares `strict_min_version: 140.0` (needed for the manifest's `data_collection_permissions` key), older Firefox will refuse to install it rather than fail silently. |
 | Safari                | No                                | No           | Apogee doesn't currently build or ship a Safari extension (a separate packaging toolchain from Chrome/Firefox); not evaluated regardless of Safari's own WebGPU support |
 
 See MDN's [WebGPU API browser compatibility table](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API#browser_compatibility)
@@ -292,15 +300,15 @@ Measured locally on an Apple M2 (`gemma3:4b`, GPU via Metal):
 Privacy is the core pillar of Apogee. The key guarantee is simple: **your page content and the summaries/answers generated from it are never sent to any cloud service or third party.** Inference happens on your own device (WebGPU) or your own machine (`127.0.0.1` Ollama). The details below are precise about the few network requests that do occur and what is kept on disk.
 
 - **Where inference happens**:
-  - **In-Browser mode**: Tokenization and inference run entirely on your local device, on the GPU via WebGPU (WebLLM, Chrome/Edge) or on the CPU via WebAssembly (Transformers.js, Firefox). Your page content and summaries are never transmitted anywhere.
+  - **In-Browser mode**: Tokenization and inference run entirely on your local device, on the GPU via WebGPU (WebLLM, default on Chrome/Edge) or on the CPU via WebAssembly (Transformers.js, default on Firefox and available as an opt-in on Chrome/Edge). Your page content and summaries are never transmitted anywhere.
   - **Local Ollama mode**: Page content travels exclusively over local loopback (`127.0.0.1`) directly to your own Ollama instance's HTTP API, never to the cloud. There is no intermediate backend process in the path, the extension is Ollama's only client-side hop.
 - **The only outbound network requests Apogee makes**:
   - **Model weights** are downloaded once from **Hugging Face** (in-browser mode) or pulled by **Ollama** (local mode), then cached and reused offline. This transfers no page content, only the model files themselves.
   - **WebLLM runtime files**: in-browser mode also fetches the WebLLM library's own config/wasm assets from `raw.githubusercontent.com`, the same as the model weights above, no page content, just the runtime itself.
-  - **In-browser WASM runtime**: Ask's local embedding model, and Firefox's Transformers.js summarization engine, load their shared ONNX WASM runtime once from `cdn.jsdelivr.net` (model weights come from Hugging Face, same as above), again the runtime only, never page content.
   - **YouTube transcripts**: on a YouTube page, the extractor fetches that video's caption track from YouTube/Google (the site you're already on) to feed the transcript to the model. It is restricted to genuine `youtube.com`/`google.com`/`googlevideo.com` hosts.
   - **YouTube sponsor-segment lookup (SponsorBlock)**: when summarizing a YouTube video, Apogee asks the crowdsourced [SponsorBlock](https://sponsor.ajay.app) API which parts of the video are sponsor reads/self-promo, so they can be stripped from the transcript. This uses SponsorBlock's privacy-preserving k-anonymity endpoint: only the first 4 hex characters of the SHA-256 hash of the video ID are sent (never the video ID, URL, or any page content), and the matching entry is picked out locally. If the lookup fails, a local phrase heuristic runs instead, with no network call at all.
   - That's it, there are no other external calls. (See the extension's `content_security_policy.connect-src` in `manifest.json` for the exact allow-list this is enforced against, and `ALLOWED_OLLAMA_HOSTS` in `background/service-worker.js`, which rejects any Local Ollama host setting that isn't plain `http://127.0.0.1` or `http://localhost`.)
+- **In-browser WASM runtime**: Ask's local embedding model and the Transformers.js summarization engine both rely on onnxruntime-web's WASM binary. It ships bundled inside the extension package itself rather than being fetched from a CDN at runtime, so it isn't a network request at all and there is no third-party code loaded into the extension at runtime.
 - **PDFs**: PDF text extraction runs fully client-side using `pdf.js` bundled into the extension, the PDF is downloaded straight into the browser tab (using that tab's own network context) and parsed there. Only the extracted text is ever handed to the model; the file itself never passes through any other process.
 - **Local Ollama's CORS setting (`OLLAMA_ORIGINS`)**: for the extension to reach Ollama at all, Ollama must be told to accept requests from the extension's origin, see [Advanced: Local Ollama Mode](#advanced-local-ollama-mode). This is a browser-enforced allow-list, not a data-transmission path, but be aware that setting it to a wildcard (`chrome-extension://*`) rather than your specific extension ID lets *any* installed extension talk to your local Ollama API, not just Apogee. Ollama itself still only binds to `127.0.0.1` by default regardless of this setting, so it's never reachable from your network either way, this only affects which browser extensions can call it.
 - **No Telemetry, Tracking, or Analytics**: Apogee includes no Google Analytics, Mixpanel, crash-reporting SDKs, or telemetry of any kind. No usage data is collected.
@@ -312,7 +320,7 @@ Privacy is the core pillar of Apogee. The key guarantee is simple: **your page c
   - **`activeTab` + `scripting`**: Apogee cannot read your browsing history or inspect other open tabs. It reads the _currently active tab_ only when you click "Summarize"/"Ask", right-click and choose "Summarize this page", or use the keyboard shortcut.
   - **`storage`**: Holds your preferences plus the local cache described above.
   - **`unlimitedStorage`**: Lifts the default quota on `chrome.storage.local` so the cached summaries/page text above aren't evicted under normal storage pressure, it does not grant access to anything beyond that cache.
-  - **`offscreen`** (Chrome/Edge only): Runs the in-browser WebLLM engine in a hidden document, since a service worker can't access WebGPU directly. Not used, and not requested, in the Firefox build.
+  - **`offscreen`** (Chrome/Edge only): Runs the in-browser WebLLM engine in a hidden document, since a service worker can't access WebGPU directly, and also runs the Transformers.js engine there when it's selected, since a service worker can't reliably load it either. Not used, and not requested, in the Firefox build, where Transformers.js runs directly in the background page instead.
   - **`alarms`**: Schedules the housekeeping timers that close the idle in-browser model and clean up finished request buffers, these need to survive the extension's background worker being suspended between uses. No user data is involved.
   - **`clipboardWrite`**: Lets the popup's copy buttons (summary, answer, past summaries) write to your clipboard directly when you click them, instead of routing through an interactive browser permission prompt. Write-only, the extension can never read your clipboard's existing contents.
   - **`contextMenus`**: Adds the "Summarize this page" right-click entry. Doesn't grant any visibility into your browsing beyond the page you right-clicked on, which `activeTab` already covers.

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-07-25
+
 ### Changed
 
 - **Bullet summaries of long documents are now deduplicated and coherent.**
