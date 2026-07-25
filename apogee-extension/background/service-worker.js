@@ -812,7 +812,9 @@ async function runSuggestQuestionsJob(payload) {
             summary,
             model,
             provider:
-              providerType === PROVIDERS.TRANSFORMERS ? "transformers" : "webllm",
+              providerType === PROVIDERS.TRANSFORMERS
+                ? "transformers"
+                : "webllm",
           },
         });
         questions = resp?.questions || [];

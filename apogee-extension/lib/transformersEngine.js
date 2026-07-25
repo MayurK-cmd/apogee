@@ -159,7 +159,9 @@ export async function* transformersChatStream(eng, prompt) {
     },
   });
 
-  console.log(`[transformers] generation start (prompt ${prompt.length} chars)`);
+  console.log(
+    `[transformers] generation start (prompt ${prompt.length} chars)`,
+  );
   eng([{ role: "user", content: prompt }], {
     max_new_tokens: GENERATION_MAX_TOKENS,
     do_sample: false,

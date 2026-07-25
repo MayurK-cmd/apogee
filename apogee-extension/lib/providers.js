@@ -1,6 +1,10 @@
 // Provider abstraction, routes inference requests to WebLLM (in-browser via offscreen document, Chrome only), Transformers.js (in-browser via WASM, Firefox only), or a local Ollama instance (talked to directly over HTTP).
 
-import { PROVIDERS, DEFAULT_PROVIDER, DEFAULT_OLLAMA_HOST } from "./constants.js";
+import {
+  PROVIDERS,
+  DEFAULT_PROVIDER,
+  DEFAULT_OLLAMA_HOST,
+} from "./constants.js";
 
 // Sends requests to the service worker, which forwards to the offscreen doc.
 
