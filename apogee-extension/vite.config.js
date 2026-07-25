@@ -14,9 +14,11 @@ function copyStaticPlugin(targetBrowser) {
       if (targetBrowser === "firefox") {
         // Remove offscreen permission and simplify CSP for Firefox. Still
         // needs 'wasm-unsafe-eval' (Transformers.js's WASM engine) and the
-        // Hugging Face + jsDelivr domains (model weights and
-        // onnxruntime-web's own WASM runtime, see lib/transformersEngine.js)
+        // Hugging Face domains (model weights, see lib/transformersEngine.js)
         // that Chrome's CSP already carries for WebLLM's own model fetching.
+        // connect-src 'self' lets onnxruntime fetch its bundled WASM runtime
+        // same-origin (see lib/onnxWasm.js); no jsDelivr entry is needed since
+        // that binary is no longer fetched from a CDN.
         // sponsor.ajay.app (SponsorBlock segment lookup, see
         // fetchSponsorBlockSegments in background/service-worker.js) must be
         // here too: on Firefox the background script is a real extension
@@ -32,7 +34,7 @@ function copyStaticPlugin(targetBrowser) {
         );
         manifest.content_security_policy = {
           extension_pages:
-            "script-src 'self' 'wasm-unsafe-eval'; default-src 'self'; connect-src http://127.0.0.1:* http://localhost:* https://huggingface.co https://*.huggingface.co https://*.hf.co https://sponsor.ajay.app https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self'; style-src 'self'",
+            "script-src 'self' 'wasm-unsafe-eval'; default-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:* https://huggingface.co https://*.huggingface.co https://*.hf.co https://sponsor.ajay.app; img-src 'self' data:; font-src 'self'; style-src 'self'",
         };
         if (manifest.background) {
           delete manifest.background.service_worker;
@@ -124,6 +126,18 @@ export default defineConfig(() => {
             if (name?.endsWith(".css")) {
               return "[name][extname]";
             }
+            // onnxruntime-web's WASM runtime (pulled in transitively via
+            // @huggingface/transformers, see lib/embeddings.js) is emitted with
+            // a stable, hash-free name so lib/embeddings.js and
+            // lib/transformersEngine.js can point onnxruntime's wasmPaths at the
+            // bundled copy via chrome.runtime.getURL(); it ships in the package
+            // rather than being fetched from a CDN at runtime (a supply-chain
+            // hole and a Chrome Web Store / AMO "no remotely loaded code"
+            // violation). The referenced filename in those two files must match
+            // this base name.
+            if (/^ort-wasm.*\.wasm$/.test(name ?? "")) {
+              return "assets/[name][extname]";
+            }
             return "assets/[name]-[hash][extname]";
           },
         },
@@ -131,26 +145,6 @@ export default defineConfig(() => {
     },
     plugins: [
       copyStaticPlugin(targetBrowser),
-
-      {
-        // onnxruntime-web's WASM runtime (bundled transitively via
-        // @huggingface/transformers, see lib/embeddings.js) is a ~23 MB
-        // "universal" binary that Rollup statically picks up from a
-        // `new URL(..., import.meta.url)` reference inside onnxruntime-web's
-        // own prebuilt code, regardless of the runtime branch that reference
-        // sits in. embeddings.js always overrides env.backends.onnx.wasm.wasmPaths
-        // to a jsDelivr URL before that code path can run, so the local copy
-        // is dead weight, drop it here instead of shipping it in the package.
-        name: "drop-onnx-wasm",
-        enforce: "post",
-        generateBundle(_options, bundle) {
-          for (const fileName of Object.keys(bundle)) {
-            if (/^assets\/ort-wasm.*\.wasm$/.test(fileName)) {
-              delete bundle[fileName];
-            }
-          }
-        },
-      },
 
       {
         name: "strip-crossorigin",

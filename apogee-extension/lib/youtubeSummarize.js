@@ -18,13 +18,7 @@ import {
 } from "./prompts.js";
 import { cleanText } from "./cleaner.js";
 import { chatStream } from "./ollamaClient.js";
-import { getMaxChunkChars } from "./modelLimits.js";
-
-// Upper bound on how many chunks (== sequential model calls) a single
-// summary may fan out into. Mirrors ollamaSummarize.js's own MAX_CHUNKS (not
-// imported from there to avoid a circular import, since ollamaSummarize.js
-// imports this module's summarizeYoutube to dispatch on `type`).
-const MAX_CHUNKS = 12;
+import { getMaxChunkChars, getMaxChunks } from "./modelLimits.js";
 
 // Matches the [MM:SS] / [H:MM:SS] markers content/extractors/youtube.js
 // threads through the transcript text, used to find the anti-hallucination
@@ -57,13 +51,12 @@ export async function* summarizeYoutube(
   const lastAvailableSeconds = lastAvailableSecondsIn(cleanedContent);
 
   let chunks = chunkTextFn(cleanedContent, getMaxChunkChars(model));
-  if (chunks.length > MAX_CHUNKS) {
-    let biggerSize = Math.ceil(cleanedContent.length / MAX_CHUNKS);
-    chunks = chunkTextFn(cleanedContent, biggerSize);
-    while (chunks.length > MAX_CHUNKS) {
-      biggerSize *= 2;
-      chunks = chunkTextFn(cleanedContent, biggerSize);
-    }
+  // Truncate rather than grow chunks past the model's context budget, same
+  // rationale as summarizeText's identical block (see ollamaSummarize.js).
+  const maxChunks = getMaxChunks(model);
+  if (chunks.length > maxChunks) {
+    onProgress?.({ stage: "truncated", kept: maxChunks, total: chunks.length });
+    chunks = chunks.slice(0, maxChunks);
   }
 
   // Errors are left to propagate, same as summarizeText: the caller

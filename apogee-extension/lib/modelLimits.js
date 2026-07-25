@@ -14,12 +14,16 @@ import { TRANSFORMERS_MODELS } from "./constants.js";
 // threading an extra provider flag through both callers.
 const WEBLLM_CONTEXT_TOKENS = 4096;
 
-// Transformers.js models (Firefox's in-browser provider) run single-threaded
-// WASM (no SharedArrayBuffer/cross-origin isolation in an extension page), so
-// (same reasoning as WebLLM above) the usable budget is deliberately
-// capped well below what these models are natively rated for, to keep
-// generation latency reasonable on CPU.
-const TRANSFORMERS_CONTEXT_TOKENS = 4096;
+// Transformers.js models run single-threaded WASM (no SharedArrayBuffer/
+// cross-origin isolation in an extension page), so the usable budget is
+// deliberately capped well below what these models are natively rated for.
+// Sized from measurement, not the context window: prefill on this engine is
+// ~20s per ~1k tokens of prompt (SmolLM2-360M q4f16, single-threaded WASM,
+// measured 2026-07-25), so the resulting (3072 - 2048) * 4 ≈ 4k-char chunk
+// keeps each map pass's silent prefill stretch tolerable. Bigger chunks
+// don't reduce total work; they just concentrate it into longer freezes
+// between progress updates.
+const TRANSFORMERS_CONTEXT_TOKENS = 3072;
 
 // Local Ollama models vary widely and, since the live model list (see
 // popup.js's updateLocalModelList) now lets users pick any model they've
@@ -99,4 +103,22 @@ export function getMaxChunkChars(model) {
   }
   const usableTokens = Math.max(contextTokens - RESERVED_TOKENS, 512);
   return usableTokens * CHARS_PER_TOKEN;
+}
+
+/**
+ * Upper bound on how many chunks (== sequential model calls) a single
+ * summary may fan out into for the given model. Input beyond
+ * getMaxChunks * getMaxChunkChars gets truncated by summarizeText, NOT
+ * squeezed into bigger chunks: chunks must never exceed the model's context
+ * budget (WebLLM's runtime hard-errors past its 4096-token window, and the
+ * CPU engines just get quadratically slower).
+ *
+ * Transformers.js models get a much lower cap than the rest: at the
+ * measured ~20s prefill + <1 tok/s decode of single-threaded WASM
+ * (see TRANSFORMERS_CONTEXT_TOKENS above), 12 map passes is tens of
+ * minutes, indistinguishable from a hang. 4 chunks bounds the worst case
+ * at a few minutes while still covering ~16k chars of article.
+ */
+export function getMaxChunks(model) {
+  return isTransformersModel(model) ? 4 : 12;
 }

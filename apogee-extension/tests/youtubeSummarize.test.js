@@ -137,12 +137,15 @@ test("summarizeYoutube stops issuing new model calls once the signal is aborted 
   );
 });
 
-test("summarizeYoutube re-chunks with a bigger size when the model's max chunk size would exceed MAX_CHUNKS", async () => {
+test("summarizeYoutube truncates to the chunk cap instead of growing chunks past the context budget", async () => {
   // A cleanedContent long enough that chunkTextFn (called with the default
-  // model's ~24576-char budget first) returns >12 chunks, forcing the
-  // doubling loop to kick in until a chunkTextFn call returns <= MAX_CHUNKS
-  // chunks. (undefined model -> getMaxChunkChars falls back to the default
-  // Ollama budget, ~24576 chars; 300000 chars / 24576 > 12.)
+  // model's ~24576-char budget) returns >12 chunks. The old behavior
+  // re-chunked at content/12 and doubled from there, growing chunks without
+  // bound past the model's context budget; now the tail is dropped instead:
+  // exactly one chunkTextFn call (never with a bigger size), the map phase
+  // capped at 12 chunks, and a one-shot truncated progress event.
+  // (undefined model -> getMaxChunkChars falls back to the default Ollama
+  // budget, ~24576 chars; 300000 chars / 24576 > 12.)
   const longText = "x".repeat(300000);
   const chunkCalls = [];
   const chunkTextFn = (text, maxChars) => {
@@ -151,20 +154,25 @@ test("summarizeYoutube re-chunks with a bigger size when the model's max chunk s
     return Array.from({ length: n }, () => "x");
   };
 
+  let mapCalls = 0;
   async function* chatStreamFn() {
+    mapCalls++;
     yield "x";
   }
 
+  const progressEvents = [];
   await collect(
     summarizeYoutube(
       { text: longText, title: "t", url: "https://youtube.com/watch?v=abc" },
-      { chunkTextFn, chatStreamFn },
+      { chunkTextFn, chatStreamFn, onProgress: (p) => progressEvents.push(p) },
     ),
   );
 
-  assert.ok(chunkCalls.length > 1, "should retry chunking with a bigger size");
-  assert.ok(
-    chunkCalls[chunkCalls.length - 1] > chunkCalls[0],
-    "chunk size should grow on each retry",
-  );
+  assert.strictEqual(chunkCalls.length, 1, "should never re-chunk bigger");
+  const truncated = progressEvents.filter((p) => p.stage === "truncated");
+  assert.strictEqual(truncated.length, 1);
+  assert.strictEqual(truncated[0].kept, 12);
+  assert.ok(truncated[0].total > 12);
+  // 12 map calls + the final assembly call.
+  assert.strictEqual(mapCalls, 13);
 });

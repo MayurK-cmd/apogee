@@ -6,6 +6,18 @@ import { parseSuggestedQuestions } from "../lib/questions.js";
 import { summarizeText } from "../lib/ollamaSummarize.js";
 import { retrieveRelevantContent, findBestPassage } from "../lib/rag.js";
 import { createLock } from "../lib/mutex.js";
+// Chrome/Edge run the Transformers.js (ONNX/WASM) provider here in the offscreen
+// document too, not just WebLLM: the MV3 service worker can't reliably
+// dynamic-import @huggingface/transformers (same reason the embedding pipeline
+// runs here, see lib/embeddings.js). On Firefox this engine runs in the
+// background page instead (see background/service-worker.js's transformers-stream
+// handler); these helpers are browser-agnostic, so both hosts share them.
+import {
+  withTransformersEngine,
+  transformersChatStream,
+  transformersGenerateText,
+  getTransformersStatus,
+} from "../lib/transformersEngine.js";
 
 // Forward all console logs to the service worker for remote debugging
 const originalConsole = {
@@ -181,22 +193,49 @@ async function withEngine(modelId, fn, ownerStreamId = null) {
   }
 }
 
+// Drives a web-llm streaming completion to its natural end, yielding text
+// deltas. Draining fully is REQUIRED, not just tidy: web-llm's
+// chat.completions.create() acquires an internal per-model lock and only
+// releases it when its own async generator runs to completion or throws (in
+// @mlc-ai/web-llm's asyncGenerate the lock.release() calls sit in the catch
+// branches and after the final chunk, with NO `finally`). Closing the iterator
+// early, i.e. a bare `return`/`break` out of a `for await`, which invokes the
+// iterator's `.return()`, skips every one of those releases and leaks the lock
+// permanently: the next generation then blocks forever on lock.acquire() with
+// no error, recoverable only by tearing down this offscreen document (reloading
+// the extension). So to stop early we must NOT break; we set web-llm's own stop
+// flag via interruptGenerate() (checked at the top of its decode loop) and keep
+// pulling until the generator ends itself, releasing the lock.
+async function* drainWebLLMStream(eng, completion, signal) {
+  let interrupted = false;
+  for await (const chunk of completion) {
+    if (signal?.aborted && !interrupted) {
+      interrupted = true;
+      // Fire-and-forget: interruptGenerate() just sets the interrupt flag,
+      // the same call the "cancel-stream" handler below makes.
+      eng.interruptGenerate();
+    }
+    // Once interrupted, keep consuming so the generator finishes and releases
+    // its lock, but stop surfacing tokens to the caller.
+    if (interrupted) continue;
+    const text = chunk.choices?.[0]?.delta?.content || "";
+    if (text) yield text;
+  }
+}
+
 async function streamCompletion(eng, prompt, emit, signal) {
-  const chunks = await eng.chat.completions.create({
+  const completion = await eng.chat.completions.create({
     messages: [{ role: "user", content: prompt }],
     stream: true,
     temperature: 0.3,
     max_tokens: 2048,
   });
 
-  for await (const chunk of chunks) {
-    // A cancel already broadcasts its own "cancelled" message and calls
-    // engine.interruptGenerate() directly (see the "cancel-stream" handler
-    // below); this just stops relaying further tokens once that's happened,
-    // it isn't itself responsible for emitting the terminal message.
-    if (signal?.aborted) return;
-    const text = chunk.choices?.[0]?.delta?.content || "";
-    if (text) emit({ type: "chunk", text });
+  // A cancel broadcasts its own "cancelled" message separately (see the
+  // "cancel-stream" handler below); drainWebLLMStream stops surfacing tokens
+  // once the signal aborts, so nothing extra is emitted here after that.
+  for await (const text of drainWebLLMStream(eng, completion, signal)) {
+    emit({ type: "chunk", text });
   }
 
   emit({ type: "done" });
@@ -245,15 +284,15 @@ async function runSummarize(eng, pending, emit, signal) {
       temperature: 0.3,
       max_tokens: 2048,
     });
-    for await (const chunk of completion) {
-      if (signal?.aborted) return;
-      const text = chunk.choices?.[0]?.delta?.content || "";
-      if (text) yield text;
-    }
+    // Must drain to the end (interrupting on abort rather than returning early)
+    // so web-llm releases its per-model lock, see drainWebLLMStream's note.
+    yield* drainWebLLMStream(eng, completion, signal);
   }
 
   const onProgress = (p) => {
-    if (p.stage === "reduce") {
+    if (p.stage === "truncated") {
+      reportProgress("Long page — summarizing the beginning.");
+    } else if (p.stage === "reduce") {
       reportProgress("Merging summary...");
     } else {
       reportProgress(`Summarizing part ${p.index + 1} of ${p.total}...`);
@@ -306,6 +345,98 @@ function broadcastToStream(stream, msg) {
       port.postMessage(msg);
     } catch {}
   }
+}
+
+// Transformers.js (ONNX/WASM) counterpart of the WebLLM withEngine(...) block
+// in runStream, used when a job's provider is "transformers" (Chrome/Edge).
+// Mirrors startTransformersStream in background/service-worker.js, which runs
+// the identical logic in Firefox's background page; the difference is only
+// where it runs, so the engine helpers are shared. Serialized by
+// transformersEngine.js's own lock, independent of the WebLLM engine lock.
+async function runTransformersJob(pending, askPrompt, emit, signal) {
+  // Model-download progress from the engine loader. Per-chunk stage progress
+  // ("Summarizing part N of M...") is surfaced via reportProgress inside the
+  // summarize branch instead, same split as the WebLLM path.
+  const onDownloadProgress = (progress) => {
+    chrome.runtime
+      .sendMessage({
+        target: "service-worker",
+        type: "model-progress",
+        progress,
+        modelId: pending.model,
+      })
+      .catch(() => {});
+  };
+
+  // Stage label + word ticker: each map/reduce pass on this CPU engine is
+  // otherwise silent for its whole prefill+decode (tens of seconds to
+  // minutes), which users read as a freeze. The ticker advances the existing
+  // progress line with a rough word count so the popup visibly moves; the
+  // sticky "Long page" prefix survives past the one-shot truncated event.
+  let longNote = "";
+  let stageLabel = "Summarizing...";
+
+  await withTransformersEngine(
+    pending.model,
+    onDownloadProgress,
+    async (eng) => {
+      if (pending.action === "summarize") {
+        const generator = summarizeText(
+          {
+            text: pending.content,
+            title: pending.title,
+            url: pending.url,
+            mode: pending.mode,
+            type: pending.type,
+            model: pending.model,
+            signal,
+          },
+          {
+            // transformers.js/ONNX has no native abort, so a cancel takes
+            // effect between tokens here and, via summarizeText's own signal
+            // checks, between chunks.
+            chatStreamFn: async function* (_host, _model, prompt) {
+              let count = 0;
+              for await (const token of transformersChatStream(eng, prompt)) {
+                if (signal?.aborted) return;
+                count++;
+                if (count % 24 === 0) {
+                  reportProgress(`${longNote}${stageLabel} (${count} words)`);
+                }
+                yield token;
+              }
+            },
+            onProgress: (p) => {
+              if (p.stage === "truncated") {
+                longNote = "Long page — summarizing the beginning. ";
+                reportProgress(longNote.trim());
+                return;
+              }
+              stageLabel =
+                p.stage === "reduce"
+                  ? "Merging summary..."
+                  : `Summarizing part ${p.index + 1} of ${p.total}...`;
+              reportProgress(longNote + stageLabel);
+            },
+          },
+        );
+        for await (const token of generator) {
+          emit({ type: "chunk", text: token });
+        }
+        emit({ type: "done" });
+      } else if (pending.action === "ask") {
+        // askPrompt is built provider-agnostically in runStream (RAG retrieval
+        // + buildAnswerPrompt), so it's reused verbatim here.
+        for await (const token of transformersChatStream(eng, askPrompt)) {
+          if (signal?.aborted) break;
+          emit({ type: "chunk", text: token });
+        }
+        emit({ type: "done" });
+      } else {
+        emit({ type: "error", error: `Unknown action: ${pending.action}` });
+      }
+    },
+  );
 }
 
 // Runs a generation job to completion, independent of any subscriber port,
@@ -382,24 +513,31 @@ async function runStream(streamId, pending, stream) {
       );
     }
 
-    await withEngine(
-      pending.model,
-      async (eng) => {
-        switch (pending.action) {
-          case "summarize":
-            await runSummarize(eng, pending, emit, controller.signal);
-            break;
+    if (pending.provider === "transformers") {
+      await runTransformersJob(pending, askPrompt, emit, controller.signal);
+    } else {
+      await withEngine(
+        pending.model,
+        async (eng) => {
+          switch (pending.action) {
+            case "summarize":
+              await runSummarize(eng, pending, emit, controller.signal);
+              break;
 
-          case "ask":
-            await streamCompletion(eng, askPrompt, emit, controller.signal);
-            break;
+            case "ask":
+              await streamCompletion(eng, askPrompt, emit, controller.signal);
+              break;
 
-          default:
-            emit({ type: "error", error: `Unknown action: ${pending.action}` });
-        }
-      },
-      streamId,
-    );
+            default:
+              emit({
+                type: "error",
+                error: `Unknown action: ${pending.action}`,
+              });
+          }
+        },
+        streamId,
+      );
+    }
   } catch (err) {
     if (stream.cancelled) return;
     emit({ type: "error", error: err.message });
@@ -554,17 +692,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "suggest-questions": {
-          const { title, url, summary, model } = message.payload;
-          const questions = await withEngine(model, async (eng) => {
-            const prompts = await getPrompts();
-            const prompt = prompts.buildSuggestQuestionsPrompt(
-              title,
-              url,
-              summary,
-            );
-            const text = await generateText(eng, prompt);
-            return parseSuggestedQuestions(text);
-          });
+          const { title, url, summary, model, provider } = message.payload;
+          const prompts = await getPrompts();
+          const prompt = prompts.buildSuggestQuestionsPrompt(
+            title,
+            url,
+            summary,
+          );
+          const questions =
+            provider === "transformers"
+              ? await withTransformersEngine(model, null, async (eng) => {
+                  const text = await transformersGenerateText(eng, prompt);
+                  return parseSuggestedQuestions(text);
+                })
+              : await withEngine(model, async (eng) => {
+                  const text = await generateText(eng, prompt);
+                  return parseSuggestedQuestions(text);
+                });
 
           sendResponse({ questions });
           break;
@@ -584,6 +728,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             ready: webgpuAvailable,
             currentModel: currentModelId,
             loading: loadingModelId,
+          });
+          break;
+        }
+
+        // Transformers.js provider status on Chrome/Edge, where its engine runs
+        // here rather than in the service worker. Mirrors the service worker's
+        // in-process transformers-status (Firefox): `ready` reflects the
+        // runtime capability (WASM), not whether a model is already loaded.
+        case "transformers-status": {
+          const { currentModelId: tCurrent, loadingModelId: tLoading } =
+            getTransformersStatus();
+          sendResponse({
+            ready: typeof WebAssembly !== "undefined",
+            currentModel: tCurrent,
+            loading: tLoading,
           });
           break;
         }

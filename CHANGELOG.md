@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Transformers.js (in-browser CPU AI) is now available on Chrome/Edge**, not
+  just Firefox, as an opt-in alternative to WebLLM in Settings, useful on
+  machines without WebGPU.
 - **Resummarize button** on the finished summary card, re-runs the summarize
   flow (re-extracting the live page, not a stale cache) without going back to
   Home first. Shares the same cancel-in-flight/re-run path as the Home
@@ -70,6 +73,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   or keyboard-shortcut summarize that bailed early (unreadable page, no thread
   open in Gmail, image-only PDF) returned with no feedback; it now posts a
   "Nothing to summarize" notification explaining why.
+- **Transformers.js no longer freezes on long articles.** Input past the
+  model's context budget used to grow chunks without bound instead of capping
+  them, so a long page could stall for tens of minutes with no visible
+  progress, indistinguishable from a hang. Long input is now truncated to a
+  bounded number of context-sized chunks instead (with a "Long page,
+  summarizing the beginning" notice), generation length is capped, and the
+  progress line updates continuously with a running word count instead of
+  sitting on one static message for the whole wait.
 - Summary error messages use a theme-aware color instead of a hardcoded red.
 
 ### Security
@@ -84,6 +95,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   until FIFO eviction, and **completion notifications omit the page title on
   sensitive hosts** (email, messaging), where a title can carry a subject line
   or address that OS notification centers may log persistently.
+- **The Transformers.js WASM runtime is now bundled with the extension**
+  instead of being fetched from jsDelivr at runtime, closing the last
+  unverified-remote-code path in the in-browser inference stack. Chrome's
+  CSP no longer needs a CDN allowance at all.
 
 ## [0.1.8] - 2026-07-21
 

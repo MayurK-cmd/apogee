@@ -1,6 +1,6 @@
 // Provider abstraction, routes inference requests to WebLLM (in-browser via offscreen document, Chrome only), Transformers.js (in-browser via WASM, Firefox only), or a local Ollama instance (talked to directly over HTTP).
 
-import { PROVIDERS, DEFAULT_OLLAMA_HOST } from "./constants.js";
+import { PROVIDERS, DEFAULT_PROVIDER, DEFAULT_OLLAMA_HOST } from "./constants.js";
 
 // Sends requests to the service worker, which forwards to the offscreen doc.
 
@@ -275,19 +275,19 @@ class DirectOllamaProvider {
   }
 }
 
-// Normalizes settings.provider the same way getProvider() below resolves it:
-// exactly one in-browser provider exists per build (see PROVIDERS in
-// lib/constants.js), Transformers.js on Firefox, WebLLM on Chrome, so any
-// non-"local" value, including a stale provider id carried over from the
-// other build's profile (e.g. "webllm" stored in a Firefox profile), lands
-// on this build's in-browser provider rather than passing through
-// unrecognized. Exported so callers that need the provider *type* without a
-// constructed provider instance (e.g. background/service-worker.js's
-// suggested-questions job) stay in sync with getProvider() instead of
-// reading settings.provider raw.
+// Normalizes settings.provider to a provider id valid for THIS build (see
+// PROVIDERS in lib/constants.js): Chrome/Edge expose webllm + transformers +
+// local, Firefox transformers + local. A recognized id passes through as-is; an
+// unrecognized one, e.g. a stale id carried over from the other browser's
+// profile ("webllm" stored in a Firefox profile, or vice versa), falls back to
+// this build's default provider rather than leaking through. Exported so
+// callers that need the provider *type* without a constructed provider instance
+// (e.g. background/service-worker.js's suggested-questions job) stay in sync
+// with getProvider() instead of reading settings.provider raw.
 export function getProviderType(settings) {
-  if (settings.provider === PROVIDERS.LOCAL) return PROVIDERS.LOCAL;
-  return PROVIDERS.TRANSFORMERS || PROVIDERS.WEBLLM;
+  const provider = settings.provider;
+  if (Object.values(PROVIDERS).includes(provider)) return provider;
+  return DEFAULT_PROVIDER;
 }
 
 // Resolves the model id for whichever provider `settings.provider` (raw,

@@ -17,7 +17,7 @@
 // message handlers before either loads).
 
 import { getTransformers } from "./transformersLib.js";
-import { ONNXRUNTIME_WEB_VERSION } from "./constants.js";
+import { ortWasmUrl, ortWasmBinary } from "./onnxWasm.js";
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2";
 
@@ -31,18 +31,16 @@ async function getExtractor() {
       // single-threaded up front skips onnxruntime-web's feature probe. The
       // model is tiny enough that the throughput cost doesn't matter here.
       env.backends.onnx.wasm.numThreads = 1;
-      // Only the .wasm binary comes from jsDelivr (fetched via plain
-      // fetch()+WebAssembly.instantiate, governed by the manifest's
-      // connect-src). Deliberately NOT setting `.mjs` here: onnxruntime-web's
-      // small JS glue is left to resolve from its normal local/bundled
-      // path, which stays same-origin. Overriding `.mjs` too (or passing
-      // wasmPaths as a single base-URL string, which implicitly overrides
-      // both) makes it dynamically `import()` that glue from jsDelivr
-      // instead, which the manifest's script-src ('self' only, deliberately
-      // not relaxed to allow remote script execution) then blocks.
-      env.backends.onnx.wasm.wasmPaths = {
-        wasm: `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ONNXRUNTIME_WEB_VERSION}/dist/ort-wasm-simd-threaded.asyncify.wasm`,
-      };
+      // Instantiate onnxruntime's WASM runtime from the bundled binary's raw
+      // bytes (see lib/onnxWasm.js's ortWasmBinary) rather than letting it fetch
+      // the URL itself: streaming instantiation of an extension-served .wasm
+      // hangs. wasmPaths is still set so transformers.js doesn't fall back to
+      // its jsDelivr default (which would import the wasm glue remotely, blocked
+      // by script-src); with wasmBinary set, wasmPaths is otherwise ignored for
+      // the binary. Deliberately no `.mjs`: onnxruntime-web's JS glue resolves
+      // from its normal bundled path, same-origin.
+      env.backends.onnx.wasm.wasmPaths = { wasm: ortWasmUrl() };
+      env.backends.onnx.wasm.wasmBinary = await ortWasmBinary();
       return pipeline("feature-extraction", MODEL_ID, {
         dtype: "q8",
         device: "wasm",

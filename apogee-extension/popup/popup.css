@@ -455,6 +455,18 @@ body {
   cursor: default;
 }
 
+/* The ask/answer view's Cancel sits alone directly under the answer card,
+   unlike the summarize view's (which lives in the flex .summary-footer-actions
+   row). Without this it butts flush against the box and reads as orphaned;
+   give it the same top spacing and right-alignment so it matches the
+   summarize view's Cancel. width: fit-content keeps a block button
+   shrink-to-content so margin-left: auto can push it to the right. */
+#cancelAskBtn {
+  display: block;
+  width: fit-content;
+  margin: 12px 0 0 auto;
+}
+
 .resummarize-btn {
   display: flex;
   align-items: center;

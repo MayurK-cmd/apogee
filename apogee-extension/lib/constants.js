@@ -83,9 +83,15 @@ const isFirefox = process.env.TARGET_BROWSER === "firefox";
 // document to access WebGPU) can't run there. Transformers.js takes its
 // place as the in-browser option on Firefox instead (see TRANSFORMERS_MODELS
 // above for why it, unlike wllama, actually works there).
+// Chrome/Edge offer BOTH in-browser engines: WebLLM (WebGPU, the default) and
+// Transformers.js (ONNX/WASM, CPU) as an opt-in for machines without WebGPU or
+// as an alternative to WebLLM. Both run in the offscreen document there (the
+// MV3 service worker can't reliably dynamic-import either, see lib/embeddings.js).
+// Firefox has no offscreen API/WebGPU, so it gets Transformers.js only, run in
+// its background page.
 export const PROVIDERS = isFirefox
   ? { TRANSFORMERS: "transformers", LOCAL: "local" }
-  : { WEBLLM: "webllm", LOCAL: "local" };
+  : { WEBLLM: "webllm", TRANSFORMERS: "transformers", LOCAL: "local" };
 
 export const DEFAULT_PROVIDER = isFirefox
   ? PROVIDERS.TRANSFORMERS
@@ -94,19 +100,6 @@ export const DEFAULT_PROVIDER = isFirefox
 // Ollama's own default HTTP port. The extension talks to Ollama directly,
 // no intermediate backend server.
 export const DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434";
-
-// onnxruntime-web's own WASM runtime (not the model weights) is a single
-// ~23 MB "universal" binary in every current release, with no smaller
-// non-threaded build available, so both the embedding pipeline (embeddings.js)
-// and Firefox's Transformers.js engine (transformersEngine.js) fetch it from
-// jsDelivr at runtime rather than bundling it. This MUST match the exact
-// onnxruntime-web version @huggingface/transformers resolves to (see
-// node_modules/onnxruntime-web/package.json) or the JS glue and WASM binary
-// go out of sync and fail to load. package.json pins @huggingface/transformers
-// to an exact version specifically so this doesn't drift silently; re-check
-// this when upgrading either. Hoisted here (from a copy in each of the two
-// consumers) so the two can't drift apart.
-export const ONNXRUNTIME_WEB_VERSION = "1.26.0-dev.20260416-b7804b056c";
 
 export const DEFAULT_SETTINGS = {
   provider: DEFAULT_PROVIDER,

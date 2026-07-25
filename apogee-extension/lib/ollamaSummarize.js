@@ -7,21 +7,18 @@ import { chunkText } from "./chunk.js";
 import { buildSummaryPrompt, buildScaledBulletsStyle } from "./prompts.js";
 import { cleanText } from "./cleaner.js";
 import { chatStream } from "./ollamaClient.js";
-import { getMaxChunkChars } from "./modelLimits.js";
+import { getMaxChunkChars, getMaxChunks } from "./modelLimits.js";
 import { summarizeYoutube } from "./youtubeSummarize.js";
-
-// Upper bound on how many chunks (== sequential model calls) a single summary
-// may fan out into, mirrors summaryService.js's MAX_CHUNKS. Not exported:
-// youtubeSummarize.js keeps its own copy to avoid a circular import.
-const MAX_CHUNKS = 12;
 
 /**
  * Async-generator yielding summary tokens for the given text via Ollama.
  * `chunkTextFn`/`chatStreamFn` are injectable seams for tests; `onProgress`
  * is an optional UI hook (used by the WebLLM offscreen path to surface
  * "Summarizing part N of M..." during the otherwise-silent map phase).
- * It receives `{ stage: "map", index, total }` per chunk and
- * `{ stage: "reduce" }` before the final merge.
+ * It receives `{ stage: "map", index, total }` per chunk,
+ * `{ stage: "reduce" }` before the final merge, and
+ * `{ stage: "truncated", kept, total }` once if the input was longer than
+ * the model's chunk fan-out budget (see getMaxChunks) and its tail dropped.
  */
 export async function* summarizeText(
   { text, title, url, mode, model, host, signal, type },
@@ -41,13 +38,16 @@ export async function* summarizeText(
 
   const cleanedContent = cleanText(text);
   let chunks = chunkTextFn(cleanedContent, getMaxChunkChars(model));
-  if (chunks.length > MAX_CHUNKS) {
-    let biggerSize = Math.ceil(cleanedContent.length / MAX_CHUNKS);
-    chunks = chunkTextFn(cleanedContent, biggerSize);
-    while (chunks.length > MAX_CHUNKS) {
-      biggerSize *= 2;
-      chunks = chunkTextFn(cleanedContent, biggerSize);
-    }
+  // Never grow chunks past the model's context budget to fit more input (the
+  // old behavior: re-chunk at content/maxChunks, unbounded, which blew past
+  // WebLLM's hard 4096-token window on very long pages and buried the CPU
+  // engines in quadratically slower prefills that looked like a freeze).
+  // Summarize the first maxChunks context-sized chunks instead and tell the
+  // UI the tail was dropped.
+  const maxChunks = getMaxChunks(model);
+  if (chunks.length > maxChunks) {
+    onProgress?.({ stage: "truncated", kept: maxChunks, total: chunks.length });
+    chunks = chunks.slice(0, maxChunks);
   }
 
   // Errors are left to propagate: the caller (service-worker.js's buffered

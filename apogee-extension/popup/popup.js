@@ -90,9 +90,6 @@ const contactView = document.getElementById("contactView");
 const settingsBackBtn = document.getElementById("settingsBackBtn");
 const contactBackBtn = document.getElementById("contactBackBtn");
 const webllmProviderOption = document.getElementById("webllmProviderOption");
-const transformersProviderOption = document.getElementById(
-  "transformersProviderOption",
-);
 const webllmModelsCard = document.getElementById("webllmModelsCard");
 const transformersModelsCard = document.getElementById(
   "transformersModelsCard",
@@ -1443,16 +1440,13 @@ async function updateSummarizeShortcutHint() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // WebLLM (WebGPU via an offscreen document) only exists on Chrome; Firefox
-  // has no offscreen API at all. Transformers.js (ONNX/WASM) only exists on
-  // Firefox (see PROVIDERS in lib/constants.js). Hide whichever radio
-  // doesn't apply on this build, not just its model-list card, so users
-  // can't select a provider that getProvider() can't actually construct
-  // here.
+  // WebLLM (WebGPU via an offscreen document) only exists on Chrome/Edge;
+  // Firefox has no offscreen API at all, so hide that radio there. Chrome/Edge
+  // keep BOTH in-browser providers, WebLLM (default) and Transformers.js
+  // (ONNX/WASM, opt-in), so nothing is hidden there (see PROVIDERS in
+  // lib/constants.js). Don't offer a provider getProvider() can't construct.
   if (process.env.TARGET_BROWSER === "firefox") {
     webllmProviderOption?.classList.add("hidden");
-  } else {
-    transformersProviderOption?.classList.add("hidden");
   }
 
   try {

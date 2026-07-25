@@ -151,6 +151,19 @@ function nextStreamId(kind) {
   return `${kind}-${crypto.randomUUID()}`;
 }
 
+// Whether a stream's job lives in the offscreen document (so its popup port
+// must be relayed there, and cancellation forwarded there) rather than being
+// buffered here in the service worker. On Chrome/Edge that's WebLLM always, and
+// Transformers.js too (both run in the offscreen document, see offscreen.js's
+// runStream). On Firefox there's no offscreen document, so Transformers.js runs
+// in-process here and is buffered like Ollama; nothing is an offscreen stream.
+function isOffscreenStream(streamId) {
+  return (
+    hasOffscreenAPI &&
+    (streamId.startsWith("webllm-") || streamId.startsWith("transformers-"))
+  );
+}
+
 // Streaming jobs for the Local Ollama backend, keyed by streamId, tracked
 // independently of any popup connection: the popup closes constantly (on
 // focus loss), but the job keeps running and buffering so a reopened popup
@@ -404,6 +417,13 @@ async function startTransformersStream(
       .catch(() => {});
   };
 
+  // Stage label + word ticker, mirroring offscreen.js's runTransformersJob
+  // (the Chrome host of this same engine): each map/reduce pass is otherwise
+  // silent for its entire prefill+decode, minutes on this CPU engine, which
+  // reads as a freeze. See that function for the full rationale.
+  let longNote = "";
+  let stageLabel = "Summarizing...";
+
   try {
     await withTransformersEngine(model, onProgress, async (eng) => {
       if (action === "summarize") {
@@ -423,19 +443,30 @@ async function startTransformersStream(
             // cancel takes effect between tokens within a chunk, and
             // summarizeText's own signal checks stop it between chunks.
             chatStreamFn: async function* (_host, _model, prompt) {
+              let count = 0;
               for await (const token of transformersChatStream(eng, prompt)) {
                 if (stream.cancelled) return;
+                count++;
+                if (count % 24 === 0) {
+                  onProgress({
+                    progress: 0,
+                    text: `${longNote}${stageLabel} (${count} words)`,
+                  });
+                }
                 yield token;
               }
             },
             onProgress: (p) => {
-              onProgress({
-                progress: 0,
-                text:
-                  p.stage === "reduce"
-                    ? "Merging summary..."
-                    : `Summarizing part ${p.index + 1} of ${p.total}...`,
-              });
+              if (p.stage === "truncated") {
+                longNote = "Long page — summarizing the beginning. ";
+                onProgress({ progress: 0, text: longNote.trim() });
+                return;
+              }
+              stageLabel =
+                p.stage === "reduce"
+                  ? "Merging summary..."
+                  : `Summarizing part ${p.index + 1} of ${p.total}...`;
+              onProgress({ progress: 0, text: longNote + stageLabel });
             },
           },
         );
@@ -760,21 +791,29 @@ async function runSuggestQuestionsJob(payload) {
           url,
           summary,
         });
-      } else if (providerType === PROVIDERS.TRANSFORMERS) {
-        // Transformers.js only ever runs on Firefox (see PROVIDERS in
-        // lib/constants.js), always in-process, never via the offscreen
-        // document.
+      } else if (providerType === PROVIDERS.TRANSFORMERS && !hasOffscreenAPI) {
+        // Firefox: Transformers.js runs in-process in this background page.
         questions = await generateTransformersSuggestions(model, {
           title,
           url,
           summary,
         });
       } else {
+        // Offscreen-document providers (Chrome/Edge): WebLLM, and Transformers.js
+        // too, which runs in the offscreen document there. `provider` tells
+        // offscreen.js's suggest-questions handler which engine to use.
         await ensureOffscreenDocument();
         const resp = await chrome.runtime.sendMessage({
           target: "offscreen",
           action: "suggest-questions",
-          payload: { title, url, summary, model },
+          payload: {
+            title,
+            url,
+            summary,
+            model,
+            provider:
+              providerType === PROVIDERS.TRANSFORMERS ? "transformers" : "webllm",
+          },
         });
         questions = resp?.questions || [];
       }
@@ -1019,7 +1058,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
   const streamId = popupPort.name.replace("popup-stream-", "");
 
-  if (streamId.startsWith("webllm-")) {
+  if (isOffscreenStream(streamId)) {
     relayToOffscreenStream(popupPort, streamId);
     return;
   }
@@ -1165,7 +1204,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case "cancel-stream": {
           const { streamId } = message.payload;
-          if (streamId.startsWith("webllm-")) {
+          if (isOffscreenStream(streamId)) {
             // The job and its buffer live in the offscreen document, not
             // here (see the activeStreams comment above), so cancellation
             // has to be relayed there too.
@@ -1210,18 +1249,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         }
 
-        // Transformers.js only ever runs on Firefox (see PROVIDERS in
-        // lib/constants.js), always in-process here, never via an offscreen
-        // document. message.payload.action ("summarize" or "ask") tells this
-        // which job to run, same wrapper convention as "ollama-stream" above.
+        // Transformers.js runs in-process in Firefox's background page, but in
+        // the offscreen document on Chrome/Edge (the MV3 service worker can't
+        // reliably dynamic-import it, see offscreen.js). message.payload.action
+        // ("summarize" or "ask") tells this which job to run, same wrapper
+        // convention as "ollama-stream" above.
         case "transformers-stream": {
           const streamId = nextStreamId("transformers");
-          startTransformersStream(streamId, message.payload);
+          if (hasOffscreenAPI) {
+            // Chrome/Edge: hand the job to the offscreen document, tagging it
+            // provider:"transformers" so its runStream uses the WASM engine.
+            // Same shape as the WebLLM "summarize"/"ask" case above; the
+            // "transformers-" streamId prefix routes the popup port and
+            // cancels there via isOffscreenStream().
+            await ensureOffscreenDocument();
+            const { action, ...jobPayload } = message.payload;
+            const resp = await chrome.runtime.sendMessage({
+              target: "offscreen",
+              action,
+              streamId,
+              payload: { ...jobPayload, provider: "transformers" },
+            });
+            if (resp?.error) throw new Error(resp.error);
+          } else {
+            // Firefox: run in this background page, buffered like Ollama.
+            startTransformersStream(streamId, message.payload);
+          }
           sendResponse({ streamId });
           break;
         }
 
         case "transformers-status": {
+          if (hasOffscreenAPI) {
+            // Chrome/Edge: the engine lives in the offscreen document.
+            await ensureOffscreenDocument();
+            const response = await chrome.runtime.sendMessage({
+              target: "offscreen",
+              action: "transformers-status",
+            });
+            sendResponse(response);
+            break;
+          }
           const { currentModelId, loadingModelId } = getTransformersStatus();
           sendResponse({
             // Mirrors WebLLM's "status" (offscreen.js): `ready` reflects
