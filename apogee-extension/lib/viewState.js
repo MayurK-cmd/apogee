@@ -55,3 +55,17 @@ export async function loadViewState(tabId) {
   const stored = await chrome.storage.local.get(key);
   return stored[key] || null;
 }
+
+// Drops a tab's view state (which can hold a full question + answer text)
+// along with its FIFO-index entry. Called from the service worker's
+// tabs.onRemoved listener so a closed tab's state doesn't linger until it's
+// eventually pushed out by MAX_VIEW_STATES eviction or a manual clear.
+export async function removeViewState(tabId) {
+  if (tabId == null) return;
+  const key = viewStateKey(tabId);
+  const { viewStateOrder = [] } =
+    await chrome.storage.local.get("viewStateOrder");
+  const order = viewStateOrder.filter((k) => k !== key);
+  await chrome.storage.local.set({ viewStateOrder: order });
+  await chrome.storage.local.remove(key);
+}

@@ -572,6 +572,14 @@ function escapeHtml(text) {
 // this runs (see renderMarkdown), so a `javascript:`/`data:` href couldn't
 // break out of the attribute, but it could still execute on click, which
 // this scheme check rules out.
+//
+// The href's origin is also gated: model output is steered by the page
+// being summarized, so a malicious page could tell the model to emit
+// "[0:12](https://evil.example/...)" and smuggle a phishing link, dressed
+// as a timestamp, into the trusted popup UI. Only URLs on the summarized
+// page's own host (plus youtube.com, the sole host the app itself ever
+// instructs the model to link to, for jump-to-video timestamps) become real
+// links; anything else renders as its plain label text instead.
 
 // Private-Use-Area character bracketing each numeric placeholder below:
 // never appears in real page text, so the restore regex in renderInline
@@ -580,11 +588,48 @@ function escapeHtml(text) {
 // prompt's headings/bullets put them; see buildYoutubeAssemblyPrompt).
 const LINK_PLACEHOLDER_MARK = "\uE000";
 
+// youtube.com is always allowed because the only links the app itself asks
+// the model to produce are YouTube jump-to-video timestamp links, which stay
+// clickable even when a past YouTube summary is rendered from a non-YouTube
+// tab (past-summary cards have no URL to derive an origin from).
+const ALWAYS_LINKIFY_HOSTS = new Set(["youtube.com"]);
+
+// Host of the page whose summary/answer is currently being rendered; set from
+// the active tab on load (see DOMContentLoaded). null = only the always-allowed
+// hosts above are linkified.
+let linkifyPageHost = null;
+
+function normalizeLinkHost(host) {
+  const h = host.toLowerCase().replace(/^(www\.|m\.)/, "");
+  return h === "youtu.be" ? "youtube.com" : h;
+}
+
+function setLinkifyOriginFromUrl(url) {
+  try {
+    linkifyPageHost = normalizeLinkHost(new URL(url).hostname);
+  } catch {
+    linkifyPageHost = null;
+  }
+}
+
+function isLinkifiableHref(href) {
+  let host;
+  try {
+    host = normalizeLinkHost(new URL(href).hostname);
+  } catch {
+    return false;
+  }
+  return host === linkifyPageHost || ALWAYS_LINKIFY_HOSTS.has(host);
+}
+
 function extractMarkdownLinks(escapedText) {
   const links = [];
   const text = escapedText.replace(
     /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
     (match, label, href) => {
+      // A cross-origin href (relative to the summarized page) is dropped to
+      // its plain label rather than turned into a clickable link.
+      if (!isLinkifiableHref(href)) return label;
       links.push(
         `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`,
       );
@@ -895,7 +940,7 @@ function hideCancelSummarizeButton() {
 function renderSummaryError(error) {
   console.error(error);
   const p = document.createElement("p");
-  p.style.color = "#d93025";
+  p.style.color = "var(--error-text)";
   p.style.fontSize = "13px";
   p.textContent = error.message;
   summaryText.textContent = "";
@@ -1436,6 +1481,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       currentWindow: true,
     });
     activeTabId = tab.id;
+    // The popup stays bound to this one tab (it doesn't follow tab switches),
+    // so this host governs which links in every summary/answer rendered below
+    // are trusted enough to become clickable, see extractMarkdownLinks.
+    setLinkifyOriginFromUrl(tab.url);
 
     const state = await loadViewState(tab.id);
 

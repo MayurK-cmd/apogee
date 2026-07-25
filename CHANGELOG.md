@@ -48,6 +48,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   into the final summary, the same chunking budget per-model summaries
   already use.
 
+### Fixed
+
+- **YouTube timestamp links on Shorts.** Timestamp deep-links assumed a
+  `watch?v=` URL with an existing query string, so a bare `/shorts/<id>` URL
+  produced a broken `/shorts/abc&t=42s`. Links now normalize to a canonical
+  `watch?v=<id>&t=` URL when the video id is recognizable (Shorts, `youtu.be`,
+  or `watch`), and otherwise pick the right `?t=`/`&t=` separator for whatever
+  URL they were given.
+- **Cancelling one summary no longer interrupts another.** Cancelling a WebLLM
+  stream called `interruptGenerate()` unconditionally, so cancelling a queued
+  or already-finished job during a rapid resummarize could stop the different
+  job that actually held the engine. The offscreen document now tracks which
+  stream owns the engine and only interrupts when the cancelled stream is the
+  one generating.
+- **Malformed Ollama responses report the real cause.** A bad line in Ollama's
+  streaming NDJSON used to surface as "Could not connect to Ollama…", sending
+  users to chase a networking problem that wasn't there; it now reports a
+  malformed-response error instead.
+- **Background summarize on an empty page is no longer silent.** A context-menu
+  or keyboard-shortcut summarize that bailed early (unreadable page, no thread
+  open in Gmail, image-only PDF) returned with no feedback; it now posts a
+  "Nothing to summarize" notification explaining why.
+- Summary error messages use a theme-aware color instead of a hardcoded red.
+
+### Security
+
+- **Links in model output are restricted to the summarized page's own origin**
+  (plus `youtube.com`, the only host Apogee itself asks the model to link to,
+  for jump-to-video timestamps). Because model output is steered by page
+  content, a malicious page could otherwise get a phishing link, dressed as a
+  timestamp, rendered as a real clickable link in the popup; such links now
+  render as plain text.
+- **Per-tab view state is cleared when a tab closes** rather than lingering
+  until FIFO eviction, and **completion notifications omit the page title on
+  sensitive hosts** (email, messaging), where a title can carry a subject line
+  or address that OS notification centers may log persistently.
+
 ## [0.1.8] - 2026-07-21
 
 ### Added

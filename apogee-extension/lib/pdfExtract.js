@@ -7,7 +7,8 @@
 // Dynamic-imported, mirrors offscreen.js's getWebLLM(): a heavy module load
 // shouldn't block message-handler registration.
 
-export class PdfExtractionError extends Error {}
+// Not exported: only ever thrown within this module.
+class PdfExtractionError extends Error {}
 
 let _pdfjs = null;
 

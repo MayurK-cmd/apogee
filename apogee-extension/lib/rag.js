@@ -6,6 +6,7 @@
 
 import { chunkText } from "./chunk.js";
 import { embedTexts as embedTextsDefault, dot } from "./embeddings.js";
+import { cyrb53 } from "./hash.js";
 
 // Smaller than MAX_CHUNK_CHARS (used for summarization's map-reduce): finer
 // granularity here means retrieval can zero in on the specific passage that
@@ -25,25 +26,11 @@ const DEFAULT_TOP_K = 8;
 const MAX_CACHE_ENTRIES = 5;
 const indexCache = new Map();
 
-function hashContent(text) {
-  let h1 = 0xdeadbeef;
-  let h2 = 0x41c6ce57;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 =
-    Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^
-    Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 =
-    Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^
-    Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
-}
-
 async function getOrBuildIndex(content, embedTextsFn) {
-  const key = hashContent(content);
+  // Keyed by a hash of the content text itself (cyrb53, see lib/hash.js), not
+  // the URL, since the same URL can legitimately carry different content
+  // across calls.
+  const key = cyrb53(content);
   const cached = indexCache.get(key);
   if (cached) return cached;
 

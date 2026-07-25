@@ -11,8 +11,9 @@ import { getMaxChunkChars } from "./modelLimits.js";
 import { summarizeYoutube } from "./youtubeSummarize.js";
 
 // Upper bound on how many chunks (== sequential model calls) a single summary
-// may fan out into, mirrors summaryService.js's MAX_CHUNKS.
-export const MAX_CHUNKS = 12;
+// may fan out into, mirrors summaryService.js's MAX_CHUNKS. Not exported:
+// youtubeSummarize.js keeps its own copy to avoid a circular import.
+const MAX_CHUNKS = 12;
 
 /**
  * Async-generator yielding summary tokens for the given text via Ollama.

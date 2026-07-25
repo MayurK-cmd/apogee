@@ -32,6 +32,7 @@ import {
   persistSummary,
   persistContent,
   shouldPersist,
+  isSensitiveUrl,
   CACHEABLE_PAGE_TYPES,
 } from "../lib/pageCache.js";
 import {
@@ -40,7 +41,7 @@ import {
 } from "../lib/pageExtraction.js";
 import { getProviderType, getModelForSettings } from "../lib/providers.js";
 import { PROVIDERS } from "../lib/constants.js";
-import { saveViewState } from "../lib/viewState.js";
+import { saveViewState, removeViewState } from "../lib/viewState.js";
 
 const hasOffscreenAPI =
   typeof chrome !== "undefined" &&
@@ -281,13 +282,13 @@ async function getRelevantAskContent(content, question) {
   }
 }
 
-// Runs a summarize/ask job directly against Ollama, buffering chunks so it
-// survives popup close/reopen (mirrors the WebLLM buffering, which lives in
-// the offscreen document, see the activeStreams comment above).
-async function startOllamaStream(
-  streamId,
-  { action, host, model, title, url, content, mode, type, question, finalize },
-) {
+// Creates the buffered-stream state and its finish()/emitChunk() helpers,
+// shared verbatim by startOllamaStream and startTransformersStream below (both
+// buffer chunks so a job survives the popup closing/reopening, mirroring the
+// WebLLM buffering that lives in the offscreen document, see the activeStreams
+// comment above). Registers the stream in activeStreams synchronously so a
+// popup reattaching right after the caller kicks the job off always finds it.
+function createBufferedStream(streamId, { finalize, model, title, url }) {
   const stream = {
     text: "",
     done: false,
@@ -299,10 +300,10 @@ async function startOllamaStream(
   activeStreams.set(streamId, stream);
 
   const finish = (msg) => {
-    // The "cancel-stream" handler below already broadcast "cancelled" and
-    // aborted the fetch; ignore whatever this job's own catch block does
-    // with the resulting AbortError so it can't overwrite that with a
-    // generic "error" after the fact.
+    // The "cancel-stream" handler already broadcast "cancelled" and aborted
+    // the fetch; ignore whatever the job's own catch block does with the
+    // resulting AbortError so it can't overwrite that with a generic "error"
+    // after the fact.
     if (stream.cancelled) return;
     if (msg.type === "done") stream.done = true;
     if (msg.type === "error") {
@@ -326,6 +327,22 @@ async function startOllamaStream(
     stream.text += text;
     broadcastToStream(stream, { type: "chunk", text });
   };
+
+  return { stream, finish, emitChunk };
+}
+
+// Runs a summarize/ask job directly against Ollama, buffering chunks so it
+// survives popup close/reopen.
+async function startOllamaStream(
+  streamId,
+  { action, host, model, title, url, content, mode, type, question, finalize },
+) {
+  const { stream, finish, emitChunk } = createBufferedStream(streamId, {
+    finalize,
+    model,
+    title,
+    url,
+  });
 
   let validHost;
   try {
@@ -374,35 +391,12 @@ async function startTransformersStream(
   streamId,
   { action, model, title, url, content, mode, type, question, finalize },
 ) {
-  const stream = {
-    text: "",
-    done: false,
-    error: null,
-    cancelled: false,
-    subscribers: new Set(),
-    controller: new AbortController(),
-  };
-  activeStreams.set(streamId, stream);
-
-  const finish = (msg) => {
-    if (stream.cancelled) return;
-    if (msg.type === "done") stream.done = true;
-    if (msg.type === "error") {
-      stream.error = msg.error;
-      stream.done = true;
-    }
-    broadcastToStream(stream, msg);
-    scheduleStreamCleanup(streamId);
-    if (msg.type === "done") {
-      finalizeSummaryJob({ finalize, model, title, url, text: stream.text });
-    }
-  };
-
-  const emitChunk = (text) => {
-    if (!text || stream.cancelled) return;
-    stream.text += text;
-    broadcastToStream(stream, { type: "chunk", text });
-  };
+  const { stream, finish, emitChunk } = createBufferedStream(streamId, {
+    finalize,
+    model,
+    title,
+    url,
+  });
 
   const onProgress = (progress) => {
     chrome.runtime
@@ -495,10 +489,29 @@ async function runBackgroundSummarize(tab, { notifyOnFinish }) {
   const model = getModelForSettings(settings);
 
   const pageData = await extractFromActiveTab(tab);
-  if (!pageData) return;
+  if (!pageData) {
+    // With no popup open, a bare `return` here leaves a context-menu/shortcut
+    // summarize looking like it silently did nothing; a notification (when one
+    // was requested) explains the no-op.
+    if (notifyOnFinish) {
+      notifyNothingToSummarize(
+        tab,
+        "Couldn't read this page. Try reloading it, or pick a different tab.",
+      );
+    }
+    return;
+  }
   // Gmail returns empty content when no thread is open; nothing sensible
   // to summarize there, same check summarizeActivePage makes.
-  if (!pageData.isPdf && !pageData.content) return;
+  if (!pageData.isPdf && !pageData.content) {
+    if (notifyOnFinish) {
+      notifyNothingToSummarize(
+        tab,
+        "Nothing to summarize here yet — open a page, email, or video first.",
+      );
+    }
+    return;
+  }
 
   if (
     CACHEABLE_PAGE_TYPES.has(pageData.type) &&
@@ -510,7 +523,15 @@ async function runBackgroundSummarize(tab, { notifyOnFinish }) {
   let content = pageData.content;
   if (pageData.isPdf) {
     content = await extractPdfContent(tab);
-    if (!content) return;
+    if (!content) {
+      if (notifyOnFinish) {
+        notifyNothingToSummarize(
+          tab,
+          "Couldn't pull any text out of this PDF — it might be a scanned image.",
+        );
+      }
+      return;
+    }
   }
 
   const finalize = {
@@ -524,6 +545,11 @@ async function runBackgroundSummarize(tab, { notifyOnFinish }) {
     providerType,
     host: settings.ollamaHost,
     notifyOnFinish,
+    // On a sensitive host (Gmail et al.) the tab title can itself carry
+    // private data (subject line, email address), so the completion
+    // notification, which OS notification centers may log persistently, omits
+    // it, see notifyJobComplete.
+    sensitive: isSensitiveUrl(tab.url),
     tabId: tab.id,
     windowId: tab.windowId,
   };
@@ -632,6 +658,13 @@ chrome.commands.onCommand.addListener(async (command) => {
   );
 });
 
+// A closed tab's per-tab view state (which can hold a full question + answer)
+// is no longer reachable, so drop it now rather than leaving it to eventual
+// FIFO eviction (see removeViewState / MAX_VIEW_STATES in lib/viewState.js).
+chrome.tabs.onRemoved.addListener((tabId) => {
+  removeViewState(tabId).catch(() => {});
+});
+
 // SponsorBlock categories we strip from YouTube transcripts before
 // summarizing: paid sponsor reads, unpaid self-promotion (merch/Patreon
 // plugs), and subscribe/interaction reminders.
@@ -721,13 +754,13 @@ async function runSuggestQuestionsJob(payload) {
   try {
     let questions = [];
     try {
-      if (providerType === "local") {
+      if (providerType === PROVIDERS.LOCAL) {
         questions = await generateOllamaSuggestions(host, model, {
           title,
           url,
           summary,
         });
-      } else if (providerType === "transformers") {
+      } else if (providerType === PROVIDERS.TRANSFORMERS) {
         // Transformers.js only ever runs on Firefox (see PROVIDERS in
         // lib/constants.js), always in-process, never via the offscreen
         // document.
@@ -796,6 +829,7 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
     providerType,
     host,
     notifyOnFinish,
+    sensitive,
     tabId,
     windowId,
   } = finalize;
@@ -816,7 +850,7 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
     model,
   });
   if (notifyOnFinish) {
-    notifyJobComplete({ title, tabId, windowId });
+    notifyJobComplete({ title: sensitive ? "" : title, tabId, windowId });
   }
 }
 
@@ -835,6 +869,26 @@ function notifyJobComplete({ title, tabId, windowId }) {
     iconUrl: chrome.runtime.getURL("assets/icon-96.png"),
     title: "Summary ready",
     message: title ? `"${title}" is ready to view.` : "Click to view it.",
+  });
+}
+
+// Best-effort "there was nothing to summarize" notice for a background-
+// triggered summarize (context menu / keyboard shortcut) that bailed before
+// generating anything, e.g. the shortcut fired on a Gmail inbox with no thread
+// open. Only shown when notifyOnFinish was requested; reuses the same
+// notificationTargets/onClicked plumbing so clicking still focuses the tab.
+function notifyNothingToSummarize(tab, message) {
+  if (typeof chrome.notifications === "undefined") return;
+  const notificationId = `apogee-summary-empty-${crypto.randomUUID()}`;
+  notificationTargets.set(notificationId, {
+    tabId: tab?.id,
+    windowId: tab?.windowId,
+  });
+  chrome.notifications.create(notificationId, {
+    type: "basic",
+    iconUrl: chrome.runtime.getURL("assets/icon-96.png"),
+    title: "Nothing to summarize",
+    message,
   });
 }
 

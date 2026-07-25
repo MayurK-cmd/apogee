@@ -11,32 +11,15 @@
 // helper additionally assumed a `window`, see vite.config.js's modulePreload
 // note), so the offscreen document, a real Document context, is the
 // verified-working home for this pipeline.
-// The dynamic import here mirrors offscreen.js's getWebLLM(): keeps this
-// ~9 MB dependency out of the importing module's initial bundle/eviction
-// path (offscreen.js registers its message handlers before either loads).
+// getTransformers (see lib/transformersLib.js) mirrors offscreen.js's
+// getWebLLM(): its dynamic import keeps this ~9 MB dependency out of the
+// importing module's initial bundle/eviction path (offscreen.js registers its
+// message handlers before either loads).
+
+import { getTransformers } from "./transformersLib.js";
+import { ONNXRUNTIME_WEB_VERSION } from "./constants.js";
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2";
-
-// onnxruntime-web's own WASM runtime (not the embedding model above) is a
-// single ~23 MB "universal" binary in every current release, there's no
-// smaller non-threaded build anymore. Rather than let Vite bundle that into
-// the shipped extension package, it's fetched from jsDelivr at runtime, the
-// same tradeoff already made for WebLLM/embedding model weights.
-//
-// MUST match the exact onnxruntime-web version @huggingface/transformers
-// resolves to (see node_modules/onnxruntime-web/package.json) or the JS
-// glue and WASM binary go out of sync and fail to load. Our package.json
-// pins @huggingface/transformers to an exact version specifically so this
-// doesn't drift silently; re-check both when upgrading either.
-const ONNXRUNTIME_WEB_VERSION = "1.26.0-dev.20260416-b7804b056c";
-
-let _transformers = null;
-async function getTransformers() {
-  if (!_transformers) {
-    _transformers = await import("@huggingface/transformers");
-  }
-  return _transformers;
-}
 
 let _extractorPromise = null;
 async function getExtractor() {

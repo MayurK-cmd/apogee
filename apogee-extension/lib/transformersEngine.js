@@ -8,42 +8,20 @@
 // so it isn't affected by the blob:-URL-worker CSP restriction that blocks
 // wllama in every extension execution context on both browsers.
 
-import { TRANSFORMERS_MODELS } from "./constants.js";
-
-// onnxruntime-web's own WASM runtime (not the LLM weights) is a ~23 MB
-// "universal" binary with no smaller non-threaded build available, so it's
-// fetched from jsDelivr at runtime rather than bundled locally, the same
-// tradeoff lib/embeddings.js already makes for its embedding pipeline. MUST
-// match the exact onnxruntime-web version @huggingface/transformers resolves
-// to (see embeddings.js's own copy of this constant/comment) or the JS glue
-// and WASM binary go out of sync and fail to load.
-const ONNXRUNTIME_WEB_VERSION = "1.26.0-dev.20260416-b7804b056c";
+import { TRANSFORMERS_MODELS, ONNXRUNTIME_WEB_VERSION } from "./constants.js";
+import { getTransformers } from "./transformersLib.js";
+import { createLock } from "./mutex.js";
 
 const GENERATION_MAX_TOKENS = 2048;
 
 let engine = null;
 let currentModelId = null;
 let loadingModelId = null;
-let lock = Promise.resolve();
 
-async function acquireLock() {
-  let release;
-  const nextLock = new Promise((resolve) => {
-    release = resolve;
-  });
-  const currentLock = lock;
-  lock = nextLock;
-  await currentLock;
-  return release;
-}
-
-let _transformers = null;
-async function getTransformers() {
-  if (!_transformers) {
-    _transformers = await import("@huggingface/transformers");
-  }
-  return _transformers;
-}
+// Serializes engine operations so a load/generate can't overlap and corrupt
+// the ONNX/WASM engine state (see lib/mutex.js; mirrors offscreen.js's WebLLM
+// engine lock).
+const acquireLock = createLock();
 
 async function ensureEngine(modelId, onProgress) {
   if (engine && currentModelId === modelId) {

@@ -1,6 +1,8 @@
-export const MAX_CHUNK_CHARS = 6000;
+// Not exported: only used as the default arg to chunkText/truncateForPrompt
+// below.
+const MAX_CHUNK_CHARS = 6000;
 
-export const MAX_SINGLE_PROMPT_CHARS = 8000;
+const MAX_SINGLE_PROMPT_CHARS = 8000;
 
 export function chunkText(text, maxChars = MAX_CHUNK_CHARS) {
   const clean = (text || "").trim();

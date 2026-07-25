@@ -6,6 +6,7 @@
 // service worker, the offscreen document, and the popup.
 
 import { getSettings } from "./settings.js";
+import { cyrb53 } from "./hash.js";
 
 // Only the generic Readability-parsed extraction is expensive enough to be
 // worth caching/reusing. Gmail and YouTube extractors are cheap DOM reads,
@@ -17,26 +18,12 @@ import { getSettings } from "./settings.js";
 // through this path either, their text comes from a separate pipeline.
 export const CACHEABLE_PAGE_TYPES = new Set(["article", "generic"]);
 
-// Hash the URL (cyrb53) so raw URLs, which can carry session tokens or reset
-// links in their query strings, aren't left sitting in plaintext in storage,
-// neither in keys (here) nor in stored values (see persistContent, which
-// strips/hashes the URL before writing). Non-cryptographic, but wide enough
-// to avoid collisions in the small bounded cache.
+// Hash the URL (cyrb53, see lib/hash.js) so raw URLs, which can carry session
+// tokens or reset links in their query strings, aren't left sitting in
+// plaintext in storage, neither in keys (here) nor in stored values (see
+// persistContent, which strips/hashes the URL before writing).
 export function hashUrl(url) {
-  let h1 = 0xdeadbeef;
-  let h2 = 0x41c6ce57;
-  for (let i = 0; i < url.length; i++) {
-    const ch = url.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 =
-    Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^
-    Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 =
-    Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^
-    Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  return cyrb53(url);
 }
 
 export function getSummaryCacheKey(url, fmt, model) {

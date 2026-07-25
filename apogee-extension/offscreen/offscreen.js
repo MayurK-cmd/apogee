@@ -5,6 +5,7 @@
 import { parseSuggestedQuestions } from "../lib/questions.js";
 import { summarizeText } from "../lib/ollamaSummarize.js";
 import { retrieveRelevantContent, findBestPassage } from "../lib/rag.js";
+import { createLock } from "../lib/mutex.js";
 
 // Forward all console logs to the service worker for remote debugging
 const originalConsole = {
@@ -78,21 +79,17 @@ let engine = null;
 let currentModelId = null;
 let loadingModelId = null;
 
-// Serialization Mutex for the WebLLM engine:
+// Serialization Mutex for the WebLLM engine (see lib/mutex.js):
 // Because MLCEngine / WebGPU is highly stateful, running overlapping model operations (such as starting a new inference task or suggestions while a previous inference stream is finishing, or loading/unloading models concurrently) can corrupt the WebGPU device context and throw "Buffer was unmapped before mapping was resolved" errors.
-// This Promise chain acts as a mutex to guarantee only one engine operation runs at a time.
-let engineLock = Promise.resolve();
+// This guarantees only one engine operation runs at a time.
+const acquireLock = createLock();
 
-async function acquireLock() {
-  let release;
-  const nextLock = new Promise((resolve) => {
-    release = resolve;
-  });
-  const currentLock = engineLock;
-  engineLock = nextLock;
-  await currentLock;
-  return release;
-}
+// Which stream (by streamId) currently holds the engine inside withEngine, or
+// null when the holder isn't a cancellable stream (e.g. suggest-questions) or
+// nothing holds it. cancel-stream consults this so interrupting the *current*
+// generation only happens when the stream being cancelled is the one actually
+// generating, see the "cancel-stream" handler below.
+let engineOwnerStreamId = null;
 
 let _webllm = null;
 let _prompts = null;
@@ -165,8 +162,13 @@ function resetEngineState() {
   loadingModelId = null;
 }
 
-async function withEngine(modelId, fn) {
+// `ownerStreamId` records which stream holds the engine while `fn` runs, set
+// only *after* the lock is acquired so a queued stream (still waiting behind
+// the current holder) can't be mistaken for the one actively generating. Left
+// null by non-stream callers (e.g. suggest-questions).
+async function withEngine(modelId, fn, ownerStreamId = null) {
   const release = await acquireLock();
+  engineOwnerStreamId = ownerStreamId;
   try {
     const eng = await ensureEngine(modelId);
     return await fn(eng);
@@ -174,6 +176,7 @@ async function withEngine(modelId, fn) {
     resetEngineState();
     throw err;
   } finally {
+    engineOwnerStreamId = null;
     release();
   }
 }
@@ -379,20 +382,24 @@ async function runStream(streamId, pending, stream) {
       );
     }
 
-    await withEngine(pending.model, async (eng) => {
-      switch (pending.action) {
-        case "summarize":
-          await runSummarize(eng, pending, emit, controller.signal);
-          break;
+    await withEngine(
+      pending.model,
+      async (eng) => {
+        switch (pending.action) {
+          case "summarize":
+            await runSummarize(eng, pending, emit, controller.signal);
+            break;
 
-        case "ask":
-          await streamCompletion(eng, askPrompt, emit, controller.signal);
-          break;
+          case "ask":
+            await streamCompletion(eng, askPrompt, emit, controller.signal);
+            break;
 
-        default:
-          emit({ type: "error", error: `Unknown action: ${pending.action}` });
-      }
-    });
+          default:
+            emit({ type: "error", error: `Unknown action: ${pending.action}` });
+        }
+      },
+      streamId,
+    );
   } catch (err) {
     if (stream.cancelled) return;
     emit({ type: "error", error: err.message });
@@ -495,9 +502,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
               stream.controller?.abort();
             } catch {}
-            try {
-              engine?.interruptGenerate?.();
-            } catch {}
+            // Only interrupt when this stream is the one actually holding the
+            // engine. The engine lock serializes generations, so cancelling a
+            // *queued* stream (or one already finished with the engine) must
+            // not interrupt whichever different stream currently owns it, e.g.
+            // a rapid resummarize where the new job holds the engine while the
+            // old one is being cancelled.
+            if (engineOwnerStreamId === message.payload.streamId) {
+              try {
+                engine?.interruptGenerate?.();
+              } catch {}
+            }
           }
           sendResponse({ ok: true });
           break;

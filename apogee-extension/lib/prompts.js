@@ -146,6 +146,31 @@ export function buildYoutubeMapPrompt(title, chunk, chunkIndex, chunkTotal) {
 // buildSummaryPrompt so a YouTube video respects the same bullets/
 // sentences/paragraphs choice as any other page, layered with timestamp-link
 // rules on top rather than a separate always-on structured-brief format.
+// Builds the prefix a "&t=SECONDSs" style deep-link hangs off. A plain
+// `${url}&t=` assumed a `watch?v=` URL with an existing query string; a bare
+// /shorts/<id> URL has no `?`, so that produced a broken `/shorts/abc&t=42s`.
+// Normalize to a canonical watch URL when the video id is recognizable
+// (shorts, youtu.be, watch), otherwise fall back to the correct separator
+// (?t= vs &t=) for whatever URL we were handed.
+function youtubeTimestampBase(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    let videoId = null;
+    if (host === "youtu.be") {
+      videoId = u.pathname.slice(1).split("/")[0];
+    } else if (u.pathname.startsWith("/shorts/")) {
+      videoId = u.pathname.split("/")[2];
+    } else if (u.pathname === "/watch") {
+      videoId = u.searchParams.get("v");
+    }
+    if (videoId) return `https://www.youtube.com/watch?v=${videoId}&t=`;
+    return url + (u.search ? "&t=" : "?t=");
+  } catch {
+    return url + (url.includes("?") ? "&t=" : "?t=");
+  }
+}
+
 export function buildYoutubeAssemblyPrompt(
   title,
   url,
@@ -155,6 +180,7 @@ export function buildYoutubeAssemblyPrompt(
 ) {
   const style = SUMMARY_STYLES[mode] || SUMMARY_STYLES.bullets;
   const lastTimestamp = formatSecondsAsTimestamp(lastAvailableSeconds);
+  const tsBase = youtubeTimestampBase(url);
   return [
     "You are Apogee, an expert YouTube summarizer.",
     "Turn the timestamped notes below into a summary of the video, while still making it easy to jump to any part of the original video.",
@@ -167,7 +193,7 @@ export function buildYoutubeAssemblyPrompt(
     "- Be neutral: summarize and explain, do not editorialize.",
     "",
     "Timestamp links (mandatory on every point):",
-    `- Every point MUST start with its timestamp as a Markdown link back to that moment in the video: [MM:SS](${url}&t=SECONDSs), where SECONDS is the integer seconds copied from the notes (e.g. a [4:12] note becomes [4:12](${url}&t=252s)).`,
+    `- Every point MUST start with its timestamp as a Markdown link back to that moment in the video: [MM:SS](${tsBase}SECONDSs), where SECONDS is the integer seconds copied from the notes (e.g. a [4:12] note becomes [4:12](${tsBase}252s)).`,
     '- Format each point exactly as: "[MM:SS](link): summary text" - the timestamp link, then a colon, then the point itself.',
     "- Never omit the timestamp from a point.",
     "",

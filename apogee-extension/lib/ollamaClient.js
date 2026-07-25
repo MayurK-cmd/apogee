@@ -3,7 +3,8 @@
 // there's no Node process to install that package into. Talks straight to
 // Ollama's own HTTP API (POST /api/chat, GET /api/tags).
 
-export class OllamaError extends Error {}
+// Not exported: only ever thrown/caught within this module.
+class OllamaError extends Error {}
 
 function connectError(host, err) {
   return new OllamaError(
@@ -98,6 +99,15 @@ export async function* chatStream(
     if (err instanceof OllamaError) throw err;
     if (err?.name === "AbortError" || signal?.aborted) {
       throw new OllamaError("Generation was cancelled.");
+    }
+    // A malformed NDJSON line throws SyntaxError from JSON.parse above: the
+    // connection itself was fine, so don't misreport it as "Could not connect
+    // to Ollama..." (which sends users chasing a networking problem that
+    // isn't there).
+    if (err instanceof SyntaxError) {
+      throw new OllamaError(
+        `Ollama sent a malformed response for model '${model}': ${err.message}`,
+      );
     }
     throw connectError(host, err);
   }
