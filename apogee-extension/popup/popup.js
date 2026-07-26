@@ -112,6 +112,9 @@ const clearDebugLogsBtn = document.getElementById("clearDebugLogsBtn");
 const saveHistoryRadios = document.querySelectorAll(
   'input[name="saveHistory"]',
 );
+const sponsorBlockRadios = document.querySelectorAll(
+  'input[name="sponsorBlock"]',
+);
 const clearDataBtn = document.getElementById("clearDataBtn");
 const clearDataStatus = document.getElementById("clearDataStatus");
 const versionText = document.getElementById("versionText");
@@ -378,6 +381,11 @@ async function applySettingsToUI(settings) {
     `input[name="saveHistory"][value="${settings.saveHistory === false ? "off" : "on"}"]`,
   );
   if (historyRadio) historyRadio.checked = true;
+
+  const sponsorRadio = document.querySelector(
+    `input[name="sponsorBlock"][value="${settings.sponsorBlock === false ? "off" : "on"}"]`,
+  );
+  if (sponsorRadio) sponsorRadio.checked = true;
 
   // Fire-and-forget: checkWebGPUSupport() can create the offscreen document
   // on a cold start (a few seconds on Chrome), which used to make every
@@ -1063,6 +1071,7 @@ async function consumeSummaryStream(stream, { tab, promptsCacheKey }) {
   const text = await streamGeneratorIntoElement(stream, summaryText);
 
   currentSummaryText = text;
+  makeSummaryPassagesFocusable();
   showSummaryContext();
   setSummaryCopyButtonsVisible(!!text.trim());
   updateTimeSavedBadge(currentPageData, text);
@@ -1592,6 +1601,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (cached[cacheKey]) {
       currentSummaryText = cached[cacheKey];
       summaryText.innerHTML = renderMarkdown(cached[cacheKey]);
+      makeSummaryPassagesFocusable();
       setSummaryCopyButtonsVisible(!!cached[cacheKey].trim());
       showOnlyView("summaryView");
       // A present key (even []) means prompts finished; a missing key means
@@ -1687,6 +1697,12 @@ themeRadios.forEach((radio) => {
 saveHistoryRadios.forEach((radio) => {
   radio.addEventListener("change", async () => {
     await saveSettings({ saveHistory: radio.value === "on" });
+  });
+});
+
+sponsorBlockRadios.forEach((radio) => {
+  radio.addEventListener("change", async () => {
+    await saveSettings({ sponsorBlock: radio.value === "on" });
   });
 });
 
@@ -1903,11 +1919,33 @@ async function locateAndHighlight(target) {
   }
 }
 
+// Makes each rendered summary bullet/paragraph reachable by keyboard, since
+// the click-to-highlight affordance is otherwise mouse-only. Called after
+// every summaryText render that produces final content (stream completion,
+// cached restore); mid-stream re-renders are skipped, focus wouldn't survive
+// the constant innerHTML replacement anyway.
+function makeSummaryPassagesFocusable() {
+  if (!HIGHLIGHT_SUPPORTED) return;
+  summaryText?.querySelectorAll("li, p").forEach((el) => {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("title", "Locate this passage on the page");
+  });
+}
+
 if (HIGHLIGHT_SUPPORTED) {
   summaryText?.classList.add("apogee-groundable");
   summaryText?.addEventListener("click", (event) => {
     const target = event.target.closest("li, p");
     if (!target || !summaryText.contains(target)) return;
+    locateAndHighlight(target);
+  });
+  // Keyboard counterpart of the click handler above, for the tabindexed
+  // passages makeSummaryPassagesFocusable creates.
+  summaryText?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const target = event.target.closest("li, p");
+    if (!target || !summaryText.contains(target)) return;
+    event.preventDefault();
     locateAndHighlight(target);
   });
 }

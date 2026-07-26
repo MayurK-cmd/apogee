@@ -22,8 +22,20 @@ async function getPdfjs() {
   return _pdfjs;
 }
 
-/** Extract all text from a PDF given as an ArrayBuffer. */
-export async function extractPdfText(arrayBuffer) {
+// The PDF's bytes arrive base64-encoded (see extractPdfContent in
+// lib/pageExtraction.js: raw ArrayBuffers don't survive Chromium's
+// JSON-serialized executeScript results / runtime messages).
+function base64ToBytes(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/** Extract all text from a PDF given as a base64 string. */
+export async function extractPdfText(pdfBase64) {
   const {
     getDocument,
     InvalidPDFException,
@@ -32,7 +44,7 @@ export async function extractPdfText(arrayBuffer) {
   } = await getPdfjs();
 
   const loadingTask = getDocument({
-    data: new Uint8Array(arrayBuffer),
+    data: base64ToBytes(pdfBase64),
     isEvalSupported: false,
     useSystemFonts: true,
     verbosity: VerbosityLevel.ERRORS,
@@ -43,10 +55,10 @@ export async function extractPdfText(arrayBuffer) {
     doc = await loadingTask.promise;
   } catch (err) {
     if (err instanceof InvalidPDFException) {
-      throw new PdfExtractionError("the file is not a valid PDF");
+      throw new PdfExtractionError("This file is not a valid PDF.");
     }
     if (err instanceof PasswordException) {
-      throw new PdfExtractionError("the PDF is password-protected");
+      throw new PdfExtractionError("This PDF is password-protected.");
     }
     throw new PdfExtractionError(err.message ?? String(err));
   }

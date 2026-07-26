@@ -19,6 +19,14 @@
  * available at: http://code.google.com/p/arc90labs-readability
  */
 
+/*
+ * Vendored from Mozilla's Readability, https://github.com/mozilla/readability
+ * (Apache-2.0). This copy includes `linkDensityModifier`, so it is upstream
+ * v0.6.0 or later; last synced 2026-07. When re-syncing with upstream, update
+ * this note (ideally with the exact upstream commit) so parsing/security fixes
+ * stay traceable.
+ */
+
 /**
  * Public constructor.
  * @param {HTMLDocument} doc     The document to parse.

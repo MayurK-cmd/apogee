@@ -4,6 +4,11 @@
 // content text itself). Non-cryptographic, but wide enough to avoid
 // collisions in the small bounded caches that use it.
 export function cyrb53(str) {
+  // Coerce instead of throwing on a nullish input: hashUrl(tab.url) can see
+  // `undefined` when a popup opens without an activeTab grant (e.g. via
+  // chrome.action.openPopup() from a notification), and a throw there used
+  // to silently dump the whole view-restore path onto the home view.
+  str = String(str ?? "");
   let h1 = 0xdeadbeef;
   let h2 = 0x41c6ce57;
   for (let i = 0; i < str.length; i++) {

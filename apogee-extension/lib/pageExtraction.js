@@ -87,22 +87,40 @@ export async function extractFromActiveTab(tab) {
 // "extract-pdf" handler (lib/pdfExtract.js), which needs a real page context
 // for pdf.js's worker. Used for both providers now that summarization no
 // longer routes through a backend that could fetch the PDF itself.
+//
+// The bytes travel as base64, not a raw ArrayBuffer: Chromium serializes both
+// executeScript results and runtime messages as JSON, under which an
+// ArrayBuffer silently becomes `{}` (zero bytes on arrival), so every PDF
+// used to fail as "not a valid PDF" on Chrome/Edge. (Firefox structured-clones
+// both hops, which is why the raw-buffer version only ever worked there.)
 export async function extractPdfContent(tab) {
   const results = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: async () => {
       const res = await fetch(window.location.href);
       if (!res.ok) throw new Error(`Failed to download PDF: ${res.status}`);
-      return await res.arrayBuffer();
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      // Chunked fromCharCode: spreading multi-MB byte arrays into one call
+      // overflows the argument-count limit.
+      let binary = "";
+      const CHUNK = 0x8000;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+      }
+      return btoa(binary);
     },
   });
-  const arrayBuffer = results?.[0]?.result;
-  if (!arrayBuffer) throw new Error("Could not download PDF.");
+  const pdfBase64 = results?.[0]?.result;
+  if (!pdfBase64) throw new Error("Could not download PDF.");
 
   const response = await chrome.runtime.sendMessage({
     target: "service-worker",
     action: "extract-pdf",
-    payload: { arrayBuffer },
+    payload: { pdfBase64 },
   });
+  // Surface the real failure ("password-protected", "not a valid PDF", ...)
+  // instead of flattening every error into the caller's generic
+  // "might be a scanned image" fallback for an empty result.
+  if (response?.error) throw new Error(response.error);
   return response?.text || "";
 }

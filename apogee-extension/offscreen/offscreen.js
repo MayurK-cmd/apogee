@@ -6,6 +6,7 @@ import { parseSuggestedQuestions } from "../lib/questions.js";
 import { summarizeText } from "../lib/ollamaSummarize.js";
 import { retrieveRelevantContent, findBestPassage } from "../lib/rag.js";
 import { createLock } from "../lib/mutex.js";
+import { WEBLLM_MODELS } from "../lib/constants.js";
 // Chrome/Edge run the Transformers.js (ONNX/WASM) provider here in the offscreen
 // document too, not just WebLLM: the MV3 service worker can't reliably
 // dynamic-import @huggingface/transformers (same reason the embedding pipeline
@@ -139,26 +140,119 @@ async function ensureEngine(modelId) {
 
   const { CreateMLCEngine, prebuiltAppConfig } = await getWebLLM();
 
-  engine = await CreateMLCEngine(modelId, {
+  // Serve each catalog model's model-library WASM kernel from the extension
+  // package (assets/model-libs/, downloaded + SHA-256-verified at build time,
+  // see scripts/model-libs.mjs) instead of prebuiltAppConfig's default
+  // raw.githubusercontent.com URL: remotely fetched executable code is a
+  // supply-chain hole and a Chrome Web Store policy violation, and the CSP
+  // no longer allows that host anyway. Model *weights* still stream from
+  // Hugging Face (data, not code), unchanged.
+  const bundledModelLibs = new Map(
+    WEBLLM_MODELS.filter((m) => m.lib).map((m) => [
+      m.id,
+      chrome.runtime.getURL(`assets/model-libs/${m.lib}`),
+    ]),
+  );
+
+  const sendProgress = (progress) => {
+    chrome.runtime
+      .sendMessage({
+        target: "service-worker",
+        type: "model-progress",
+        progress,
+        modelId,
+      })
+      .catch(() => {});
+  };
+
+  // web-llm's loader only reports progress once per *completed* param shard
+  // (~26 MB each), so on a slow CDN day the popup's progress line can sit
+  // frozen for a minute+ per shard and read as a hang. While loading, if no
+  // real report arrives for STALL_NOTE_MS, re-emit the last one with a
+  // "still downloading" note so the user can tell slow from dead.
+  const STALL_NOTE_MS = 45 * 1000;
+  let lastReport = null;
+  let stallTimer = null;
+  const scheduleStallNote = () => {
+    clearTimeout(stallTimer);
+    stallTimer = setTimeout(() => {
+      if (lastReport) {
+        sendProgress({
+          ...lastReport,
+          text:
+            `${lastReport.text} — still downloading, the model host is ` +
+            "responding slowly. Progress is saved as it goes.",
+        });
+      }
+      scheduleStallNote();
+    }, STALL_NOTE_MS);
+  };
+
+  const engineOptions = {
     initProgressCallback: (report) => {
-      chrome.runtime
-        .sendMessage({
-          target: "service-worker",
-          type: "model-progress",
-          progress: report,
-          modelId,
-        })
-        .catch(() => {});
+      lastReport = report;
+      scheduleStallNote();
+      sendProgress(report);
     },
     appConfig: {
       ...prebuiltAppConfig,
       cacheBackend: "cache",
+      model_list: prebuiltAppConfig.model_list.map((m) =>
+        bundledModelLibs.has(m.model_id)
+          ? { ...m, model_lib: bundledModelLibs.get(m.model_id) }
+          : m,
+      ),
     },
-  });
+  };
+
+  // Hugging Face's CDN can stall or reset mid-download of the multi-hundred-MB
+  // param shards; web-llm surfaces that as a cryptic "Failed to execute 'add'
+  // on 'Cache'" TypeError and gives up, even though every already-completed
+  // shard is saved in Cache Storage and a rerun resumes from there. Retry a
+  // few times with growing backoff (each attempt is monotonic forward
+  // progress thanks to that cache), and translate the error for the user
+  // either way (the original goes to the debug logs via console.error).
+  const MAX_DOWNLOAD_ATTEMPTS = 4;
+  try {
+    scheduleStallNote();
+    for (let attempt = 1; ; attempt++) {
+      try {
+        engine = await CreateMLCEngine(modelId, engineOptions);
+        break;
+      } catch (err) {
+        console.error(`Model load attempt ${attempt} failed:`, err);
+        if (!isInterruptedDownloadError(err)) throw err;
+        if (attempt >= MAX_DOWNLOAD_ATTEMPTS) {
+          throw new Error(
+            "The model download keeps getting interrupted (the download " +
+              "server stalled or the connection dropped). Progress so far " +
+              "is saved, so trying again later will resume where it left " +
+              "off.",
+            { cause: err },
+          );
+        }
+        sendProgress({
+          progress: 0,
+          text: `Download hiccup — retrying (attempt ${attempt + 1} of ${MAX_DOWNLOAD_ATTEMPTS})...`,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+      }
+    }
+  } finally {
+    clearTimeout(stallTimer);
+  }
 
   currentModelId = modelId;
   loadingModelId = null;
   return engine;
+}
+
+// The failure signature of a param-shard download dying mid-stream: web-llm's
+// artifact cache does `cache.add(url)`, and the Cache API reports any fetch
+// failure (connection reset, stall timeout, non-OK response) as this
+// TypeError. Distinct from e.g. WebGPU/OOM errors, which a retry won't fix.
+function isInterruptedDownloadError(err) {
+  return /cache\.add|network\s?error|failed to fetch/i.test(err?.message || "");
 }
 
 // ensureEngine's fast path trusts currentModelId and hands back the cached
@@ -561,7 +655,12 @@ chrome.runtime.onConnect.addListener((port) => {
 
   if (!stream) {
     try {
-      port.postMessage({ type: "error", error: "Unknown or expired stream" });
+      port.postMessage({
+        type: "error",
+        error:
+          "This response is no longer available (its stream expired). " +
+          "Try summarizing again.",
+      });
     } catch {}
     try {
       port.disconnect();

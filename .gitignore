@@ -9,6 +9,10 @@ web-ext-artifacts/
 *.xpi
 *.tgz
 
+# Downloaded (hash-verified) WebLLM model-lib kernels, see
+# apogee-extension/scripts/model-libs.mjs
+.model-libs-cache/
+
 # Secrets / env
 .env
 .env.*

@@ -1,9 +1,17 @@
 // WebLLM model catalog, smaller quantized models suited for browser inference.
 // The IDs must match entries in @mlc-ai/web-llm's prebuiltAppConfig.
+//
+// `lib` is the model-library WASM kernel bundled into the Chrome package
+// (downloaded + hash-verified at build time, see scripts/model-libs.mjs) so
+// web-llm never fetches executable code from raw.githubusercontent.com at
+// runtime; offscreen.js rewrites each model's `model_lib` to point at this
+// bundled copy. The filenames must match prebuiltAppConfig's own for the
+// pinned @mlc-ai/web-llm version.
 
 export const WEBLLM_MODELS = [
   {
     id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+    lib: "Qwen2-1.5B-Instruct-q4f16_1_cs1k-webgpu.wasm",
     label: "Qwen 2.5 1.5B",
     size: "~900 MB",
     description: "Multilingual, instruction-tuned. Great for summarization.",
@@ -11,18 +19,21 @@ export const WEBLLM_MODELS = [
   },
   {
     id: "SmolLM2-1.7B-Instruct-q4f16_1-MLC",
+    lib: "SmolLM2-1.7B-Instruct-q4f16_1_cs1k-webgpu.wasm",
     label: "SmolLM2 1.7B",
     size: "~1 GB",
     description: "Compact and efficient for general tasks.",
   },
   {
     id: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+    lib: "Llama-3.2-1B-Instruct-q4f16_1_cs1k-webgpu.wasm",
     label: "Llama 3.2 1B",
     size: "~700 MB",
     description: "Lightweight, fast, and reliable.",
   },
   {
     id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
+    lib: "Phi-3.5-mini-instruct-q4f16_1_cs1k-webgpu.wasm",
     label: "Phi 3.5 Mini",
     size: "~2.2 GB",
     description: "Stronger reasoning, larger download.",
@@ -114,4 +125,9 @@ export const DEFAULT_SETTINGS = {
   // isSensitiveUrl in popup.js) are always treated as non-persistable
   // regardless of this setting.
   saveHistory: true,
+  // When false, the SponsorBlock k-anonymity lookup for YouTube sponsor
+  // segments (the extension's only third-party network request, see
+  // fetchSponsorBlockSegments in background/service-worker.js) is skipped
+  // entirely and the local phrase heuristic is used instead.
+  sponsorBlock: true,
 };

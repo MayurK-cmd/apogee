@@ -708,6 +708,13 @@ const SPONSORBLOCK_CATEGORIES = ["sponsor", "selfpromo", "interaction"];
 // locally). Returns [[startSec, endSec], ...]; [] on any failure, which makes
 // the caller fall back to its local phrase heuristic.
 async function fetchSponsorBlockSegments(videoId) {
+  // Even k-anonymized, this is the extension's only third-party request (it
+  // reveals the user's IP and "a YouTube summary is happening now" to
+  // sponsor.ajay.app), so it's user-disableable; off means the caller's
+  // network-free phrase heuristic runs instead.
+  const settings = await getSettings();
+  if (settings.sponsorBlock === false) return [];
+
   if (!/^[A-Za-z0-9_-]{11}$/.test(videoId || "")) return [];
 
   const bytes = new TextEncoder().encode(videoId);
@@ -1071,7 +1078,9 @@ chrome.runtime.onConnect.addListener((port) => {
     try {
       popupPort.postMessage({
         type: "error",
-        error: "Unknown or expired stream",
+        error:
+          "This response is no longer available (its stream expired). " +
+          "Try summarizing again.",
       });
     } catch {}
     try {
@@ -1134,16 +1143,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "offscreen-log") {
     const timestamp = new Date().toLocaleTimeString();
-    offscreenLogs.push(
-      `[${timestamp}] [${message.level.toUpperCase()}] ${message.message}`,
-    );
+    // Coerce/default rather than trust the shape: a malformed level would
+    // otherwise throw inside this listener and silently drop the log.
+    const level = String(message.level || "log").toUpperCase();
+    const line = `[${timestamp}] [${level}] ${message.message}`;
+    offscreenLogs.push(line);
     if (offscreenLogs.length > 50) {
       offscreenLogs.shift();
     }
     chrome.runtime
       .sendMessage({
         type: "live-offscreen-log",
-        log: `[${timestamp}] [${message.level.toUpperCase()}] ${message.message}`,
+        log: line,
       })
       .catch(() => {});
     return false;
@@ -1305,7 +1316,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "extract-pdf": {
-          const text = await extractPdfText(message.payload.arrayBuffer);
+          const text = await extractPdfText(message.payload.pdfBase64);
           sendResponse({ text });
           break;
         }

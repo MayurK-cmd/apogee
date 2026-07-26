@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
 import { cpSync, readFileSync, writeFileSync } from "fs";
+import { ensureModelLibs } from "./scripts/model-libs.mjs";
 
 function copyStaticPlugin(targetBrowser) {
   return {
@@ -65,6 +66,31 @@ function copyStaticPlugin(targetBrowser) {
   };
 }
 
+// Chrome only (Firefox has no WebLLM/offscreen at all): download (cached) and
+// hash-verify the WebLLM model-library WASM kernels, then ship them in the
+// package under assets/model-libs/ so no executable code is fetched remotely
+// at runtime. See scripts/model-libs.mjs for the pinned URLs/hashes and
+// offscreen.js's ensureEngine for the runtime side.
+function bundleModelLibsPlugin(targetBrowser) {
+  let libs = [];
+  return {
+    name: "bundle-webllm-model-libs",
+    async buildStart() {
+      if (targetBrowser !== "chrome") return;
+      libs = await ensureModelLibs();
+    },
+    closeBundle() {
+      if (targetBrowser !== "chrome") return;
+      for (const { file, path } of libs) {
+        cpSync(
+          path,
+          resolve(__dirname, `dist/chrome/assets/model-libs/${file}`),
+        );
+      }
+    },
+  };
+}
+
 export default defineConfig(() => {
   const targetBrowser = process.env.TARGET_BROWSER || "chrome";
   const isFirefox = targetBrowser === "firefox";
@@ -92,6 +118,12 @@ export default defineConfig(() => {
   }
 
   return {
+    // Relative asset URLs in the emitted HTML (Vite's default base "/" emits
+    // root-absolute "/popup.js"): both resolve fine inside a packed
+    // extension, but root-absolute paths break the documented UI-iteration
+    // workflow of opening a built dist/*/popup/popup.html directly via
+    // file:// (see the mock.js note at the top of popup.js).
+    base: "./",
     define: {
       "process.env.TARGET_BROWSER": JSON.stringify(targetBrowser),
     },
@@ -145,6 +177,7 @@ export default defineConfig(() => {
     },
     plugins: [
       copyStaticPlugin(targetBrowser),
+      bundleModelLibsPlugin(targetBrowser),
 
       {
         name: "strip-crossorigin",
@@ -152,9 +185,16 @@ export default defineConfig(() => {
         generateBundle(_options, bundle) {
           for (const [, asset] of Object.entries(bundle)) {
             if (asset.type === "asset" && asset.fileName.endsWith(".html")) {
+              // Drop modulepreload links entirely rather than rewriting them
+              // to `rel="preload" as="script"` (the old behavior): a classic
+              // script preload of a *module* is a mismatched destination, so
+              // Chrome double-fetches it and logs a "preloaded but not used"
+              // warning. Extension files load from local disk; preloading
+              // saves nothing here anyway (same reason vite.config.js sets
+              // modulePreload: false for the polyfill).
               asset.source = asset.source
-                .replace(/ crossorigin/g, "")
-                .replace(/ rel="modulepreload"/g, ' rel="preload" as="script"');
+                .replace(/\s*<link rel="modulepreload"[^>]*>/g, "")
+                .replace(/ crossorigin/g, "");
             }
           }
         },

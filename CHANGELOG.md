@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **PDF summarization/Q&A now works on Chrome/Edge.** The PDF's bytes were
+  passed between extension contexts as a raw `ArrayBuffer`, which Chromium's
+  JSON-based message serialization silently turns into an empty object, so
+  every PDF failed as "might be a scanned image" on Chrome/Edge (Firefox
+  structured-clones messages and was unaffected). The bytes now travel
+  base64-encoded. Real PDF failures (password-protected, invalid file) also
+  surface their specific error message now instead of being flattened into
+  the generic scanned-image text.
+- **Background summarize (right-click/shortcut) on non-saved pages is no
+  longer lost.** With "Don't save" enabled, or on a sensitive host (Gmail
+  etc.), the per-tab resume pointer was refused entirely, so the completion
+  notification's "click to view" led to an empty Home view. The pointer
+  (stream id + URL hash, no page content) is now stored so the popup can
+  reattach; summaries/Q&A content itself is still never written to disk for
+  those pages.
+- Concurrent writes to the summary/content/view-state FIFO indexes are now
+  serialized per context, so two jobs finishing at once can't drop an index
+  entry and leave an orphaned cache key behind.
+- The popup no longer falls back to Home with a console error when opened
+  without a granted tab URL (e.g. via a completion notification).
+- The "Unknown or expired stream" internal error string was replaced with a
+  user-readable explanation.
+
+### Changed
+
+- **No more remotely loaded code: WebLLM's per-model WASM kernels are now
+  bundled into the Chrome package** (downloaded and SHA-256-verified at build
+  time, see `apogee-extension/scripts/model-libs.mjs`) instead of being
+  fetched from `raw.githubusercontent.com` at runtime, and that host was
+  removed from the extension CSP. This closes a supply-chain hole and a
+  Chrome Web Store "no remotely hosted code" policy risk; only model weights
+  (data) are fetched at runtime. `@mlc-ai/web-llm` is now pinned exactly so
+  the bundled kernels can't drift from the engine version.
+- **SponsorBlock lookup can now be disabled** under Settings → "YouTube
+  Sponsor Removal". Even k-anonymized, it was the extension's only
+  third-party request; turning it off uses the local phrase heuristic with no
+  network call at all.
+
+### Added
+
+- Keyboard accessibility: Settings radio buttons have a visible focus ring
+  again, summary bullets can be focused and activated (Enter/Space) for
+  highlight-in-page, and all decorative motion is disabled under
+  `prefers-reduced-motion`.
+- Bundled font licenses are now documented and shipped
+  (`apogee-extension/assets/fonts/LICENSE.md`: Metropolis, Unlicense;
+  Mozilla Text, SIL OFL 1.1).
+
 ## [0.1.9] - 2026-07-25
 
 ### Changed

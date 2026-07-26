@@ -7,6 +7,16 @@
 
 import { getSettings } from "./settings.js";
 import { cyrb53 } from "./hash.js";
+import { createLock } from "./mutex.js";
+
+// Serializes this context's read-modify-write cycles on the FIFO index keys
+// (cacheOrder/contentCacheOrder): two jobs finishing near-simultaneously
+// (e.g. a background summarize plus a suggested-questions write) could
+// otherwise interleave get→set and drop an index entry, leaving an orphaned
+// storage key the FIFO can never evict. Per-context only (each execution
+// context gets its own module instance); cross-context popup-vs-worker races
+// remain possible but the writers there run at different times in practice.
+const acquireIndexLock = createLock();
 
 // Only the generic Readability-parsed extraction is expensive enough to be
 // worth caching/reusing. Gmail and YouTube extractors are cheap DOM reads,
@@ -46,26 +56,31 @@ export function getContentCacheKey(url) {
 export const MAX_CACHED_PAGES = 50;
 
 export async function persistSummary(cacheKey, promptsCacheKey, text, title) {
-  const { cacheOrder = [] } = await chrome.storage.local.get("cacheOrder");
-  const order = cacheOrder.filter((e) => e && e.s !== cacheKey);
-  // `t` (title) rides along on the FIFO index entry itself rather than
-  // changing the cacheKey's own stored value from a plain string to an
-  // object: the URL is already deliberately not stored anywhere here (see
-  // getSummaryCacheKey's hashing), so a title is the only human-readable
-  // way to tell entries apart in the Past Summaries list. Older entries
-  // written before this field existed just have `t: undefined`, read back
-  // as "no title", not a breaking format change.
-  order.push({ s: cacheKey, p: promptsCacheKey, t: title || "" });
+  const release = await acquireIndexLock();
+  try {
+    const { cacheOrder = [] } = await chrome.storage.local.get("cacheOrder");
+    const order = cacheOrder.filter((e) => e && e.s !== cacheKey);
+    // `t` (title) rides along on the FIFO index entry itself rather than
+    // changing the cacheKey's own stored value from a plain string to an
+    // object: the URL is already deliberately not stored anywhere here (see
+    // getSummaryCacheKey's hashing), so a title is the only human-readable
+    // way to tell entries apart in the Past Summaries list. Older entries
+    // written before this field existed just have `t: undefined`, read back
+    // as "no title", not a breaking format change.
+    order.push({ s: cacheKey, p: promptsCacheKey, t: title || "" });
 
-  const removeKeys = [];
-  while (order.length > MAX_CACHED_PAGES) {
-    const old = order.shift();
-    if (old?.s) removeKeys.push(old.s);
-    if (old?.p) removeKeys.push(old.p);
+    const removeKeys = [];
+    while (order.length > MAX_CACHED_PAGES) {
+      const old = order.shift();
+      if (old?.s) removeKeys.push(old.s);
+      if (old?.p) removeKeys.push(old.p);
+    }
+
+    await chrome.storage.local.set({ [cacheKey]: text, cacheOrder: order });
+    if (removeKeys.length > 0) await chrome.storage.local.remove(removeKeys);
+  } finally {
+    release();
   }
-
-  await chrome.storage.local.set({ [cacheKey]: text, cacheOrder: order });
-  if (removeKeys.length > 0) await chrome.storage.local.remove(removeKeys);
 }
 
 // Extracted content is cached separately (keyed only by URL, see
@@ -73,30 +88,35 @@ export async function persistSummary(cacheKey, promptsCacheKey, text, title) {
 // close/reopen, re-asking a question or regenerating a summary in a
 // different format shouldn't require re-scraping the page.
 export async function persistContent(url, pageData) {
-  const contentKey = getContentCacheKey(url);
-  const { contentCacheOrder = [] } =
-    await chrome.storage.local.get("contentCacheOrder");
-  const order = contentCacheOrder.filter((k) => k !== contentKey);
-  order.push(contentKey);
+  const release = await acquireIndexLock();
+  try {
+    const contentKey = getContentCacheKey(url);
+    const { contentCacheOrder = [] } =
+      await chrome.storage.local.get("contentCacheOrder");
+    const order = contentCacheOrder.filter((k) => k !== contentKey);
+    order.push(contentKey);
 
-  const removeKeys = [];
-  while (order.length > MAX_CACHED_PAGES) {
-    removeKeys.push(order.shift());
+    const removeKeys = [];
+    while (order.length > MAX_CACHED_PAGES) {
+      removeKeys.push(order.shift());
+    }
+
+    // Strip the raw URL from the persisted copy: the key already encodes it
+    // (hashed, see getContentCacheKey), getCachedContent() re-attaches it at
+    // read time, and the raw form can carry session tokens in its query
+    // string, hashing the key bought nothing while a plaintext copy sat in
+    // the value.
+    const persistable = { ...pageData };
+    delete persistable.url;
+
+    await chrome.storage.local.set({
+      [contentKey]: persistable,
+      contentCacheOrder: order,
+    });
+    if (removeKeys.length > 0) await chrome.storage.local.remove(removeKeys);
+  } finally {
+    release();
   }
-
-  // Strip the raw URL from the persisted copy: the key already encodes it
-  // (hashed, see getContentCacheKey), getCachedContent() re-attaches it at
-  // read time, and the raw form can carry session tokens in its query
-  // string, hashing the key bought nothing while a plaintext copy sat in
-  // the value.
-  const persistable = { ...pageData };
-  delete persistable.url;
-
-  await chrome.storage.local.set({
-    [contentKey]: persistable,
-    contentCacheOrder: order,
-  });
-  if (removeKeys.length > 0) await chrome.storage.local.remove(removeKeys);
 }
 
 export async function getCachedContent(url) {
