@@ -101,12 +101,12 @@ Home page.
 
 Apogee offers two modes of operation to balance ease-of-use and raw capabilities:
 
-| In-Browser AI (WebLLM by default on Chrome/Edge, Transformers.js by default on Firefox and opt-in everywhere) | Local Ollama                                                     |
-| --------------------------------------------------------------- | ---------------------------------------------------------------- |
-| **Model Size**: Small, fast models (~270 MB to 2.2 GB)          | **Model Size**: Larger, more capable models (4B to 8B+)          |
-| **Setup**: Zero setup required; automatic download on first run | **Setup**: Requires installing Ollama (no separate backend to run) |
-| **Execution**: Runs directly in the browser, via WebGPU (WebLLM) or WebAssembly (Transformers.js) | **Execution**: Extension talks directly to Ollama's HTTP API     |
-| **Offline**: Fully offline after model weights are cached       | **Offline**: Fully offline, communicating over `127.0.0.1`       |
+| In-Browser AI (WebLLM by default on Chrome/Edge, Transformers.js by default on Firefox and opt-in everywhere) | Local Ollama                                                       |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Model Size**: Small, fast models (~270 MB to 2.2 GB)                                                        | **Model Size**: Larger, more capable models (4B to 8B+)            |
+| **Setup**: Zero setup required; automatic download on first run                                               | **Setup**: Requires installing Ollama (no separate backend to run) |
+| **Execution**: Runs directly in the browser, via WebGPU (WebLLM) or WebAssembly (Transformers.js)             | **Execution**: Extension talks directly to Ollama's HTTP API       |
+| **Offline**: Fully offline after model weights are cached                                                     | **Offline**: Fully offline, communicating over `127.0.0.1`         |
 
 ## Supported In-Browser Models
 
@@ -121,11 +121,11 @@ Apogee offers two modes of operation to balance ease-of-use and raw capabilities
 
 ### Transformers.js (WASM/CPU, default on Firefox, opt-in on Chrome/Edge)
 
-| Model                    | Download Size | Best For                          |
-| ------------------------ | -------------- | ---------------------------------- |
-| SmolLM2 360M (default)   | ~270 MB        | Smallest/fastest, quick summaries |
-| Qwen 2.5 0.5B            | ~480 MB        | Multilingual                      |
-| Llama 3.2 1B             | ~1.2 GB        | Stronger reasoning, slower on CPU |
+| Model                  | Download Size | Best For                          |
+| ---------------------- | ------------- | --------------------------------- |
+| SmolLM2 360M (default) | ~270 MB       | Smallest/fastest, quick summaries |
+| Qwen 2.5 0.5B          | ~480 MB       | Multilingual                      |
+| Llama 3.2 1B           | ~1.2 GB       | Stronger reasoning, slower on CPU |
 
 Runs via [Transformers.js](https://github.com/huggingface/transformers.js)
 (ONNX models on the WASM backend). Chosen specifically because it never
@@ -167,17 +167,17 @@ Apogee ships two builds: a Chromium build (`dist/chrome`, Manifest V3 with an
 offscreen document for WebGPU) and a Firefox build (`dist/firefox`, no
 offscreen document). Anything Chromium-based accepts the same build.
 
-| Browser              | WebLLM (In-Browser AI, WebGPU)    | Transformers.js (In-Browser AI, WASM) | Local Ollama | Notes                                                          |
-| --------------------- | -------------------------------- | --------------------------------------- | ------------ | --------------------------------------------------------------- |
-| Chrome 113+           | Yes, default                     | Yes, opt-in in Settings                 | Yes          | Primary target, most tested                                    |
-| Edge 113+             | Yes, default                     | Yes, opt-in in Settings                 | Yes          | Chromium-based, same engine as Chrome                          |
-| Dia                   | Yes, default                     | Yes, opt-in in Settings                 | Yes          | Chromium-based                                                  |
-| Brave                 | Should work                       | Should work                            | Yes          | Chromium-based; WebGPU may need enabling in `brave://flags`, not independently verified |
-| Opera / Opera GX      | Should work                       | Should work                            | Yes          | Chromium-based, not independently verified                      |
-| Vivaldi               | Should work                       | Should work                            | Yes          | Chromium-based, not independently verified                      |
-| Arc                   | Should work                       | Should work                            | Yes          | Chromium-based, not independently verified                      |
-| Firefox 140+          | No                                | Yes, default                           | Yes          | Firefox's WebExtensions implementation has no `browser.offscreen` API, which WebLLM needs to run WebGPU outside a visible tab (a service worker can't access WebGPU directly). Transformers.js needs neither WebGPU nor a Worker, so it runs directly in Firefox's background page instead, and is the default in-browser provider there. The Firefox build declares `strict_min_version: 140.0` (needed for the manifest's `data_collection_permissions` key), older Firefox will refuse to install it rather than fail silently. |
-| Safari                | No                                | No           | Apogee doesn't currently build or ship a Safari extension (a separate packaging toolchain from Chrome/Firefox); not evaluated regardless of Safari's own WebGPU support |
+| Browser          | WebLLM (In-Browser AI, WebGPU) | Transformers.js (In-Browser AI, WASM) | Local Ollama                                                                                                                                                            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------- | ------------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chrome 113+      | Yes, default                   | Yes, opt-in in Settings               | Yes                                                                                                                                                                     | Primary target, most tested                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Edge 113+        | Yes, default                   | Yes, opt-in in Settings               | Yes                                                                                                                                                                     | Chromium-based, same engine as Chrome                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Dia              | Yes, default                   | Yes, opt-in in Settings               | Yes                                                                                                                                                                     | Chromium-based                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Brave            | Should work                    | Should work                           | Yes                                                                                                                                                                     | Chromium-based; WebGPU may need enabling in `brave://flags`, not independently verified                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Opera / Opera GX | Should work                    | Should work                           | Yes                                                                                                                                                                     | Chromium-based, not independently verified                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Vivaldi          | Should work                    | Should work                           | Yes                                                                                                                                                                     | Chromium-based, not independently verified                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Arc              | Should work                    | Should work                           | Yes                                                                                                                                                                     | Chromium-based, not independently verified                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Firefox 140+     | No                             | Yes, default                          | Yes                                                                                                                                                                     | Firefox's WebExtensions implementation has no `browser.offscreen` API, which WebLLM needs to run WebGPU outside a visible tab (a service worker can't access WebGPU directly). Transformers.js needs neither WebGPU nor a Worker, so it runs directly in Firefox's background page instead, and is the default in-browser provider there. The Firefox build declares `strict_min_version: 140.0` (needed for the manifest's `data_collection_permissions` key), older Firefox will refuse to install it rather than fail silently. |
+| Safari           | No                             | No                                    | Apogee doesn't currently build or ship a Safari extension (a separate packaging toolchain from Chrome/Firefox); not evaluated regardless of Safari's own WebGPU support |
 
 See MDN's [WebGPU API browser compatibility table](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API#browser_compatibility)
 for exact per-browser/per-OS WebGPU version support, it's a fast-moving target
@@ -192,7 +192,9 @@ requirement of its own beyond whatever Ollama itself needs.
 
 These are all Chromium-based and use the same `dist/chrome` build and load
 steps; only the extensions-page URL differs slightly (`chrome://extensions`,
-`edge://extensions`, `brave://extensions`, `dia://extensions/`, etc.).
+`edge://extensions`, `brave://extensions`, `dia://extensions/`, etc.). The
+load steps are identical on **Windows, macOS, and Linux** — only the folder
+path you point "Load unpacked" at differs by OS.
 
 1. Download the packaged extension `.zip` from [Releases](https://github.com/darshi1337/apogee/releases).
 2. Extract/unzip the downloaded `.zip` file on your machine.
@@ -202,12 +204,25 @@ steps; only the extensions-page URL differs slightly (`chrome://extensions`,
 
 #### Build from Source (Developer Option)
 
+**Prerequisites** (any OS): [Node.js](https://nodejs.org) 20.19+ or 22.12+ (CI
+builds on 22) and npm. The first Chrome build also downloads and SHA-256-verifies
+WebLLM's WASM kernels (~21 MB, cached in `apogee-extension/.model-libs-cache/`
+afterward), so the initial build needs internet access.
+
 1. Clone this repository.
 2. `cd apogee-extension && npm install && npm run build`
 3. Go to your browser's extensions page and enable **Developer mode**.
 4. Click **Load unpacked** and select the `apogee-extension/dist/chrome` folder.
 
    > `npm run build` produces both `dist/chrome` and `dist/firefox`. Use `dist/chrome` for any Chromium-based browser and `dist/firefox` for Firefox. You can also build a single target with `npm run build:chrome` or `npm run build:firefox`.
+
+   > **Windows**: the build scripts use POSIX `VAR=value` env-var syntax, which
+   > native `cmd.exe` and PowerShell don't understand. Easiest fix: run the build
+   > from **Git Bash** or **WSL**, where `npm run build` works unchanged. If you'd
+   > rather stay in your native shell, invoke Vite directly with that shell's own
+   > syntax — PowerShell: `$env:TARGET_BROWSER="chrome"; npx vite build`; cmd:
+   > `set TARGET_BROWSER=chrome && npx vite build` (repeat with `firefox` for the
+   > Firefox target). macOS and Linux use the npm scripts as-is.
 
 ### Firefox
 
@@ -226,7 +241,11 @@ or keep running.
 
 ### 1. Install Ollama
 
-Install from https://ollama.com, then pull the models you want:
+Install Ollama for your OS, then pull the models you want:
+
+- **macOS**: download the app from [ollama.com/download](https://ollama.com/download), or `brew install ollama`.
+- **Windows**: download and run the installer from [ollama.com/download](https://ollama.com/download).
+- **Linux**: `curl -fsSL https://ollama.com/install.sh | sh`
 
 ```bash
 ollama pull gemma3:4b   # and qwen3:8b, mistral:latest, llama3.1:8b
@@ -235,32 +254,75 @@ ollama pull gemma3:4b   # and qwen3:8b, mistral:latest, llama3.1:8b
 ### 2. Allow the extension to reach Ollama (CORS)
 
 Ollama only accepts browser-originated requests from an allow-listed set of
-origins, and `chrome-extension://` isn't in that default list. Set
-`OLLAMA_ORIGINS` before starting Ollama:
+origins, and an extension origin isn't in that default list. So you set
+`OLLAMA_ORIGINS` to **your extension's origin** and restart Ollama. Two things
+vary independently: **what the origin looks like** (depends on your browser) and
+**how you set the variable** (depends on your OS).
+
+#### a. Find your extension's origin (by browser)
+
+- **Chromium browsers** (Chrome, Edge, Brave, Opera, Vivaldi, Arc, Dia): the
+  origin is `chrome-extension://<id>`. Find `<id>` on the extensions page with
+  Developer mode on — `chrome://extensions`, `edge://extensions`,
+  `brave://extensions`, `dia://extensions/`, etc. (Chromium browsers all use the
+  `chrome-extension://` scheme, including Edge.)
+- **Firefox**: the origin is `moz-extension://<uuid>`. Open
+  `about:debugging#/runtime/this-firefox`, find **Apogee**, and read its
+  **Internal UUID** (or the `moz-extension://…` Manifest URL just below it). This
+  UUID is generated per Firefox profile, so it's unique to your install and is
+  _not_ the same as the AMO add-on ID.
+
+If you use more than one browser, list every origin, comma-separated, in a
+single `OLLAMA_ORIGINS` value, e.g.
+`chrome-extension://abc…,moz-extension://123…`.
+
+#### b. Set `OLLAMA_ORIGINS` (by OS)
+
+Substitute `<your-extension-origin>` below with the value(s) from step (a).
+
+**macOS** (Ollama runs as a menu-bar app):
 
 ```bash
-OLLAMA_ORIGINS="chrome-extension://<your-extension-id>" ollama serve
+launchctl setenv OLLAMA_ORIGINS "<your-extension-origin>"
 ```
 
-Find `<your-extension-id>` on `chrome://extensions` (with Developer mode on).
+Then quit Ollama from the menu bar and reopen it so it picks up the variable.
 
-If Ollama runs as a system service instead (e.g. installed via a package
-manager on Linux), set it as a persistent override rather than passing it on
-the command line:
+**Windows** (Ollama runs from the system tray):
+
+Quit Ollama from the tray, set a persistent user environment variable, then
+relaunch Ollama:
+
+```cmd
+setx OLLAMA_ORIGINS "<your-extension-origin>"
+```
+
+(Equivalently, add `OLLAMA_ORIGINS` via Settings → "Edit environment variables
+for your account". `setx` only affects processes started _after_ it runs, so
+the relaunch matters.)
+
+**Linux** — if you start Ollama yourself from a terminal:
+
+```bash
+OLLAMA_ORIGINS="<your-extension-origin>" ollama serve
+```
+
+**Linux** — if Ollama runs as a systemd service (the default for the install
+script above), set a persistent override instead:
 
 ```bash
 sudo mkdir -p /etc/systemd/system/ollama.service.d
-printf '[Service]\nEnvironment="OLLAMA_ORIGINS=chrome-extension://<your-extension-id>"\n' \
+printf '[Service]\nEnvironment="OLLAMA_ORIGINS=<your-extension-origin>"\n' \
   | sudo tee /etc/systemd/system/ollama.service.d/override.conf
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
 ```
 
-> **Security note**: `OLLAMA_ORIGINS=chrome-extension://*` (allowing *every*
-> extension) is convenient while developing, but it means any other extension
-> installed in your browser could also reach your local Ollama instance's
-> API. Scope it to your specific extension ID for anything beyond quick
-> local testing.
+> **Security note**: `OLLAMA_ORIGINS=chrome-extension://*` (or `moz-extension://*`,
+> allowing _every_ extension) is convenient while developing, but it means any
+> other extension installed in your browser could also reach your local Ollama
+> instance's API. Scope it to your specific extension origin for anything beyond
+> quick local testing.
 
 ### 3. Point the extension at Ollama
 
@@ -307,13 +369,13 @@ Privacy is the core pillar of Apogee. The key guarantee is simple: **your page c
   - **YouTube transcripts**: on a YouTube page, the extractor fetches that video's caption track from YouTube/Google (the site you're already on) to feed the transcript to the model. It is restricted to genuine `youtube.com`/`google.com`/`googlevideo.com` hosts.
   - **YouTube sponsor-segment lookup (SponsorBlock)**: when summarizing a YouTube video, Apogee asks the crowdsourced [SponsorBlock](https://sponsor.ajay.app) API which parts of the video are sponsor reads/self-promo, so they can be stripped from the transcript. This uses SponsorBlock's privacy-preserving k-anonymity endpoint: only the first 4 hex characters of the SHA-256 hash of the video ID are sent (never the video ID, URL, or any page content), and the matching entry is picked out locally. If the lookup fails, a local phrase heuristic runs instead, with no network call at all. You can also turn the lookup off entirely under **Settings → YouTube Sponsor Removal** ("Local phrase heuristic"), which makes sponsor detection fully network-free.
   - That's it, there are no other external calls. (See the extension's `content_security_policy.connect-src` in `manifest.json` for the exact allow-list this is enforced against, and `ALLOWED_OLLAMA_HOSTS` in `background/service-worker.js`, which rejects any Local Ollama host setting that isn't plain `http://127.0.0.1` or `http://localhost`.)
-- **No remotely loaded code**: every piece of executable code, JavaScript and WebAssembly alike, ships inside the extension package. That includes onnxruntime-web's WASM runtime (Ask's local embedding model and the Transformers.js engine) and WebLLM's per-model WASM kernels, which are downloaded and SHA-256-verified at **build** time (see `apogee-extension/scripts/model-libs.mjs`) rather than fetched from a CDN or GitHub at runtime. Only model *weights* (data, not code) are fetched at runtime, from Hugging Face, as described above.
+- **No remotely loaded code**: every piece of executable code, JavaScript and WebAssembly alike, ships inside the extension package. That includes onnxruntime-web's WASM runtime (Ask's local embedding model and the Transformers.js engine) and WebLLM's per-model WASM kernels, which are downloaded and SHA-256-verified at **build** time (see `apogee-extension/scripts/model-libs.mjs`) rather than fetched from a CDN or GitHub at runtime. Only model _weights_ (data, not code) are fetched at runtime, from Hugging Face, as described above.
 - **PDFs**: PDF text extraction runs fully client-side using `pdf.js` bundled into the extension, the PDF is downloaded straight into the browser tab (using that tab's own network context) and parsed there. Only the extracted text is ever handed to the model; the file itself never passes through any other process.
-- **Local Ollama's CORS setting (`OLLAMA_ORIGINS`)**: for the extension to reach Ollama at all, Ollama must be told to accept requests from the extension's origin, see [Advanced: Local Ollama Mode](#advanced-local-ollama-mode). This is a browser-enforced allow-list, not a data-transmission path, but be aware that setting it to a wildcard (`chrome-extension://*`) rather than your specific extension ID lets *any* installed extension talk to your local Ollama API, not just Apogee. Ollama itself still only binds to `127.0.0.1` by default regardless of this setting, so it's never reachable from your network either way, this only affects which browser extensions can call it.
+- **Local Ollama's CORS setting (`OLLAMA_ORIGINS`)**: for the extension to reach Ollama at all, Ollama must be told to accept requests from the extension's origin, see [Advanced: Local Ollama Mode](#advanced-local-ollama-mode). This is a browser-enforced allow-list, not a data-transmission path, but be aware that setting it to a wildcard (`chrome-extension://*`) rather than your specific extension ID lets _any_ installed extension talk to your local Ollama API, not just Apogee. Ollama itself still only binds to `127.0.0.1` by default regardless of this setting, so it's never reachable from your network either way, this only affects which browser extensions can call it.
 - **No Telemetry, Tracking, or Analytics**: Apogee includes no Google Analytics, Mixpanel, crash-reporting SDKs, or telemetry of any kind. No usage data is collected.
 - **What's stored on your device (and how to control it)**:
   - To make reopening the popup instant, Apogee caches **summaries, suggested prompts, extracted page text (for articles), and your recent questions/answers** in local extension storage (`chrome.storage.local`), never transmitted, capped in size, and keyed by a hash of the URL (so URLs with tokens aren't stored in plaintext keys).
-  - **Sensitive sites are never cached**, pages on known webmail/messaging hosts (Gmail, Outlook, Proton Mail, Yahoo Mail, Google Messages, WhatsApp Web, Telegram Web, Slack, Discord, Microsoft Teams) are always treated as ephemeral, regardless of your setting. This is a fixed allow-list, not content detection: private pages on hosts *not* listed (e.g. a bank, a health portal, a smaller webmail provider) are cached like any other page unless you switch to "Don't save" below.
+  - **Sensitive sites are never cached**, pages on known webmail/messaging hosts (Gmail, Outlook, Proton Mail, Yahoo Mail, Google Messages, WhatsApp Web, Telegram Web, Slack, Discord, Microsoft Teams) are always treated as ephemeral, regardless of your setting. This is a fixed allow-list, not content detection: private pages on hosts _not_ listed (e.g. a bank, a health portal, a smaller webmail provider) are cached like any other page unless you switch to "Don't save" below.
   - Under **Settings, Privacy**, you can switch to **"Don't save (this session only)"** so nothing page-derived is written to disk, and **"Clear cached summaries & page data"** wipes all cached content on demand (your preferences are kept).
 - **Browser Permission Sandboxing**:
   - **`activeTab` + `scripting`**: Apogee cannot read your browsing history or inspect other open tabs. It reads the _currently active tab_ only when you click "Summarize"/"Ask", right-click and choose "Summarize this page", or use the keyboard shortcut.
