@@ -17,10 +17,11 @@
 Private, in-browser AI summarizer powered by WebGPU, WebAssembly, or your own local Ollama.
 
 [![Get it on Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
-[![Download for Chrome / Edge](https://img.shields.io/badge/Chrome_%2F_Edge-Download_ZIP-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog)
+[![Get it on the Chrome Web Store](https://img.shields.io/badge/Chrome_%2F_Edge-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog)
 
 [![CI](https://github.com/darshi1337/apogee/actions/workflows/ci.yml/badge.svg)](https://github.com/darshi1337/apogee/actions/workflows/ci.yml)
 [![Mozilla Add-on](https://img.shields.io/amo/v/apogeeext?label=AMO&color=orange)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/pgemlpomhkdcjjjcpnjlebalnfglomog?label=Chrome%20Web%20Store&color=4285F4)](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
