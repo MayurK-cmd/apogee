@@ -5,6 +5,8 @@
 
 import { chunkText } from "./chunk.js";
 import { buildSummaryPrompt, buildScaledBulletsStyle } from "./prompts.js";
+import { detectPrimaryLanguage } from "./detectLanguage.js";
+import { streamInTargetLanguage } from "./languageOutput.js";
 import { cleanText } from "./cleaner.js";
 import { chatStream } from "./ollamaClient.js";
 import { getMaxChunkChars, getMaxChunks } from "./modelLimits.js";
@@ -21,8 +23,14 @@ import { summarizeYoutube } from "./youtubeSummarize.js";
  * the model's chunk fan-out budget (see getMaxChunks) and its tail dropped.
  */
 export async function* summarizeText(
-  { text, title, url, mode, model, host, signal, type },
-  { chunkTextFn = chunkText, chatStreamFn = chatStream, onProgress } = {},
+  { text, title, url, mode, model, host, signal, type, language },
+  {
+    chunkTextFn = chunkText,
+    chatStreamFn = chatStream,
+    onProgress,
+    detectLanguageFn = detectPrimaryLanguage,
+    translateFn,
+  } = {},
 ) {
   // YouTube still honors `mode`, but always runs a single map+assemble pass
   // with timestamp links woven through. See youtubeSummarize.js's own
@@ -30,8 +38,8 @@ export async function* summarizeText(
   // branch here.
   if (type === "youtube") {
     yield* summarizeYoutube(
-      { text, title, url, mode, model, host, signal },
-      { chunkTextFn, chatStreamFn, onProgress },
+      { text, title, url, mode, model, host, signal, language },
+      { chunkTextFn, chatStreamFn, onProgress, detectLanguageFn, translateFn },
     );
     return;
   }
@@ -54,10 +62,24 @@ export async function* summarizeText(
   // stream runner) catches them and emits a clean `type:"error"` message,
   // same as offscreen.js's runStream does for WebLLM failures.
 
-  // --- Single chunk: stream tokens directly ---
+  // Emits the final summary in the target language via the shared single-pass
+  // (system directive) + verify + translate-fallback strategy (see
+  // lib/languageOutput.js). `language` is already resolved to "auto" by the
+  // caller when the page is in the target language, so no work is wasted then.
+  const chat = (prompt, opts) => chatStreamFn(host, model, prompt, opts);
+  function streamFinal(finalPrompt) {
+    return streamInTargetLanguage(chat, finalPrompt, language, {
+      signal,
+      detectLanguageFn,
+      translateFn,
+      onFallback: () => onProgress?.({ stage: "translate" }),
+    });
+  }
+
+  // --- Single chunk: one summary pass, then translate if needed ---
   if (chunks.length <= 1) {
     const prompt = buildSummaryPrompt(title, url, chunks[0] || "", mode);
-    yield* chatStreamFn(host, model, prompt, { signal });
+    yield* streamFinal(prompt);
     return;
   }
 
@@ -93,5 +115,5 @@ export async function* summarizeText(
     mode,
     styleOverride,
   );
-  yield* chatStreamFn(host, model, mergePrompt, { signal });
+  yield* streamFinal(mergePrompt);
 }

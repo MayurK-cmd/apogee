@@ -55,13 +55,24 @@ test("hashUrl is deterministic and distinguishes different URLs", () => {
 test("cache key helpers embed the hashed url and are namespaced by kind", () => {
   const url = "https://example.com/article";
   const hash = hashUrl(url);
+  // Language segment defaults to "auto" when the caller omits it (older
+  // 3-arg call sites), and is embedded when supplied so a different output
+  // language is a distinct cache entry.
   assert.strictEqual(
     getSummaryCacheKey(url, "bullets", "model-x"),
-    `summary:bullets:model-x:${hash}`,
+    `summary:bullets:auto:model-x:${hash}`,
+  );
+  assert.strictEqual(
+    getSummaryCacheKey(url, "bullets", "model-x", "es"),
+    `summary:bullets:es:model-x:${hash}`,
   );
   assert.strictEqual(
     getPromptsCacheKey(url, "bullets", "model-x"),
-    `suggested-prompts:bullets:model-x:${hash}`,
+    `suggested-prompts:bullets:auto:model-x:${hash}`,
+  );
+  assert.strictEqual(
+    getPromptsCacheKey(url, "bullets", "model-x", "es"),
+    `suggested-prompts:bullets:es:model-x:${hash}`,
   );
   assert.strictEqual(getContentCacheKey(url), `content:${hash}`);
 });

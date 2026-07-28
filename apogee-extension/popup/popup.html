@@ -182,6 +182,13 @@
 
             <div id="summaryText">Summary will appear here.</div>
 
+            <div id="resummarizeHint" class="resummarize-hint hidden">
+              <span id="resummarizeHintText"></span>
+              <button id="resummarizeHintBtn" type="button">
+                Re-summarize
+              </button>
+            </div>
+
             <div class="summary-footer">
               <span id="timeSavedBadge" class="time-saved-badge hidden"></span>
 
@@ -391,6 +398,47 @@
             <label class="radio-option">
               <input type="radio" name="format" value="paragraphs" />
               <span>Paragraphs</span>
+            </label>
+          </div>
+
+          <div class="settings-card">
+            <div class="card-title">
+              <img src="../assets/languages.svg" alt="" />
+              <span>Summary Language</span>
+            </div>
+            <p class="settings-hint">
+              Summaries and answers are written in this language, whatever the
+              page's original language. "Same as article" keeps the page's own
+              language.
+            </p>
+            <select id="summaryLanguageSelect" class="settings-select"></select>
+          </div>
+
+          <div class="settings-card">
+            <div class="card-title">
+              <img src="../assets/refresh-cw.svg" alt="" />
+              <span>Translation Engine</span>
+            </div>
+            <p class="settings-hint">
+              How non-English output is translated. "Dedicated translator" uses
+              a separate Opus-MT model (downloaded per language, higher accuracy
+              on less-common languages) instead of the summarization model. Only
+              applies to the in-browser engines.
+            </p>
+
+            <label class="radio-option">
+              <input
+                type="radio"
+                name="translationEngine"
+                value="llm"
+                checked
+              />
+              <span>Summarization model (default)</span>
+            </label>
+
+            <label class="radio-option">
+              <input type="radio" name="translationEngine" value="opus" />
+              <span>Dedicated translator (Opus-MT, downloads)</span>
             </label>
           </div>
 

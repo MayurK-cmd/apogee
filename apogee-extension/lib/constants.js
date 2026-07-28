@@ -79,6 +79,78 @@ export const DEFAULT_TRANSFORMERS_MODEL = TRANSFORMERS_MODELS.find(
   (m) => m.default,
 ).id;
 
+// Output-language catalog for summaries/answers/suggested questions. Mirrors
+// the Kagi Universal Summarizer's target-language set (codes kept identical
+// for familiarity). `name` is the English language name used in the
+// system/translate prompts (see resolveLanguageName in lib/prompts.js); "auto"
+// carries none and leaves output in the source language. Each generation runs
+// through the SAME multilingual LLM: one pass with a system-role language
+// directive, verified and (only on a slip) followed by a focused translate
+// pass — no separate per-language translation model (see lib/languageOutput.js).
+export const SUMMARY_LANGUAGES = [
+  { code: "auto", label: "Same as article", name: null },
+  { code: "en", label: "English", name: "English" },
+  { code: "es", label: "Spanish", name: "Spanish" },
+  { code: "fr", label: "French", name: "French" },
+  { code: "de", label: "German", name: "German" },
+  { code: "it", label: "Italian", name: "Italian" },
+  { code: "pt", label: "Portuguese", name: "Portuguese" },
+  { code: "nl", label: "Dutch", name: "Dutch" },
+  { code: "pl", label: "Polish", name: "Polish" },
+  { code: "ru", label: "Russian", name: "Russian" },
+  { code: "uk", label: "Ukrainian", name: "Ukrainian" },
+  { code: "cs", label: "Czech", name: "Czech" },
+  { code: "sk", label: "Slovak", name: "Slovak" },
+  { code: "sl", label: "Slovenian", name: "Slovenian" },
+  { code: "bg", label: "Bulgarian", name: "Bulgarian" },
+  { code: "ro", label: "Romanian", name: "Romanian" },
+  { code: "hu", label: "Hungarian", name: "Hungarian" },
+  { code: "el", label: "Greek", name: "Greek" },
+  { code: "tr", label: "Turkish", name: "Turkish" },
+  { code: "sv", label: "Swedish", name: "Swedish" },
+  { code: "da", label: "Danish", name: "Danish" },
+  { code: "nb", label: "Norwegian", name: "Norwegian" },
+  { code: "fi", label: "Finnish", name: "Finnish" },
+  { code: "et", label: "Estonian", name: "Estonian" },
+  { code: "lv", label: "Latvian", name: "Latvian" },
+  { code: "lt", label: "Lithuanian", name: "Lithuanian" },
+  { code: "ja", label: "Japanese", name: "Japanese" },
+  { code: "ko", label: "Korean", name: "Korean" },
+  { code: "zh", label: "Chinese (Simplified)", name: "Simplified Chinese" },
+  {
+    code: "zh-hant",
+    label: "Chinese (Traditional)",
+    name: "Traditional Chinese",
+  },
+  { code: "id", label: "Indonesian", name: "Indonesian" },
+];
+
+// English default: summaries come out in English regardless of the source
+// article's language. Users who prefer native-language summaries pick "auto".
+export const DEFAULT_SUMMARY_LANGUAGE = "en";
+
+// How cross-language output is translated (see lib/languageOutput.js).
+// "llm" (default): the summarization model translates it itself (one pass with
+// a system directive, verified, with an LLM translate fallback) — no extra
+// download. "opus": an opt-in dedicated Opus-MT translation model (Helsinki-NLP,
+// lazy-downloaded per language, ~80MB direct pairs / one grouped model for the
+// long tail; see lib/opusTranslate.js) does the translation instead, for higher
+// fidelity on low-resource languages. Only applies to the in-browser providers
+// (WebLLM/Transformers.js); Ollama always uses the LLM path.
+export const TRANSLATION_ENGINES = { LLM: "llm", OPUS: "opus" };
+export const DEFAULT_TRANSLATION_ENGINE = TRANSLATION_ENGINES.LLM;
+
+// EXPERIMENTAL: request multi-threaded WASM for the Transformers.js engines
+// (translation + Firefox text-gen). Multi-threading could give a near-linear
+// speedup on CPU, but onnxruntime's WASM threads need SharedArrayBuffer, which
+// needs cross-origin isolation — something MV3 extension pages don't get out of
+// the box — and its pthread workers may hit the same worker-CSP wall that
+// blocked wllama. Off by default: flip to true, rebuild, reload, and read the
+// `[mt]` console diagnostics (see resolveWasmThreads in transformersEngine.js)
+// to learn whether isolation/threads are actually reachable here. When off (or
+// when isolation is absent) everything stays on the proven single-threaded path.
+export const EXPERIMENTAL_WASM_THREADS = false;
+
 export const LOCAL_MODELS = [
   { id: "qwen3:8b", label: "Qwen 3 8B" },
   { id: "mistral:latest", label: "Mistral Latest" },
@@ -119,6 +191,8 @@ export const DEFAULT_SETTINGS = {
   localModel: DEFAULT_LOCAL_MODEL,
   ollamaHost: DEFAULT_OLLAMA_HOST,
   responseFormat: "bullets",
+  summaryLanguage: DEFAULT_SUMMARY_LANGUAGE,
+  translationEngine: DEFAULT_TRANSLATION_ENGINE,
   theme: "dark",
   // When false, summaries/page content/Q&A are never written to disk (kept
   // only in memory for the current popup session). Sensitive hosts (see

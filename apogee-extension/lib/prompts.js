@@ -1,6 +1,59 @@
 // Client-side prompt templates, ported from apogee-backend/src/prompts/*.txt and apogee-backend/src/services/promptService.js.
 // Used by the WebLLM offscreen engine so it can generate prompts without a backend server.
 
+import { SUMMARY_LANGUAGES } from "./constants.js";
+
+// code -> English language name (see SUMMARY_LANGUAGES). "auto" (and any
+// unknown code) maps to null, meaning "no target language" — callers then skip
+// the system directive / translation and leave output in the source language.
+const LANGUAGE_NAMES = new Map(SUMMARY_LANGUAGES.map((l) => [l.code, l.name]));
+
+// Resolves a language code to its English name, or null for "auto"/unknown.
+// null means "no translation" — callers skip the translate pass entirely.
+export function resolveLanguageName(language) {
+  return LANGUAGE_NAMES.get(language) || null;
+}
+
+// System-role directive forcing the target language on the FIRST summary pass
+// (see streamFinal in lib/ollamaSummarize.js). A system message is weighted far
+// more heavily by instruct models than the inline user-text directive that
+// small models ignored, so this usually yields the target language in a single
+// pass; output is verified and falls back to buildTranslatePrompt if it slips.
+// Returns null for "auto"/unknown.
+export function buildLanguageSystemPrompt(language) {
+  const name = resolveLanguageName(language);
+  if (!name) return null;
+  return (
+    `You are Apogee. Write your ENTIRE response in ${name}. ` +
+    `Even when the user's text is in another language, always respond only in ${name}, ` +
+    `never in any other language.`
+  );
+}
+
+// Focused "translate this finished text" prompt, run as a SEPARATE pass after
+// summarization (see summarizeText / summarizeYoutube). The small in-browser
+// models (0.5B-1.7B) reliably ignore an inline "write your summary in X"
+// directive across a long summarization task, but handle a short, standalone
+// "translate this to X" task well — the same explicit-translation-step
+// approach Kagi's summarizer uses. Formatting/link/timestamp preservation
+// rules keep bullet structure and YouTube [MM:SS](url) deep-links intact.
+export function buildTranslatePrompt(text, language) {
+  const name = resolveLanguageName(language) || "the requested language";
+  return [
+    `You are a translation engine. Translate the text below into ${name}.`,
+    "",
+    "Rules:",
+    `- Output ONLY the ${name} translation — no preamble, notes, or explanation.`,
+    "- Preserve the formatting exactly: keep every line break, bullet marker, and heading.",
+    "- Keep Markdown links intact: translate the visible link text but NEVER change the URL inside the parentheses.",
+    "- Leave numbers, timestamps (e.g. [4:12]), proper names, and code unchanged.",
+    `- If a passage is already in ${name}, keep it unchanged.`,
+    "",
+    "TEXT TO TRANSLATE:",
+    text,
+  ].join("\n");
+}
+
 function bulletsStyle(min, max) {
   return [
     "Return only the final answer.",

@@ -31,6 +31,7 @@ import {
   TRANSFORMERS_MODELS,
   LOCAL_MODELS,
   DEFAULT_OLLAMA_HOST,
+  SUMMARY_LANGUAGES,
 } from "../lib/constants.js";
 import { getSettings } from "../lib/settings.js";
 import { formatSummaryAsMarkdown } from "../lib/exportFormat.js";
@@ -55,6 +56,9 @@ const summarizeShortcutHint = document.getElementById("summarizeShortcutHint");
 const summaryText = document.getElementById("summaryText");
 const cancelSummarizeBtn = document.getElementById("cancelSummarizeBtn");
 const resummarizeBtn = document.getElementById("resummarizeBtn");
+const resummarizeHint = document.getElementById("resummarizeHint");
+const resummarizeHintText = document.getElementById("resummarizeHintText");
+const resummarizeHintBtn = document.getElementById("resummarizeHintBtn");
 const timeSavedBadge = document.getElementById("timeSavedBadge");
 const copySummaryBtn = document.getElementById("copySummaryBtn");
 const copyMarkdownBtn = document.getElementById("copyMarkdownBtn");
@@ -80,6 +84,10 @@ const questionInput = document.getElementById("questionInput");
 const sendBtn = document.getElementById("sendBtn");
 const answerBox = document.getElementById("answerBox");
 const formatRadios = document.querySelectorAll('input[name="format"]');
+const summaryLanguageSelect = document.getElementById("summaryLanguageSelect");
+const translationEngineRadios = document.querySelectorAll(
+  'input[name="translationEngine"]',
+);
 const providerRadios = document.querySelectorAll('input[name="provider"]');
 const themeRadios = document.querySelectorAll('input[name="theme"]');
 const backendUrlInput = document.getElementById("backendUrlInput");
@@ -127,6 +135,44 @@ if (versionText) {
 
 let currentPageData = null;
 let currentSummaryText = "";
+// The summaryLanguage the on-screen summary was actually generated in, so we
+// can flag it as stale when the user later switches the language setting
+// without re-summarizing (see updateResummarizeHint). null when no summary is
+// displayed.
+let currentSummaryLanguage = null;
+
+// code -> display label, for the "Re-summarize to apply <language>" hint.
+const LANGUAGE_LABELS = new Map(
+  SUMMARY_LANGUAGES.map((l) => [l.code, l.label]),
+);
+
+// Shows a "this summary isn't in the selected language" nudge when the
+// displayed summary's language no longer matches the summaryLanguage setting.
+// Changing the setting (like changing Response Format) deliberately does NOT
+// auto-regenerate; this just makes the staleness visible and one click to fix.
+async function updateResummarizeHint(settings) {
+  if (!resummarizeHint) return;
+  const s = settings || (await getSettings());
+  const target = s.summaryLanguage;
+  const stale =
+    !!currentSummaryText.trim() &&
+    currentSummaryLanguage != null &&
+    currentSummaryLanguage !== target;
+  if (!stale) {
+    resummarizeHint.classList.add("hidden");
+    return;
+  }
+  resummarizeHintText.textContent =
+    target === "auto"
+      ? "This summary isn't in the page's original language. Re-summarize to apply."
+      : `This summary isn't in ${LANGUAGE_LABELS.get(target) || target}. Re-summarize to apply.`;
+  resummarizeHint.classList.remove("hidden");
+}
+
+resummarizeHintBtn?.addEventListener("click", () => {
+  resummarizeHint?.classList.add("hidden");
+  summarizeActivePage();
+});
 let currentAnswerText = "";
 // streamId of the summarize job currently in flight, if any; drives the
 // Cancel button, cleared on any terminal outcome (done/cancelled/error).
@@ -177,6 +223,8 @@ function startSuggestedQuestionsBg(
         url,
         summary,
         model: getModelForSettings(settings),
+        language: settings.summaryLanguage,
+        translationEngine: settings.translationEngine,
       },
     })
     .catch(() => {});
@@ -376,6 +424,25 @@ async function applySettingsToUI(settings) {
     `input[name="format"][value="${settings.responseFormat}"]`,
   );
   if (fmtRadio) fmtRadio.checked = true;
+
+  if (summaryLanguageSelect) {
+    // Populate once (the option set is static); re-selecting the stored value
+    // on every applySettingsToUI keeps the dropdown in sync after a reset.
+    if (summaryLanguageSelect.options.length === 0) {
+      for (const lang of SUMMARY_LANGUAGES) {
+        const opt = document.createElement("option");
+        opt.value = lang.code;
+        opt.textContent = lang.label;
+        summaryLanguageSelect.appendChild(opt);
+      }
+    }
+    summaryLanguageSelect.value = settings.summaryLanguage;
+  }
+
+  const translationRadio = document.querySelector(
+    `input[name="translationEngine"][value="${settings.translationEngine}"]`,
+  );
+  if (translationRadio) translationRadio.checked = true;
 
   const historyRadio = document.querySelector(
     `input[name="saveHistory"][value="${settings.saveHistory === false ? "off" : "on"}"]`,
@@ -1074,6 +1141,9 @@ async function consumeSummaryStream(stream, { tab, promptsCacheKey }) {
   makeSummaryPassagesFocusable();
   showSummaryContext();
   setSummaryCopyButtonsVisible(!!text.trim());
+  // The just-finished summary matches the current setting, so clear any stale
+  // language hint that may have been showing before this re-run.
+  updateResummarizeHint();
   updateTimeSavedBadge(currentPageData, text);
   await saveViewState(tab.id, {
     view: "summaryView",
@@ -1133,6 +1203,9 @@ async function summarizeActivePage() {
     const settings = await getSettings();
     const provider = getProvider(settings);
     const model = getModelForSettings(settings);
+    // The summary about to be generated will be in this language; record it so
+    // a later language-setting change can flag the result as stale.
+    currentSummaryLanguage = settings.summaryLanguage;
     // Explicit "Summarize" click always re-reads the live page, unlike
     // getPageData()'s reuse path (used by follow-up questions), we don't
     // want a stale cached extraction here.
@@ -1163,11 +1236,13 @@ async function summarizeActivePage() {
       tab.url,
       settings.responseFormat,
       model,
+      settings.summaryLanguage,
     );
     const promptsCacheKey = getPromptsCacheKey(
       tab.url,
       settings.responseFormat,
       model,
+      settings.summaryLanguage,
     );
     // Read once here (rather than after the stream finishes) and threaded
     // through as `finalize`: the service worker is what actually persists
@@ -1182,6 +1257,8 @@ async function summarizeActivePage() {
       providerType: getProviderType(settings),
       host: settings.ollamaHost,
       notifyOnFinish: false,
+      language: settings.summaryLanguage,
+      translationEngine: settings.translationEngine,
     };
 
     let streamId, stream;
@@ -1201,6 +1278,8 @@ async function summarizeActivePage() {
         url: pageData.url,
         content: pdfContent,
         mode: settings.responseFormat,
+        language: settings.summaryLanguage,
+        translationEngine: settings.translationEngine,
         finalize,
       }));
     } else {
@@ -1210,6 +1289,8 @@ async function summarizeActivePage() {
         content: pageData.content,
         mode: settings.responseFormat,
         type: pageData.type,
+        language: settings.summaryLanguage,
+        translationEngine: settings.translationEngine,
         finalize,
       }));
     }
@@ -1325,6 +1406,8 @@ async function submitQuestion(question) {
       url: pageData.url,
       content,
       question: trimmed,
+      language: settings.summaryLanguage,
+      translationEngine: settings.translationEngine,
     });
 
     await saveViewState(tab.id, {
@@ -1590,19 +1673,25 @@ document.addEventListener("DOMContentLoaded", async () => {
       tab.url,
       settings.responseFormat,
       model,
+      settings.summaryLanguage,
     );
     const promptsCacheKey = getPromptsCacheKey(
       tab.url,
       settings.responseFormat,
       model,
+      settings.summaryLanguage,
     );
     const cached = await chrome.storage.local.get([cacheKey, promptsCacheKey]);
 
     if (cached[cacheKey]) {
       currentSummaryText = cached[cacheKey];
+      // A cache hit is keyed by the current summaryLanguage, so the restored
+      // summary is, by construction, in the currently-selected language.
+      currentSummaryLanguage = settings.summaryLanguage;
       summaryText.innerHTML = renderMarkdown(cached[cacheKey]);
       makeSummaryPassagesFocusable();
       setSummaryCopyButtonsVisible(!!cached[cacheKey].trim());
+      updateResummarizeHint(settings);
       showOnlyView("summaryView");
       // A present key (even []) means prompts finished; a missing key means
       // they were still generating when the popup closed, show loading and
@@ -1687,6 +1776,21 @@ formatRadios.forEach((radio) => {
   });
 });
 
+summaryLanguageSelect?.addEventListener("change", async () => {
+  const settings = await saveSettings({
+    summaryLanguage: summaryLanguageSelect.value,
+  });
+  // Changing the language doesn't auto-regenerate (same as Response Format);
+  // surface the mismatch so the visible summary can be refreshed on demand.
+  await updateResummarizeHint(settings);
+});
+
+translationEngineRadios.forEach((radio) => {
+  radio.addEventListener("change", async () => {
+    await saveSettings({ translationEngine: radio.value });
+  });
+});
+
 themeRadios.forEach((radio) => {
   radio.addEventListener("change", async () => {
     const settings = await saveSettings({ theme: radio.value });
@@ -1730,6 +1834,8 @@ clearDataBtn?.addEventListener("click", async () => {
   try {
     await clearCachedData();
     currentSummaryText = "";
+    currentSummaryLanguage = null;
+    updateResummarizeHint();
     await loadPastSummaries();
     if (clearDataStatus) clearDataStatus.textContent = "Cached data cleared.";
   } catch (err) {
@@ -1801,6 +1907,9 @@ settingsBackBtn?.addEventListener("click", () => {
   // navigating back there doesn't disturb what's actually being resumed on
   // a later popup reopen, just which page is currently on screen.
   saveViewState(activeTabId, { view: settingsEntryView });
+  // Returning to a summary after possibly changing the language in Settings:
+  // re-evaluate whether the on-screen summary is now in a stale language.
+  if (settingsEntryView === "summaryView") updateResummarizeHint();
 });
 
 contactBackBtn?.addEventListener("click", () => {

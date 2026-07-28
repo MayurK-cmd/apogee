@@ -8,7 +8,7 @@
 // so it isn't affected by the blob:-URL-worker CSP restriction that blocks
 // wllama in every extension execution context on both browsers.
 
-import { TRANSFORMERS_MODELS } from "./constants.js";
+import { TRANSFORMERS_MODELS, EXPERIMENTAL_WASM_THREADS } from "./constants.js";
 import { getTransformers } from "./transformersLib.js";
 import { ortWasmUrl, ortWasmBinary } from "./onnxWasm.js";
 import { createLock } from "./mutex.js";
@@ -24,6 +24,29 @@ const GENERATION_MAX_TOKENS = 640;
 let engine = null;
 let currentModelId = null;
 let loadingModelId = null;
+
+// EXPERIMENTAL multi-threaded-WASM probe. Logs the cross-origin-isolation state
+// on every engine load — so a single reload reveals whether SharedArrayBuffer
+// (and therefore onnxruntime WASM threads) is even reachable in this extension
+// context — and only actually requests threads when EXPERIMENTAL_WASM_THREADS
+// is on AND isolation is present. onnxruntime silently falls back to a single
+// thread when SharedArrayBuffer is missing, so requesting >1 here is harmless;
+// the flag just lets us watch whether pthread workers spawn or hit the
+// worker-CSP wall that blocked wllama. Capped at 4 to avoid oversubscribing.
+// Returns the numThreads to hand env.backends.onnx.wasm.
+function resolveWasmThreads(label) {
+  const isolated = globalThis.crossOriginIsolated === true;
+  const hasSAB = typeof SharedArrayBuffer !== "undefined";
+  const cores = globalThis.navigator?.hardwareConcurrency || 1;
+  const threads =
+    EXPERIMENTAL_WASM_THREADS && isolated && hasSAB ? Math.min(cores, 4) : 1;
+  console.log(
+    `[mt] ${label}: crossOriginIsolated=${isolated} ` +
+      `SharedArrayBuffer=${hasSAB} cores=${cores} ` +
+      `flag=${EXPERIMENTAL_WASM_THREADS} -> numThreads=${threads}`,
+  );
+  return threads;
+}
 
 // Serializes engine operations so a load/generate can't overlap and corrupt
 // the ONNX/WASM engine state (see lib/mutex.js; mirrors offscreen.js's WebLLM
@@ -55,11 +78,9 @@ async function ensureEngine(modelId, onProgress) {
   console.log(`[transformers] ensureEngine: loading ${modelId}`);
   const { pipeline, env } = await getTransformers();
   console.log("[transformers] library loaded, preparing WASM backend");
-  // Extension pages aren't cross-origin-isolated, so multi-threaded WASM
-  // (which needs SharedArrayBuffer) isn't available anyway; forcing
-  // single-threaded up front skips onnxruntime-web's feature probe, same as
-  // lib/embeddings.js.
-  env.backends.onnx.wasm.numThreads = 1;
+  // Single-threaded unless the EXPERIMENTAL multi-thread flag is on AND this
+  // context turns out to be cross-origin-isolated (see resolveWasmThreads).
+  env.backends.onnx.wasm.numThreads = resolveWasmThreads("text-gen");
   // Bundled-in-package WASM runtime, instantiated from raw bytes (wasmBinary)
   // rather than fetched by onnxruntime; see lib/onnxWasm.js and lib/embeddings.js
   // for the full rationale (streaming instantiation of an extension-served .wasm
@@ -126,12 +147,108 @@ export function getTransformersStatus() {
   return { currentModelId, loadingModelId };
 }
 
+// --- Opus-MT translation pipeline (opt-in "opus" translationEngine) ---
+// A separate seq2seq `translation` pipeline, cached and locked independently of
+// the text-generation engine above (a summarize/ask job may use both: the LLM
+// generates, then this translates the result — see lib/languageOutput.js). Same
+// bundled-WASM setup as ensureEngine; Opus-MT models are small (~80MB direct
+// pairs) and English-centric (see lib/opusTranslate.js for model resolution).
+let translator = null;
+let translatorModelId = null;
+const acquireTranslatorLock = createLock();
+
+async function ensureTranslator(modelId, onProgress) {
+  if (translator && translatorModelId === modelId) return translator;
+  if (translator) {
+    try {
+      await translator.dispose();
+    } catch {
+      // ignore
+    }
+    translator = null;
+    translatorModelId = null;
+  }
+  const { pipeline, env } = await getTransformers();
+  env.backends.onnx.wasm.numThreads = resolveWasmThreads("translator");
+  env.backends.onnx.wasm.wasmPaths = { wasm: ortWasmUrl() };
+  env.backends.onnx.wasm.wasmBinary = await ortWasmBinary();
+  translator = await pipeline("translation", modelId, {
+    dtype: "q8",
+    device: "wasm",
+    progress_callback: (p) => {
+      if (p.status !== "progress") return;
+      onProgress?.({
+        progress: p.progress / 100,
+        text: `Downloading translation model... ${Math.round(p.progress)}%`,
+      });
+    },
+  });
+  translatorModelId = modelId;
+  return translator;
+}
+
+export async function withTranslator(modelId, onProgress, fn) {
+  const release = await acquireTranslatorLock();
+  try {
+    const t = await ensureTranslator(modelId, onProgress);
+    return await fn(t);
+  } catch (err) {
+    // Drop a broken translator so the next attempt reloads it cleanly.
+    if (translator) {
+      try {
+        Promise.resolve(translator.dispose()).catch(() => {});
+      } catch {
+        // ignore
+      }
+    }
+    translator = null;
+    translatorModelId = null;
+    throw err;
+  } finally {
+    release();
+  }
+}
+
+// Cap decode length per translated line. Opus-MT can degenerate into a
+// repetition loop on odd input (bare numbers, markdown, code fragments) and
+// run to the model's full max_length, which on single-threaded WASM stalls the
+// whole translate pass and reads as a frozen extension — the same failure mode
+// GENERATION_MAX_TOKENS guards on the text-gen engine. Summary lines are
+// sentence-length, so this is generous headroom rather than a real limit.
+const TRANSLATE_MAX_NEW_TOKENS = 256;
+
+// Translates a batch of strings in a single seq2seq pass. transformers.js
+// batches internally, so this is far faster than awaiting one call per line on
+// single-threaded WASM. `token` is the grouped-model ">>xxx<< " target prefix,
+// prepended to every input (empty for a dedicated per-pair model); Opus-MT
+// needs no src/tgt_lang args, the model (or its token) fixes the direction.
+// Returns translations in input order.
+//
+// num_beams: 1 forces greedy decoding. Marian/Opus-MT models ship a
+// generation_config with beam search on (num_beams 4-6), which does ~4-6x the
+// decoder forward passes for a marginal BLEU gain — far too costly on
+// single-threaded WASM, where decode is the whole runtime. Greedy is the right
+// trade for summary text; bump num_beams back up here to trade speed for quality.
+export async function translateBatch(t, texts, token = "") {
+  if (!texts.length) return [];
+  const output = await t(
+    texts.map((x) => token + x),
+    {
+      max_new_tokens: TRANSLATE_MAX_NEW_TOKENS,
+      num_beams: 1,
+      do_sample: false,
+    },
+  );
+  const arr = Array.isArray(output) ? output : [output];
+  return arr.map((o) => o?.translation_text ?? "");
+}
+
 // Bridges TextStreamer's callback-based streaming into an async generator,
 // the same queue/wake pattern lib/providers.js's attachToStream uses to
 // bridge port messages into an async generator. Takes a plain prompt string
 // (wrapped into a single-turn chat message here) to match the chatStreamFn
 // seam summarizeText (lib/ollamaSummarize.js) expects.
-export async function* transformersChatStream(eng, prompt) {
+export async function* transformersChatStream(eng, prompt, { system } = {}) {
   const { TextStreamer } = await getTransformers();
   const queue = [];
   let resolveNext = null;
@@ -162,7 +279,13 @@ export async function* transformersChatStream(eng, prompt) {
   console.log(
     `[transformers] generation start (prompt ${prompt.length} chars)`,
   );
-  eng([{ role: "user", content: prompt }], {
+  const messages = system
+    ? [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ]
+    : [{ role: "user", content: prompt }];
+  eng(messages, {
     max_new_tokens: GENERATION_MAX_TOKENS,
     do_sample: false,
     streamer,
@@ -192,12 +315,4 @@ export async function* transformersChatStream(eng, prompt) {
       });
     }
   }
-}
-
-export async function transformersGenerateText(eng, prompt, maxTokens = 512) {
-  const output = await eng([{ role: "user", content: prompt }], {
-    max_new_tokens: maxTokens,
-    do_sample: false,
-  });
-  return output[0]?.generated_text?.at(-1)?.content || "";
 }

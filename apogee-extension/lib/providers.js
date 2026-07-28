@@ -159,7 +159,16 @@ class WebLLMProvider {
   /**
    * @returns {Promise<{streamId: string, stream: AsyncGenerator<string>}>}
    */
-  summarize({ title, url, content, mode, type, finalize }) {
+  summarize({
+    title,
+    url,
+    content,
+    mode,
+    type,
+    finalize,
+    language,
+    translationEngine,
+  }) {
     return startWebllmStream("summarize", {
       title,
       url,
@@ -168,16 +177,20 @@ class WebLLMProvider {
       type,
       model: this.model,
       finalize,
+      language,
+      translationEngine,
     });
   }
 
-  ask({ title, url, content, question }) {
+  ask({ title, url, content, question, language, translationEngine }) {
     return startWebllmStream("ask", {
       title,
       url,
       content,
       question,
       model: this.model,
+      language,
+      translationEngine,
     });
   }
 
@@ -199,7 +212,16 @@ class TransformersProvider {
     this.model = model;
   }
 
-  summarize({ title, url, content, mode, type, finalize }) {
+  summarize({
+    title,
+    url,
+    content,
+    mode,
+    type,
+    finalize,
+    language,
+    translationEngine,
+  }) {
     return startTransformersStream("summarize", {
       title,
       url,
@@ -208,16 +230,20 @@ class TransformersProvider {
       type,
       model: this.model,
       finalize,
+      language,
+      translationEngine,
     });
   }
 
-  ask({ title, url, content, question }) {
+  ask({ title, url, content, question, language, translationEngine }) {
     return startTransformersStream("ask", {
       title,
       url,
       content,
       question,
       model: this.model,
+      language,
+      translationEngine,
     });
   }
 
@@ -241,7 +267,7 @@ class DirectOllamaProvider {
     this.host = (host || DEFAULT_OLLAMA_HOST).replace(/\/+$/, "");
   }
 
-  summarize({ title, url, content, mode, type, finalize }) {
+  summarize({ title, url, content, mode, type, finalize, language }) {
     return startOllamaStream("summarize", {
       title,
       url,
@@ -251,10 +277,11 @@ class DirectOllamaProvider {
       model: this.model,
       host: this.host,
       finalize,
+      language,
     });
   }
 
-  ask({ title, url, content, question }) {
+  ask({ title, url, content, question, language }) {
     return startOllamaStream("ask", {
       title,
       url,
@@ -262,6 +289,7 @@ class DirectOllamaProvider {
       question,
       model: this.model,
       host: this.host,
+      language,
     });
   }
 

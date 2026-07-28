@@ -21,8 +21,14 @@ export async function* chatStream(
   host,
   model,
   prompt,
-  { signal, keepAlive = "5m" } = {},
+  { signal, keepAlive = "5m", system } = {},
 ) {
+  const messages = system
+    ? [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ]
+    : [{ role: "user", content: prompt }];
   let response;
   try {
     response = await fetch(`${host.replace(/\/+$/, "")}/api/chat`, {
@@ -30,7 +36,7 @@ export async function* chatStream(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
-        messages: [{ role: "user", content: prompt }],
+        messages,
         stream: true,
         think: false,
         keep_alive: keepAlive,

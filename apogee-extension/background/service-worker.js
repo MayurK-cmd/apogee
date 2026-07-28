@@ -11,7 +11,13 @@
 // window/DOM context and can dynamic-import it.
 
 import { summarizeText } from "../lib/ollamaSummarize.js";
-import { chatStream, chatOnce, checkHealth } from "../lib/ollamaClient.js";
+import { resolveEffectiveLanguage } from "../lib/detectLanguage.js";
+import {
+  streamInTargetLanguage,
+  generateInTargetLanguage,
+} from "../lib/languageOutput.js";
+import { makeOpusTranslateFn } from "../lib/opusTranslateEngine.js";
+import { chatStream, checkHealth } from "../lib/ollamaClient.js";
 import {
   buildAnswerPrompt,
   buildSuggestQuestionsPrompt,
@@ -23,7 +29,6 @@ import {
   withTransformersEngine,
   getTransformersStatus,
   transformersChatStream,
-  transformersGenerateText,
 } from "../lib/transformersEngine.js";
 import { getSettings } from "../lib/settings.js";
 import {
@@ -40,7 +45,7 @@ import {
   extractPdfContent,
 } from "../lib/pageExtraction.js";
 import { getProviderType, getModelForSettings } from "../lib/providers.js";
-import { PROVIDERS } from "../lib/constants.js";
+import { PROVIDERS, TRANSLATION_ENGINES } from "../lib/constants.js";
 import { saveViewState, removeViewState } from "../lib/viewState.js";
 
 const hasOffscreenAPI =
@@ -348,7 +353,19 @@ function createBufferedStream(streamId, { finalize, model, title, url }) {
 // survives popup close/reopen.
 async function startOllamaStream(
   streamId,
-  { action, host, model, title, url, content, mode, type, question, finalize },
+  {
+    action,
+    host,
+    model,
+    title,
+    url,
+    content,
+    mode,
+    type,
+    question,
+    finalize,
+    language,
+  },
 ) {
   const { stream, finish, emitChunk } = createBufferedStream(streamId, {
     finalize,
@@ -375,15 +392,21 @@ async function startOllamaStream(
         mode,
         type,
         model,
+        language: await resolveEffectiveLanguage(content, language),
         host: validHost,
         signal: stream.controller.signal,
       });
     } else if (action === "ask") {
       const relevantContent = await getRelevantAskContent(content, question);
+      // Neutral prompt; the language wrapper enforces the answer's language.
       const prompt = buildAnswerPrompt(title, url, relevantContent, question);
-      generator = chatStream(validHost, model, prompt, {
-        signal: stream.controller.signal,
-      });
+      const chat = (p, opts) => chatStream(validHost, model, p, opts);
+      generator = streamInTargetLanguage(
+        chat,
+        prompt,
+        await resolveEffectiveLanguage(content, language),
+        { signal: stream.controller.signal },
+      );
     } else {
       throw new Error(`Unknown ollama-stream action: ${action}`);
     }
@@ -402,7 +425,19 @@ async function startOllamaStream(
 // popup close/reopen.
 async function startTransformersStream(
   streamId,
-  { action, model, title, url, content, mode, type, question, finalize },
+  {
+    action,
+    model,
+    title,
+    url,
+    content,
+    mode,
+    type,
+    question,
+    finalize,
+    language,
+    translationEngine,
+  },
 ) {
   const { stream, finish, emitChunk } = createBufferedStream(streamId, {
     finalize,
@@ -417,6 +452,13 @@ async function startTransformersStream(
       .catch(() => {});
   };
 
+  // Opus-MT translate function for this job when the opus engine is selected
+  // (Firefox runs Transformers.js here, so it can host the translator too).
+  const translateFn =
+    translationEngine === TRANSLATION_ENGINES.OPUS
+      ? makeOpusTranslateFn((p) => onProgress({ progress: 0, text: p.text }))
+      : undefined;
+
   // Stage label + word ticker, mirroring offscreen.js's runTransformersJob
   // (the Chrome host of this same engine): each map/reduce pass is otherwise
   // silent for its entire prefill+decode, minutes on this CPU engine, which
@@ -427,6 +469,10 @@ async function startTransformersStream(
   try {
     await withTransformersEngine(model, onProgress, async (eng) => {
       if (action === "summarize") {
+        const effectiveLanguage = await resolveEffectiveLanguage(
+          content,
+          language,
+        );
         const generator = summarizeText(
           {
             text: content,
@@ -435,16 +481,20 @@ async function startTransformersStream(
             mode,
             type,
             model,
+            language: effectiveLanguage,
             signal: stream.controller.signal,
           },
           {
+            translateFn,
             // transformers.js/ONNX has no native abort mechanism (unlike
             // WebLLM's interruptGenerate() or Ollama's fetch signal), so a
             // cancel takes effect between tokens within a chunk, and
             // summarizeText's own signal checks stop it between chunks.
-            chatStreamFn: async function* (_host, _model, prompt) {
+            chatStreamFn: async function* (_host, _model, prompt, opts) {
               let count = 0;
-              for await (const token of transformersChatStream(eng, prompt)) {
+              for await (const token of transformersChatStream(eng, prompt, {
+                system: opts?.system,
+              })) {
                 if (stream.cancelled) return;
                 count++;
                 if (count % 24 === 0) {
@@ -462,10 +512,10 @@ async function startTransformersStream(
                 onProgress({ progress: 0, text: longNote.trim() });
                 return;
               }
-              stageLabel =
-                p.stage === "reduce"
-                  ? "Merging summary..."
-                  : `Summarizing part ${p.index + 1} of ${p.total}...`;
+              if (p.stage === "reduce") stageLabel = "Merging summary...";
+              else if (p.stage === "translate") stageLabel = "Translating...";
+              else
+                stageLabel = `Summarizing part ${p.index + 1} of ${p.total}...`;
               onProgress({ progress: 0, text: longNote + stageLabel });
             },
           },
@@ -477,8 +527,20 @@ async function startTransformersStream(
         // getRelevantAskContent already falls back to plain truncation when
         // there's no offscreen document (Firefox), same as Ollama's ask.
         const relevantContent = await getRelevantAskContent(content, question);
+        // Neutral prompt; the language wrapper enforces the answer's language.
         const prompt = buildAnswerPrompt(title, url, relevantContent, question);
-        for await (const token of transformersChatStream(eng, prompt)) {
+        const chat = (p, opts) =>
+          transformersChatStream(eng, p, { system: opts?.system });
+        const askLanguage = await resolveEffectiveLanguage(content, language);
+        for await (const token of streamInTargetLanguage(
+          chat,
+          prompt,
+          askLanguage,
+          {
+            signal: stream.controller.signal,
+            translateFn,
+          },
+        )) {
           if (stream.cancelled) break;
           emitChunk(token);
         }
@@ -495,10 +557,24 @@ async function startTransformersStream(
   }
 }
 
-async function generateTransformersSuggestions(model, { title, url, summary }) {
+async function generateTransformersSuggestions(
+  model,
+  { title, url, summary, language, translationEngine },
+) {
   return withTransformersEngine(model, null, async (eng) => {
+    // Neutral prompt; the language wrapper enforces the questions' language,
+    // gated on the summary's language (see the offscreen suggest handler).
     const prompt = buildSuggestQuestionsPrompt(title, url, summary);
-    const text = await transformersGenerateText(eng, prompt);
+    const chat = (p, opts) =>
+      transformersChatStream(eng, p, { system: opts?.system });
+    const qLanguage = await resolveEffectiveLanguage(summary, language);
+    const translateFn =
+      translationEngine === TRANSLATION_ENGINES.OPUS
+        ? makeOpusTranslateFn(() => {})
+        : undefined;
+    const text = await generateInTargetLanguage(chat, prompt, qLanguage, {
+      translateFn,
+    });
     return parseSuggestedQuestions(text);
   });
 }
@@ -566,16 +642,24 @@ async function runBackgroundSummarize(tab, { notifyOnFinish }) {
   }
 
   const finalize = {
-    cacheKey: getSummaryCacheKey(tab.url, settings.responseFormat, model),
+    cacheKey: getSummaryCacheKey(
+      tab.url,
+      settings.responseFormat,
+      model,
+      settings.summaryLanguage,
+    ),
     promptsCacheKey: getPromptsCacheKey(
       tab.url,
       settings.responseFormat,
       model,
+      settings.summaryLanguage,
     ),
     persist: await shouldPersist(tab.url),
     providerType,
     host: settings.ollamaHost,
     notifyOnFinish,
+    language: settings.summaryLanguage,
+    translationEngine: settings.translationEngine,
     // On a sensitive host (Gmail et al.) the tab title can itself carry
     // private data (subject line, email address), so the completion
     // notification, which OS notification centers may log persistently, omits
@@ -593,6 +677,8 @@ async function runBackgroundSummarize(tab, { notifyOnFinish }) {
     mode: settings.responseFormat,
     type: pageData.type,
     model,
+    language: settings.summaryLanguage,
+    translationEngine: settings.translationEngine,
     finalize,
   };
 
@@ -760,10 +846,18 @@ async function fetchSponsorBlockSegments(videoId) {
 }
 
 // Used by runSuggestQuestionsJob's backgrounded job below.
-async function generateOllamaSuggestions(host, model, { title, url, summary }) {
+async function generateOllamaSuggestions(
+  host,
+  model,
+  { title, url, summary, language },
+) {
   const validHost = validateOllamaHost(host);
+  // Neutral prompt; the language wrapper enforces the questions' language,
+  // gated on the summary's language (see the offscreen suggest handler).
   const prompt = buildSuggestQuestionsPrompt(title, url, summary);
-  const text = await chatOnce(validHost, model, prompt);
+  const chat = (p, opts) => chatStream(validHost, model, p, opts);
+  const qLanguage = await resolveEffectiveLanguage(summary, language);
+  const text = await generateInTargetLanguage(chat, prompt, qLanguage);
   return parseSuggestedQuestions(text);
 }
 
@@ -782,6 +876,8 @@ async function runSuggestQuestionsJob(payload) {
     url,
     summary,
     model,
+    language,
+    translationEngine,
   } = payload || {};
   if (!promptsCacheKey || pendingSuggestKeys.has(promptsCacheKey)) return;
   pendingSuggestKeys.add(promptsCacheKey);
@@ -797,6 +893,7 @@ async function runSuggestQuestionsJob(payload) {
           title,
           url,
           summary,
+          language,
         });
       } else if (providerType === PROVIDERS.TRANSFORMERS && !hasOffscreenAPI) {
         // Firefox: Transformers.js runs in-process in this background page.
@@ -804,6 +901,8 @@ async function runSuggestQuestionsJob(payload) {
           title,
           url,
           summary,
+          language,
+          translationEngine,
         });
       } else {
         // Offscreen-document providers (Chrome/Edge): WebLLM, and Transformers.js
@@ -818,6 +917,8 @@ async function runSuggestQuestionsJob(payload) {
             url,
             summary,
             model,
+            language,
+            translationEngine,
             provider:
               providerType === PROVIDERS.TRANSFORMERS
                 ? "transformers"
@@ -880,6 +981,8 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
     sensitive,
     tabId,
     windowId,
+    language,
+    translationEngine,
   } = finalize;
 
   if (persist) {
@@ -896,6 +999,8 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
     url,
     summary: text,
     model,
+    language,
+    translationEngine,
   });
   if (notifyOnFinish) {
     notifyJobComplete({ title: sensitive ? "" : title, tabId, windowId });

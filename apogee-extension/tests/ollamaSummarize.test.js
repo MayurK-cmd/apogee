@@ -159,3 +159,116 @@ test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', s
   assert.match(prompts[0], /youtube\.com\/watch\?v=abc/);
   assert.match(prompts[0], /Output exactly 10-15 concise sentences/);
 });
+
+// --- Output-language: single-pass system directive, verify, translate fallback ---
+
+// A chatStreamFn that records whether each call carried a system message and
+// what prompt it saw, and returns scripted output per call.
+function makeRecordingChat(outputs) {
+  const calls = [];
+  async function* fn(_host, _model, prompt, opts) {
+    const isTranslate = prompt.startsWith("You are a translation engine");
+    calls.push({ system: opts?.system || null, isTranslate });
+    yield outputs[calls.length - 1] ?? "out";
+  }
+  return { fn, calls };
+}
+
+test("summarizeText target language: compliant first pass emits in ONE pass with a system directive, no translate", async () => {
+  const { fn, calls } = makeRecordingChat(["Resumen en español"]);
+  let out = "";
+  for await (const t of summarizeText(
+    {
+      text: "English article.",
+      title: "T",
+      url: "u",
+      mode: "bullets",
+      model: "m",
+      language: "es",
+    },
+    {
+      chatStreamFn: fn,
+      chunkTextFn: (x) => [x],
+      detectLanguageFn: async () => "es",
+    },
+  )) {
+    out += t;
+  }
+  assert.strictEqual(calls.length, 1, "only one model pass");
+  assert.ok(
+    calls[0].system && /Spanish/.test(calls[0].system),
+    "first pass carries a Spanish system directive",
+  );
+  assert.strictEqual(calls[0].isTranslate, false);
+  assert.strictEqual(out, "Resumen en español");
+});
+
+test("summarizeText target language: slipped first pass triggers a translate fallback pass", async () => {
+  const { fn, calls } = makeRecordingChat([
+    "English summary (slipped)",
+    "Resumen traducido",
+  ]);
+  let out = "";
+  for await (const t of summarizeText(
+    {
+      text: "English article.",
+      title: "T",
+      url: "u",
+      mode: "bullets",
+      model: "m",
+      language: "es",
+    },
+    {
+      chatStreamFn: fn,
+      chunkTextFn: (x) => [x],
+      detectLanguageFn: async () => "en",
+    },
+  )) {
+    out += t;
+  }
+  assert.strictEqual(calls.length, 2, "summary pass + translate fallback");
+  assert.strictEqual(
+    calls[1].isTranslate,
+    true,
+    "second pass is the translate prompt",
+  );
+  assert.strictEqual(out, "Resumen traducido");
+});
+
+test("summarizeText with no/auto language streams directly with no system directive and no verify", async () => {
+  const { fn, calls } = makeRecordingChat(["Plain summary"]);
+  let detectCalled = false;
+  let out = "";
+  for await (const t of summarizeText(
+    {
+      text: "Article.",
+      title: "T",
+      url: "u",
+      mode: "bullets",
+      model: "m",
+      language: "auto",
+    },
+    {
+      chatStreamFn: fn,
+      chunkTextFn: (x) => [x],
+      detectLanguageFn: async () => {
+        detectCalled = true;
+        return "en";
+      },
+    },
+  )) {
+    out += t;
+  }
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(
+    calls[0].system,
+    null,
+    "no system directive when language is auto",
+  );
+  assert.strictEqual(
+    detectCalled,
+    false,
+    "no language verification when language is auto",
+  );
+  assert.strictEqual(out, "Plain summary");
+});

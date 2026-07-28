@@ -16,6 +16,8 @@ import {
   buildYoutubeMapPrompt,
   buildYoutubeAssemblyPrompt,
 } from "./prompts.js";
+import { detectPrimaryLanguage } from "./detectLanguage.js";
+import { streamInTargetLanguage } from "./languageOutput.js";
 import { cleanText } from "./cleaner.js";
 import { chatStream } from "./ollamaClient.js";
 import { getMaxChunkChars, getMaxChunks } from "./modelLimits.js";
@@ -44,8 +46,14 @@ function lastAvailableSecondsIn(text) {
  * summary..." UI hook) so both can share the same caller-side plumbing.
  */
 export async function* summarizeYoutube(
-  { text, title, url, mode, model, host, signal },
-  { chunkTextFn = chunkText, chatStreamFn = chatStream, onProgress } = {},
+  { text, title, url, mode, model, host, signal, language },
+  {
+    chunkTextFn = chunkText,
+    chatStreamFn = chatStream,
+    onProgress,
+    detectLanguageFn = detectPrimaryLanguage,
+    translateFn,
+  } = {},
 ) {
   const cleanedContent = cleanText(text);
   const lastAvailableSeconds = lastAvailableSecondsIn(cleanedContent);
@@ -63,6 +71,20 @@ export async function* summarizeYoutube(
   // (service-worker.js's buffered stream runner / offscreen.js's runStream)
   // catches them and emits a clean `type:"error"` message.
 
+  // Same shared single-pass (system directive) + verify + translate-fallback
+  // strategy as summarizeText (see lib/languageOutput.js). Whichever path runs,
+  // the system directive / buildTranslatePrompt keep the [MM:SS](url) timestamp
+  // deep-links intact.
+  const chat = (prompt, opts) => chatStreamFn(host, model, prompt, opts);
+  function streamFinal(finalPrompt) {
+    return streamInTargetLanguage(chat, finalPrompt, language, {
+      signal,
+      detectLanguageFn,
+      translateFn,
+      onFallback: () => onProgress?.({ stage: "translate" }),
+    });
+  }
+
   // Short video, one chunk: skip the map stage and assemble straight from
   // the raw timestamped transcript, no intermediate notes to lose fidelity.
   if (chunks.length <= 1) {
@@ -74,7 +96,7 @@ export async function* summarizeYoutube(
       lastAvailableSeconds,
       mode,
     );
-    yield* chatStreamFn(host, model, prompt, { signal });
+    yield* streamFinal(prompt);
     return;
   }
 
@@ -99,5 +121,5 @@ export async function* summarizeYoutube(
     lastAvailableSeconds,
     mode,
   );
-  yield* chatStreamFn(host, model, assemblyPrompt, { signal });
+  yield* streamFinal(assemblyPrompt);
 }

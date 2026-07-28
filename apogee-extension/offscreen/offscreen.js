@@ -4,9 +4,15 @@
 
 import { parseSuggestedQuestions } from "../lib/questions.js";
 import { summarizeText } from "../lib/ollamaSummarize.js";
+import { resolveEffectiveLanguage } from "../lib/detectLanguage.js";
+import {
+  streamInTargetLanguage,
+  generateInTargetLanguage,
+} from "../lib/languageOutput.js";
+import { makeOpusTranslateFn } from "../lib/opusTranslateEngine.js";
 import { retrieveRelevantContent, findBestPassage } from "../lib/rag.js";
 import { createLock } from "../lib/mutex.js";
-import { WEBLLM_MODELS } from "../lib/constants.js";
+import { WEBLLM_MODELS, TRANSLATION_ENGINES } from "../lib/constants.js";
 // Chrome/Edge run the Transformers.js (ONNX/WASM) provider here in the offscreen
 // document too, not just WebLLM: the MV3 service worker can't reliably
 // dynamic-import @huggingface/transformers (same reason the embedding pipeline
@@ -16,7 +22,6 @@ import { WEBLLM_MODELS } from "../lib/constants.js";
 import {
   withTransformersEngine,
   transformersChatStream,
-  transformersGenerateText,
   getTransformersStatus,
 } from "../lib/transformersEngine.js";
 
@@ -317,32 +322,59 @@ async function* drainWebLLMStream(eng, completion, signal) {
   }
 }
 
-async function streamCompletion(eng, prompt, emit, signal) {
-  const completion = await eng.chat.completions.create({
-    messages: [{ role: "user", content: prompt }],
-    stream: true,
-    temperature: 0.3,
-    max_tokens: 2048,
-  });
+// lib/languageOutput.js-shaped chat function over the WebLLM engine:
+// chatFn(prompt, { signal, system }) -> async iterable of text tokens, with an
+// optional system message. Used by the ask/suggest language wrappers so they
+// get the same single-pass-directive + verify + translate-fallback behavior as
+// summaries.
+function webllmChatFn(eng) {
+  return async function* (prompt, { signal, system } = {}) {
+    const messages = system
+      ? [
+          { role: "system", content: system },
+          { role: "user", content: prompt },
+        ]
+      : [{ role: "user", content: prompt }];
+    const completion = await eng.chat.completions.create({
+      messages,
+      stream: true,
+      temperature: 0.3,
+      max_tokens: 2048,
+    });
+    yield* drainWebLLMStream(eng, completion, signal);
+  };
+}
 
+// Same shape over the Transformers.js engine (single-message chat + optional
+// system), shared by both the ask/suggest wrappers here and Firefox's copy.
+function transformersChatFn(eng) {
+  return (prompt, { system } = {}) =>
+    transformersChatStream(eng, prompt, { system });
+}
+
+async function streamCompletion(
+  eng,
+  prompt,
+  emit,
+  signal,
+  language,
+  translateFn,
+) {
   // A cancel broadcasts its own "cancelled" message separately (see the
   // "cancel-stream" handler below); drainWebLLMStream stops surfacing tokens
-  // once the signal aborts, so nothing extra is emitted here after that.
-  for await (const text of drainWebLLMStream(eng, completion, signal)) {
+  // once the signal aborts, so nothing extra is emitted here after that. The
+  // language wrapper adds the system directive + translate fallback (no-op when
+  // `language` is "auto"); `translateFn` (when opus mode) supplies dedicated MT.
+  for await (const text of streamInTargetLanguage(
+    webllmChatFn(eng),
+    prompt,
+    language,
+    { signal, translateFn },
+  )) {
     emit({ type: "chunk", text });
   }
 
   emit({ type: "done" });
-}
-
-async function generateText(eng, prompt, maxTokens = 512) {
-  const reply = await eng.chat.completions.create({
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.3,
-    max_tokens: maxTokens,
-  });
-
-  return reply.choices?.[0]?.message?.content || "";
 }
 
 function reportProgress(text) {
@@ -353,6 +385,14 @@ function reportProgress(text) {
       progress: { text, progress: 0 },
     })
     .catch(() => {});
+}
+
+// Builds the Opus-MT translateFn for a job when its translationEngine is
+// "opus", else undefined (LLM path). Download progress surfaces on the same
+// model-progress line as everything else.
+function opusTranslateFor(translationEngine) {
+  if (translationEngine !== TRANSLATION_ENGINES.OPUS) return undefined;
+  return makeOpusTranslateFn((p) => reportProgress(p.text));
 }
 
 // Chunk-aware summarization for the small in-browser models, delegated to the
@@ -371,9 +411,17 @@ function reportProgress(text) {
 async function runSummarize(eng, pending, emit, signal) {
   // Presents the WebLLM engine as summarizeText's chatStreamFn seam. The
   // host/model args come baked into the prompt already, so they're ignored.
-  async function* webllmChatStream(_host, _model, prompt) {
+  // `system` (when summarizeText forces the output language on its first pass)
+  // becomes a real system message, weighted far more than an inline directive.
+  async function* webllmChatStream(_host, _model, prompt, opts) {
+    const messages = opts?.system
+      ? [
+          { role: "system", content: opts.system },
+          { role: "user", content: prompt },
+        ]
+      : [{ role: "user", content: prompt }];
     const completion = await eng.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
+      messages,
       stream: true,
       temperature: 0.3,
       max_tokens: 2048,
@@ -388,11 +436,18 @@ async function runSummarize(eng, pending, emit, signal) {
       reportProgress("Long page — summarizing the beginning.");
     } else if (p.stage === "reduce") {
       reportProgress("Merging summary...");
+    } else if (p.stage === "translate") {
+      reportProgress("Translating...");
     } else {
       reportProgress(`Summarizing part ${p.index + 1} of ${p.total}...`);
     }
   };
 
+  // Skip the translate pass when the page is already in the target language.
+  const language = await resolveEffectiveLanguage(
+    pending.content,
+    pending.language,
+  );
   for await (const token of summarizeText(
     {
       text: pending.content,
@@ -401,9 +456,14 @@ async function runSummarize(eng, pending, emit, signal) {
       mode: pending.mode,
       type: pending.type,
       model: pending.model,
+      language,
       signal,
     },
-    { chatStreamFn: webllmChatStream, onProgress },
+    {
+      chatStreamFn: webllmChatStream,
+      onProgress,
+      translateFn: opusTranslateFor(pending.translationEngine),
+    },
   )) {
     emit({ type: "chunk", text: token });
   }
@@ -447,7 +507,13 @@ function broadcastToStream(stream, msg) {
 // the identical logic in Firefox's background page; the difference is only
 // where it runs, so the engine helpers are shared. Serialized by
 // transformersEngine.js's own lock, independent of the WebLLM engine lock.
-async function runTransformersJob(pending, askPrompt, emit, signal) {
+async function runTransformersJob(
+  pending,
+  askPrompt,
+  askLanguage,
+  emit,
+  signal,
+) {
   // Model-download progress from the engine loader. Per-chunk stage progress
   // ("Summarizing part N of M...") is surfaced via reportProgress inside the
   // summarize branch instead, same split as the WebLLM path.
@@ -475,6 +541,10 @@ async function runTransformersJob(pending, askPrompt, emit, signal) {
     onDownloadProgress,
     async (eng) => {
       if (pending.action === "summarize") {
+        const language = await resolveEffectiveLanguage(
+          pending.content,
+          pending.language,
+        );
         const generator = summarizeText(
           {
             text: pending.content,
@@ -483,15 +553,19 @@ async function runTransformersJob(pending, askPrompt, emit, signal) {
             mode: pending.mode,
             type: pending.type,
             model: pending.model,
+            language,
             signal,
           },
           {
             // transformers.js/ONNX has no native abort, so a cancel takes
             // effect between tokens here and, via summarizeText's own signal
             // checks, between chunks.
-            chatStreamFn: async function* (_host, _model, prompt) {
+            translateFn: opusTranslateFor(pending.translationEngine),
+            chatStreamFn: async function* (_host, _model, prompt, opts) {
               let count = 0;
-              for await (const token of transformersChatStream(eng, prompt)) {
+              for await (const token of transformersChatStream(eng, prompt, {
+                system: opts?.system,
+              })) {
                 if (signal?.aborted) return;
                 count++;
                 if (count % 24 === 0) {
@@ -506,10 +580,10 @@ async function runTransformersJob(pending, askPrompt, emit, signal) {
                 reportProgress(longNote.trim());
                 return;
               }
-              stageLabel =
-                p.stage === "reduce"
-                  ? "Merging summary..."
-                  : `Summarizing part ${p.index + 1} of ${p.total}...`;
+              if (p.stage === "reduce") stageLabel = "Merging summary...";
+              else if (p.stage === "translate") stageLabel = "Translating...";
+              else
+                stageLabel = `Summarizing part ${p.index + 1} of ${p.total}...`;
               reportProgress(longNote + stageLabel);
             },
           },
@@ -520,8 +594,13 @@ async function runTransformersJob(pending, askPrompt, emit, signal) {
         emit({ type: "done" });
       } else if (pending.action === "ask") {
         // askPrompt is built provider-agnostically in runStream (RAG retrieval
-        // + buildAnswerPrompt), so it's reused verbatim here.
-        for await (const token of transformersChatStream(eng, askPrompt)) {
+        // + buildAnswerPrompt); the language wrapper enforces askLanguage.
+        for await (const token of streamInTargetLanguage(
+          transformersChatFn(eng),
+          askPrompt,
+          askLanguage,
+          { signal, translateFn: opusTranslateFor(pending.translationEngine) },
+        )) {
           if (signal?.aborted) break;
           emit({ type: "chunk", text: token });
         }
@@ -593,22 +672,37 @@ async function runStream(streamId, pending, stream) {
     // unrelated to the WebGPU engine the lock exists to serialize, so it
     // shouldn't sit blocked behind (or block) another engine operation.
     let askPrompt = null;
+    let askLanguage = "auto";
     if (pending.action === "ask") {
       const relevantContent = await retrieveRelevantContent({
         content: pending.content,
         question: pending.question,
       });
       const prompts = await getPrompts();
+      // No inline language directive on the prompt (small models ignore it);
+      // the answer's language is enforced by streamInTargetLanguage instead.
       askPrompt = prompts.buildAnswerPrompt(
         pending.title,
         pending.url,
         relevantContent,
         pending.question,
       );
+      // Detect against the full article so an answer about an already-in-target
+      // page skips the directive/translate entirely.
+      askLanguage = await resolveEffectiveLanguage(
+        pending.content,
+        pending.language,
+      );
     }
 
     if (pending.provider === "transformers") {
-      await runTransformersJob(pending, askPrompt, emit, controller.signal);
+      await runTransformersJob(
+        pending,
+        askPrompt,
+        askLanguage,
+        emit,
+        controller.signal,
+      );
     } else {
       await withEngine(
         pending.model,
@@ -619,7 +713,14 @@ async function runStream(streamId, pending, stream) {
               break;
 
             case "ask":
-              await streamCompletion(eng, askPrompt, emit, controller.signal);
+              await streamCompletion(
+                eng,
+                askPrompt,
+                emit,
+                controller.signal,
+                askLanguage,
+                opusTranslateFor(pending.translationEngine),
+              );
               break;
 
             default:
@@ -791,21 +892,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "suggest-questions": {
-          const { title, url, summary, model, provider } = message.payload;
+          const {
+            title,
+            url,
+            summary,
+            model,
+            provider,
+            language,
+            translationEngine,
+          } = message.payload;
           const prompts = await getPrompts();
+          // Neutral prompt (no inline directive); the language wrapper forces
+          // the target language on the questions, same as ask answers. Gate on
+          // the SUMMARY's language: it's already in the target language, so this
+          // is usually "auto" (pass through, questions inherit that language),
+          // which avoids an unreliable language check on just two short questions.
           const prompt = prompts.buildSuggestQuestionsPrompt(
             title,
             url,
             summary,
           );
+          const qLanguage = await resolveEffectiveLanguage(summary, language);
+          const translateFn = opusTranslateFor(translationEngine);
           const questions =
             provider === "transformers"
               ? await withTransformersEngine(model, null, async (eng) => {
-                  const text = await transformersGenerateText(eng, prompt);
+                  const text = await generateInTargetLanguage(
+                    transformersChatFn(eng),
+                    prompt,
+                    qLanguage,
+                    { translateFn },
+                  );
                   return parseSuggestedQuestions(text);
                 })
               : await withEngine(model, async (eng) => {
-                  const text = await generateText(eng, prompt);
+                  const text = await generateInTargetLanguage(
+                    webllmChatFn(eng),
+                    prompt,
+                    qLanguage,
+                    { translateFn },
+                  );
                   return parseSuggestedQuestions(text);
                 });
 

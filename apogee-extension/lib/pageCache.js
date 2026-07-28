@@ -36,11 +36,16 @@ export function hashUrl(url) {
   return cyrb53(url);
 }
 
-export function getSummaryCacheKey(url, fmt, model) {
-  return `summary:${fmt}:${model}:${hashUrl(url)}`;
+// `lang` (the summaryLanguage setting) is part of the key: the same page in
+// the same format/model but a different output language is a genuinely
+// different summary, so keying without it would serve a stale wrong-language
+// result after the user switches languages. Defaulted so any older caller
+// that still omits it stays on the pre-language key namespace.
+export function getSummaryCacheKey(url, fmt, model, lang = "auto") {
+  return `summary:${fmt}:${lang}:${model}:${hashUrl(url)}`;
 }
-export function getPromptsCacheKey(url, fmt, model) {
-  return `suggested-prompts:${fmt}:${model}:${hashUrl(url)}`;
+export function getPromptsCacheKey(url, fmt, model, lang = "auto") {
+  return `suggested-prompts:${fmt}:${lang}:${model}:${hashUrl(url)}`;
 }
 // Extracted page content is independent of format/model, so it's cached
 // separately and survives model switches and popup close/reopen, avoids
