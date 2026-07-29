@@ -26,9 +26,9 @@ let currentModelId = null;
 let loadingModelId = null;
 
 // EXPERIMENTAL multi-threaded-WASM probe. Logs the cross-origin-isolation state
-// on every engine load — so a single reload reveals whether SharedArrayBuffer
+// on every engine load, so a single reload reveals whether SharedArrayBuffer
 // (and therefore onnxruntime WASM threads) is even reachable in this extension
-// context — and only actually requests threads when EXPERIMENTAL_WASM_THREADS
+// context, and only actually requests threads when EXPERIMENTAL_WASM_THREADS
 // is on AND isolation is present. onnxruntime silently falls back to a single
 // thread when SharedArrayBuffer is missing, so requesting >1 here is harmless;
 // the flag just lets us watch whether pthread workers spawn or hit the
@@ -150,7 +150,7 @@ export function getTransformersStatus() {
 // --- Opus-MT translation pipeline (opt-in "opus" translationEngine) ---
 // A separate seq2seq `translation` pipeline, cached and locked independently of
 // the text-generation engine above (a summarize/ask job may use both: the LLM
-// generates, then this translates the result — see lib/languageOutput.js). Same
+// generates, then this translates the result, see lib/languageOutput.js). Same
 // bundled-WASM setup as ensureEngine; Opus-MT models are small (~80MB direct
 // pairs) and English-centric (see lib/opusTranslate.js for model resolution).
 let translator = null;
@@ -212,7 +212,7 @@ export async function withTranslator(modelId, onProgress, fn) {
 // Cap decode length per translated line. Opus-MT can degenerate into a
 // repetition loop on odd input (bare numbers, markdown, code fragments) and
 // run to the model's full max_length, which on single-threaded WASM stalls the
-// whole translate pass and reads as a frozen extension — the same failure mode
+// whole translate pass and reads as a frozen extension, the same failure mode
 // GENERATION_MAX_TOKENS guards on the text-gen engine. Summary lines are
 // sentence-length, so this is generous headroom rather than a real limit.
 const TRANSLATE_MAX_NEW_TOKENS = 256;
@@ -226,7 +226,7 @@ const TRANSLATE_MAX_NEW_TOKENS = 256;
 //
 // num_beams: 1 forces greedy decoding. Marian/Opus-MT models ship a
 // generation_config with beam search on (num_beams 4-6), which does ~4-6x the
-// decoder forward passes for a marginal BLEU gain — far too costly on
+// decoder forward passes for a marginal BLEU gain, far too costly on
 // single-threaded WASM, where decode is the whole runtime. Greedy is the right
 // trade for summary text; bump num_beams back up here to trade speed for quality.
 export async function translateBatch(t, texts, token = "") {

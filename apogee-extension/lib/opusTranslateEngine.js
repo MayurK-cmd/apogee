@@ -1,7 +1,7 @@
 // Builds the dedicated-MT `translateFn` that streamInTargetLanguage uses in
 // "opus" mode (see lib/languageOutput.js). Kept separate from the pure resolver
 // (lib/opusTranslate.js) because it wires in the Transformers.js translation
-// engine and language detection — both only available in the offscreen document
+// engine and language detection, both only available in the offscreen document
 // (Chrome) and the background page (Firefox), which are the only hosts that
 // build this. Ollama jobs never use it.
 
@@ -20,7 +20,7 @@ import {
 export function makeOpusTranslateFn(onProgress) {
   return async (text, targetLang) => {
     const detected = await detectPrimaryLanguage(text);
-    // Fall back to assuming English source when detection is unsure — the
+    // Fall back to assuming English source when detection is unsure, the
     // neutral summary is English far more often than not.
     const src = (detected || "en").toLowerCase().split("-")[0];
     const resolved = resolveOpusModel(src, targetLang);
@@ -43,7 +43,7 @@ export function makeOpusTranslateFn(onProgress) {
       );
     } catch {
       // A failed/unavailable model (e.g. a bad download) shouldn't sink the
-      // whole job — fall back to the LLM translate.
+      // whole job, fall back to the LLM translate.
       return null;
     }
   };

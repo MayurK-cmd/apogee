@@ -35,7 +35,7 @@ export async function saveViewState(tabId, partial) {
   // state is still written, minus its content-bearing fields (question/
   // answerText): the urlHash/streamId/promptsCacheKey pointer contains no
   // page content, and dropping it entirely (the old behavior) made a
-  // background-triggered summarize on such pages finish into a void — the
+  // background-triggered summarize on such pages finish into a void, the
   // completion notification said "click to view", but with no stored streamId
   // the popup couldn't reattach and just showed Home.
   let scrubContent = false;

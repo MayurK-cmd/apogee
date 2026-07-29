@@ -4,12 +4,12 @@
 import { SUMMARY_LANGUAGES } from "./constants.js";
 
 // code -> English language name (see SUMMARY_LANGUAGES). "auto" (and any
-// unknown code) maps to null, meaning "no target language" — callers then skip
+// unknown code) maps to null, meaning "no target language"; callers then skip
 // the system directive / translation and leave output in the source language.
 const LANGUAGE_NAMES = new Map(SUMMARY_LANGUAGES.map((l) => [l.code, l.name]));
 
 // Resolves a language code to its English name, or null for "auto"/unknown.
-// null means "no translation" — callers skip the translate pass entirely.
+// null means "no translation"; callers skip the translate pass entirely.
 export function resolveLanguageName(language) {
   return LANGUAGE_NAMES.get(language) || null;
 }
@@ -34,7 +34,7 @@ export function buildLanguageSystemPrompt(language) {
 // summarization (see summarizeText / summarizeYoutube). The small in-browser
 // models (0.5B-1.7B) reliably ignore an inline "write your summary in X"
 // directive across a long summarization task, but handle a short, standalone
-// "translate this to X" task well — the same explicit-translation-step
+// "translate this to X" task well, the same explicit-translation-step
 // approach Kagi's summarizer uses. Formatting/link/timestamp preservation
 // rules keep bullet structure and YouTube [MM:SS](url) deep-links intact.
 export function buildTranslatePrompt(text, language) {

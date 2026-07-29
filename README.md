@@ -162,6 +162,85 @@ models (e.g. `llama3.1`, `qwen2.5`, `gemma3`) get bigger chunks and fewer
 passes over long content, rather than the same fixed chunk size regardless
 of what the model can actually handle.
 
+## Translations
+
+Apogee can produce its summaries, Q&A answers, and suggested questions in a
+language other than the source page's. Pick an output language under
+**Settings → Summary language**. The default is **English** (summaries come
+out in English no matter what language the page is in), and **"Same as
+article"** keeps the page's own language. 29 target languages are supported.
+
+Under the hood there are **two translation engines**, selectable under
+**Settings → Translation engine**:
+
+- **LLM (default).** The summarization model translates as it writes: one
+  generation pass with a system-level "write in X" directive, the output is
+  language-checked, and only if the model slipped does an explicit translate
+  pass run. No extra download; it reuses the model already loaded for
+  summarizing. Works for every language, but small in-browser models get
+  weaker the further a language sits from English.
+- **Opus-MT (opt-in).** A dedicated [Helsinki-NLP Opus-MT](https://huggingface.co/Helsinki-NLP)
+  translation model. The summary is generated neutrally (in English), then
+  translated by a purpose-built model: deterministic, structure-preserving
+  (bullets and `[MM:SS](url)` timestamp links are kept intact), and noticeably
+  stronger on the low-resource long tail where the summarization LLM is
+  weakest. Each model is a small (~80&nbsp;MB) ONNX file downloaded from
+  Hugging Face on first use and then cached offline. Any language Opus-MT
+  can't reach automatically falls back to the LLM engine.
+
+Opus-MT is English-centric, so it uses one of three tiers per language. The
+table below is the **English → target** path used when translating a summary:
+
+| Language                 | Opus-MT model (English → target) | Tier             | Recommended engine     |
+| ------------------------ | -------------------------------- | ---------------- | ---------------------- |
+| Spanish                  | `opus-mt-en-es`                  | Dedicated model  | Opus or LLM            |
+| French                   | `opus-mt-en-fr`                  | Dedicated model  | Opus or LLM            |
+| German                   | `opus-mt-en-de`                  | Dedicated model  | Opus or LLM            |
+| Italian                  | `opus-mt-en-it`                  | Dedicated model  | Opus or LLM            |
+| Dutch                    | `opus-mt-en-nl`                  | Dedicated model  | Opus or LLM            |
+| Russian                  | `opus-mt-en-ru`                  | Dedicated model  | Opus or LLM            |
+| Chinese (Simplified)     | `opus-mt-en-zh`                  | Dedicated model  | Opus or LLM            |
+| Japanese                 | `opus-mt-en-jap`                 | Dedicated model  | Opus or LLM            |
+| Ukrainian                | `opus-mt-en-uk`                  | Dedicated model  | **Opus**               |
+| Czech                    | `opus-mt-en-cs`                  | Dedicated model  | **Opus**               |
+| Romanian                 | `opus-mt-en-ro`                  | Dedicated model  | **Opus**               |
+| Hungarian                | `opus-mt-en-hu`                  | Dedicated model  | **Opus**               |
+| Swedish                  | `opus-mt-en-sv`                  | Dedicated model  | **Opus**               |
+| Danish                   | `opus-mt-en-da`                  | Dedicated model  | **Opus**               |
+| Finnish                  | `opus-mt-en-fi`                  | Dedicated model  | **Opus**               |
+| Indonesian               | `opus-mt-en-id`                  | Dedicated model  | **Opus**               |
+| Portuguese               | `opus-mt-en-mul` (`>>por<<`)     | Grouped model    | **Opus**               |
+| Polish                   | `opus-mt-en-mul` (`>>pol<<`)     | Grouped model    | **Opus**               |
+| Slovenian                | `opus-mt-en-mul` (`>>slv<<`)     | Grouped model    | **Opus**               |
+| Bulgarian                | `opus-mt-en-mul` (`>>bul<<`)     | Grouped model    | **Opus**               |
+| Greek                    | `opus-mt-en-mul` (`>>ell<<`)     | Grouped model    | **Opus**               |
+| Turkish                  | `opus-mt-en-mul` (`>>tur<<`)     | Grouped model    | **Opus**               |
+| Norwegian                | `opus-mt-en-mul` (`>>nob<<`)     | Grouped model    | **Opus**               |
+| Estonian                 | `opus-mt-en-mul` (`>>est<<`)     | Grouped model    | **Opus**               |
+| Latvian                  | `opus-mt-en-mul` (`>>lav<<`)     | Grouped model    | **Opus**               |
+| Lithuanian               | `opus-mt-en-mul` (`>>lit<<`)     | Grouped model    | **Opus**               |
+| Slovak                   | none (LLM only)                  | No Opus model    | LLM (only option)      |
+| Korean                   | none (LLM only)                  | No Opus model    | LLM (only option)      |
+| Chinese (Traditional)    | none (LLM only)                  | No Opus model    | LLM (only option)      |
+
+**How to read this:**
+
+- **Dedicated model**: a small, single-pair Opus-MT model (`opus-mt-en-<code>`),
+  the highest-quality tier. For well-resourced languages (Spanish, French,
+  German, Italian, Dutch, Russian, Chinese, Japanese) the default LLM engine is
+  already strong, so either engine works; for the rest, Opus is the better pick.
+- **Grouped model**: the multilingual `opus-mt-en-mul` model, steered to the
+  target with a `>>code<<` token. These are mostly the lower-resource languages
+  the summarization LLM handles least well, so **Opus is recommended**.
+- **No Opus model**: Slovak, Korean, and Traditional Chinese have no
+  English→target Opus-MT path, so they always use the **LLM** engine (choosing
+  Opus for these silently falls back to the LLM anyway).
+
+When translating the other direction (a non-English page summarized in
+English), Opus-MT uses the matching `opus-mt-<code>-en` dedicated models where
+they exist and the grouped `opus-mt-mul-en` catch-all otherwise. Non-English ↔
+non-English pairs aren't translated directly and fall back to the LLM engine.
+
 ## Browser Support
 
 Apogee ships two builds: a Chromium build (`dist/chrome`, Manifest V3 with an
@@ -194,7 +273,7 @@ requirement of its own beyond whatever Ollama itself needs.
 These are all Chromium-based and use the same `dist/chrome` build and load
 steps; only the extensions-page URL differs slightly (`chrome://extensions`,
 `edge://extensions`, `brave://extensions`, `dia://extensions/`, etc.). The
-load steps are identical on **Windows, macOS, and Linux** — only the folder
+load steps are identical on **Windows, macOS, and Linux**; only the folder
 path you point "Load unpacked" at differs by OS.
 
 1. Download the packaged extension `.zip` from [Releases](https://github.com/darshi1337/apogee/releases).
@@ -221,7 +300,7 @@ afterward), so the initial build needs internet access.
    > native `cmd.exe` and PowerShell don't understand. Easiest fix: run the build
    > from **Git Bash** or **WSL**, where `npm run build` works unchanged. If you'd
    > rather stay in your native shell, invoke Vite directly with that shell's own
-   > syntax — PowerShell: `$env:TARGET_BROWSER="chrome"; npx vite build`; cmd:
+   > syntax. PowerShell: `$env:TARGET_BROWSER="chrome"; npx vite build`; cmd:
    > `set TARGET_BROWSER=chrome && npx vite build` (repeat with `firefox` for the
    > Firefox target). macOS and Linux use the npm scripts as-is.
 
@@ -264,7 +343,7 @@ vary independently: **what the origin looks like** (depends on your browser) and
 
 - **Chromium browsers** (Chrome, Edge, Brave, Opera, Vivaldi, Arc, Dia): the
   origin is `chrome-extension://<id>`. Find `<id>` on the extensions page with
-  Developer mode on — `chrome://extensions`, `edge://extensions`,
+  Developer mode on: `chrome://extensions`, `edge://extensions`,
   `brave://extensions`, `dia://extensions/`, etc. (Chromium browsers all use the
   `chrome-extension://` scheme, including Edge.)
 - **Firefox**: the origin is `moz-extension://<uuid>`. Open
@@ -302,13 +381,13 @@ setx OLLAMA_ORIGINS "<your-extension-origin>"
 for your account". `setx` only affects processes started _after_ it runs, so
 the relaunch matters.)
 
-**Linux** — if you start Ollama yourself from a terminal:
+**Linux**: if you start Ollama yourself from a terminal:
 
 ```bash
 OLLAMA_ORIGINS="<your-extension-origin>" ollama serve
 ```
 
-**Linux** — if Ollama runs as a systemd service (the default for the install
+**Linux**: if Ollama runs as a systemd service (the default for the install
 script above), set a persistent override instead:
 
 ```bash

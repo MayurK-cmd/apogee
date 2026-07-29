@@ -86,7 +86,7 @@ export const DEFAULT_TRANSFORMERS_MODEL = TRANSFORMERS_MODELS.find(
 // carries none and leaves output in the source language. Each generation runs
 // through the SAME multilingual LLM: one pass with a system-role language
 // directive, verified and (only on a slip) followed by a focused translate
-// pass — no separate per-language translation model (see lib/languageOutput.js).
+// pass, no separate per-language translation model (see lib/languageOutput.js).
 export const SUMMARY_LANGUAGES = [
   { code: "auto", label: "Same as article", name: null },
   { code: "en", label: "English", name: "English" },
@@ -131,7 +131,7 @@ export const DEFAULT_SUMMARY_LANGUAGE = "en";
 
 // How cross-language output is translated (see lib/languageOutput.js).
 // "llm" (default): the summarization model translates it itself (one pass with
-// a system directive, verified, with an LLM translate fallback) — no extra
+// a system directive, verified, with an LLM translate fallback), no extra
 // download. "opus": an opt-in dedicated Opus-MT translation model (Helsinki-NLP,
 // lazy-downloaded per language, ~80MB direct pairs / one grouped model for the
 // long tail; see lib/opusTranslate.js) does the translation instead, for higher
@@ -143,8 +143,8 @@ export const DEFAULT_TRANSLATION_ENGINE = TRANSLATION_ENGINES.LLM;
 // EXPERIMENTAL: request multi-threaded WASM for the Transformers.js engines
 // (translation + Firefox text-gen). Multi-threading could give a near-linear
 // speedup on CPU, but onnxruntime's WASM threads need SharedArrayBuffer, which
-// needs cross-origin isolation — something MV3 extension pages don't get out of
-// the box — and its pthread workers may hit the same worker-CSP wall that
+// needs cross-origin isolation, something MV3 extension pages don't get out of
+// the box, and its pthread workers may hit the same worker-CSP wall that
 // blocked wllama. Off by default: flip to true, rebuild, reload, and read the
 // `[mt]` console diagnostics (see resolveWasmThreads in transformersEngine.js)
 // to learn whether isolation/threads are actually reachable here. When off (or

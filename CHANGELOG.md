@@ -49,6 +49,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Translations: summaries, Q&A answers, and suggested questions can now be
+  produced in a chosen output language** (Settings → Summary language; 29
+  languages, English by default, "Same as article" to keep the source
+  language). Two engines are selectable under Settings → Translation engine:
+  the default **LLM** engine (the summarization model writes directly in the
+  target language, verified, with a translate-pass fallback, no extra
+  download), and an opt-in **Opus-MT** engine (dedicated Helsinki-NLP
+  translation models, ~80&nbsp;MB each, downloaded from Hugging Face and cached
+  offline) that generates neutrally then translates deterministically while
+  preserving bullet/timestamp structure. Opus-MT is stronger on low-resource
+  languages; it uses dedicated `opus-mt-en-<code>` models where available, the
+  grouped `opus-mt-en-mul` model otherwise, and falls back to the LLM engine
+  for the handful of languages it can't reach (Slovak, Korean, Traditional
+  Chinese). See the README "Translations" section for the full per-language
+  model table.
 - Keyboard accessibility: Settings radio buttons have a visible focus ring
   again, summary bullets can be focused and activated (Enter/Space) for
   highlight-in-page, and all decorative motion is disabled under

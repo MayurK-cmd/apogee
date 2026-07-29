@@ -179,6 +179,39 @@ export default defineConfig(() => {
       copyStaticPlugin(targetBrowser),
       bundleModelLibsPlugin(targetBrowser),
 
+      // Drop the dev-only `await import("./mock.js")` guard from popup.js in
+      // packaged builds so the mock chunk (a window.postMessage -> fake
+      // chrome.runtime bridge, dormant but needless in a real extension, and a
+      // CWS/AMO review flag) is never emitted. Kept for `npm run dev`
+      // (vite build --watch), the file:// popup.html UI-iteration workflow the
+      // shim exists for — that's the only build where build.watch is non-null.
+      // Removing the dynamic import in `transform` (before Rollup resolves the
+      // module graph) keeps mock.js out of the chunk graph entirely.
+      {
+        name: "strip-dev-mock",
+        enforce: "pre",
+        apply: "build",
+        configResolved(config) {
+          this._isWatch = !!config.build?.watch;
+        },
+        transform(code, id) {
+          if (this._isWatch) return null;
+          if (!id.endsWith("popup/popup.js")) return null;
+          const stripped = code.replace(
+            /if \(\s*typeof chrome === "undefined"[\s\S]*?await import\("\.\/mock\.js"\);\s*\}\n?/,
+            "",
+          );
+          if (stripped === code) {
+            this.warn(
+              "strip-dev-mock: mock.js import guard not found in popup.js; " +
+                "the strip pattern may be stale (mock chunk may still ship).",
+            );
+            return null;
+          }
+          return { code: stripped, map: null };
+        },
+      },
+
       {
         name: "strip-crossorigin",
         enforce: "post",

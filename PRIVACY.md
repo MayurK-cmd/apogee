@@ -31,8 +31,9 @@ third party.
    in-browser model, Apogee downloads the model's weight files from
    Hugging Face (`huggingface.co` and related hosts) and caches them locally.
    This is a one-time download of the model itself; no information about the
-   pages you visit is included. After caching, in-browser AI runs fully
-   offline.
+   pages you visit is included. As with any file download, Hugging Face sees
+   your IP address and which model you fetched, and nothing more. After
+   caching, in-browser AI runs fully offline.
 
 2. **Local Ollama (optional).** If you opt into Local Ollama mode, Apogee
    connects to an Ollama instance running on your own machine at
@@ -42,8 +43,12 @@ third party.
 3. **SponsorBlock (optional, YouTube only).** When summarizing a YouTube
    video, Apogee can query the community SponsorBlock API
    (`sponsor.ajay.app`) for sponsor-segment timings so it can skip sponsor
-   reads and self-promotion when summarizing the transcript. This sends the
-   video identifier to SponsorBlock and nothing else. It can be disabled in
+   reads and self-promotion when summarizing the transcript. The full video
+   ID is never sent: Apogee sends only the first four characters of its
+   SHA-256 hash, a prefix shared by many videos, and filters the returned
+   segments locally (the same k-anonymity scheme the official SponsorBlock
+   clients use). SponsorBlock therefore sees your IP address and that a
+   YouTube summary is happening, but not which video. It can be disabled in
    the extension's settings.
 
 We do not control Hugging Face or SponsorBlock; their own privacy policies

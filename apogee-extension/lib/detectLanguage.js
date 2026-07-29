@@ -45,7 +45,7 @@ export async function detectPrimaryLanguage(text) {
 }
 
 // Resolves the language to actually hand summarizeText: the target itself when
-// a translation is warranted, or "auto" (no translation, no directive — summary
+// a translation is warranted, or "auto" (no translation, no directive, summary
 // stays in the source language) when the target is unset OR the source already
 // matches the target. "auto"/unknown targets short-circuit without detecting.
 //

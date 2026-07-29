@@ -55,7 +55,7 @@ export async function* streamInTargetLanguage(
   }
 
   // Dedicated-MT mode: generate neutrally (source/English), then translate the
-  // finished text with a real translation model — deterministic, and stronger
+  // finished text with a real translation model, deterministic, and stronger
   // on low-resource languages than the summarization LLM.
   if (translateFn) {
     let out = "";
@@ -72,7 +72,7 @@ export async function* streamInTargetLanguage(
       yield translated;
       return;
     }
-    // The MT engine doesn't cover this language — fall back to the LLM.
+    // The MT engine doesn't cover this language, fall back to the LLM.
     yield* chatFn(buildTranslatePrompt(out, target), { signal });
     return;
   }
@@ -97,7 +97,7 @@ export async function* streamInTargetLanguage(
     return;
   }
 
-  // Fallback: the model ignored the system directive — translate explicitly.
+  // Fallback: the model ignored the system directive, translate explicitly.
   onFallback?.();
   yield* chatFn(buildTranslatePrompt(out, target), { signal });
 }

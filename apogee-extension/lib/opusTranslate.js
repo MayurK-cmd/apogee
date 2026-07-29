@@ -2,8 +2,8 @@
 // line translation, for the opt-in "opus" translation engine (see the
 // translationEngine setting). Opus-MT is English-centric: it has small,
 // dedicated per-pair models (~80MB) for common languages, plus two grouped
-// models — en-mul (English -> 120 languages, via a >>code<< target token) and
-// mul-en (many -> English) — that fill the gaps, including the low-resource
+// models, en-mul (English -> 120 languages, via a >>code<< target token) and
+// mul-en (many -> English), that fill the gaps, including the low-resource
 // languages the small summarization LLMs are weakest at. Languages Opus-MT
 // can't reach at all fall back to the LLM translate pass (see
 // lib/languageOutput.js). Pure logic here; the ONNX engine lives in
@@ -188,7 +188,10 @@ export async function translatePreservingStructure(
     const chunk = jobs.slice(start, start + batchSize);
     const translated = await translateBatch(chunk.map((j) => j.rest));
     chunk.forEach((j, k) => {
-      out[j.i] = parts[j.i].prefix + (translated[k] ?? "");
+      // Fall back to the original prose (not "") when the model returns fewer
+      // lines than the batch: a missing translation should leave the line as
+      // untranslated source text, not collapse it to a prefix-only empty bullet.
+      out[j.i] = parts[j.i].prefix + (translated[k] ?? j.rest);
     });
     done += chunk.length;
     onProgress?.(done, jobs.length);
