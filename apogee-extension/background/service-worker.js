@@ -10,27 +10,27 @@
 // Chrome's real service worker, runs as a background page with a
 // window/DOM context and can dynamic-import it.
 
-import { summarizeText } from "../lib/ollamaSummarize.js";
-import { resolveEffectiveLanguage } from "../lib/detectLanguage.js";
+import { summarizeText } from "../lib/summarize/ollamaSummarize.js";
+import { resolveEffectiveLanguage } from "../lib/language/detectLanguage.js";
 import {
   streamInTargetLanguage,
   generateInTargetLanguage,
-} from "../lib/languageOutput.js";
-import { makeOpusTranslateFn } from "../lib/opusTranslateEngine.js";
-import { chatStream, checkHealth } from "../lib/ollamaClient.js";
+} from "../lib/language/languageOutput.js";
+import { makeOpusTranslateFn } from "../lib/language/opusTranslateEngine.js";
+import { chatStream, checkHealth } from "../lib/engines/ollamaClient.js";
 import {
   buildAnswerPrompt,
   buildSuggestQuestionsPrompt,
-} from "../lib/prompts.js";
-import { truncateForPrompt } from "../lib/chunk.js";
-import { parseSuggestedQuestions } from "../lib/questions.js";
-import { extractPdfText } from "../lib/pdfExtract.js";
+} from "../lib/summarize/prompts.js";
+import { truncateForPrompt } from "../lib/summarize/chunk.js";
+import { parseSuggestedQuestions } from "../lib/summarize/questions.js";
+import { extractPdfText } from "../lib/extract/pdfExtract.js";
 import {
   withTransformersEngine,
   getTransformersStatus,
   transformersChatStream,
-} from "../lib/transformersEngine.js";
-import { getSettings } from "../lib/settings.js";
+} from "../lib/engines/transformersEngine.js";
+import { getSettings } from "../lib/storage/settings.js";
 import {
   getSummaryCacheKey,
   getPromptsCacheKey,
@@ -39,14 +39,14 @@ import {
   shouldPersist,
   isSensitiveUrl,
   CACHEABLE_PAGE_TYPES,
-} from "../lib/pageCache.js";
+} from "../lib/storage/pageCache.js";
 import {
   extractFromActiveTab,
   extractPdfContent,
-} from "../lib/pageExtraction.js";
-import { getProviderType, getModelForSettings } from "../lib/providers.js";
+} from "../lib/extract/pageExtraction.js";
+import { getProviderType, getModelForSettings } from "../lib/engines/providers.js";
 import { PROVIDERS, TRANSLATION_ENGINES } from "../lib/constants.js";
-import { saveViewState, removeViewState } from "../lib/viewState.js";
+import { saveViewState, removeViewState } from "../lib/storage/viewState.js";
 
 const hasOffscreenAPI =
   typeof chrome !== "undefined" &&
@@ -272,10 +272,10 @@ function validateOllamaHost(host) {
 }
 
 // Narrows page content down to the passages most relevant to `question`
-// (see lib/rag.js) before it goes into the Ollama answer prompt. The actual
+// (see lib/retrieval/rag.js) before it goes into the Ollama answer prompt. The actual
 // embedding model loads via dynamic import(), whose support inside a
 // ServiceWorkerGlobalScope has been unreliable in Chrome MV3 (see the note
-// in lib/embeddings.js), so the work is relayed to the offscreen document
+// in lib/engines/embeddings.js), so the work is relayed to the offscreen document
 // (a real Document context, Chrome/Edge only) the same way WebLLM's ask
 // already is. Firefox has no offscreen document at
 // all, so it keeps the older plain head-of-document truncation, same as
@@ -552,7 +552,7 @@ async function startTransformersStream(
   } catch (err) {
     // Not every rejection here is a plain Error, and a falsy `error` here
     // renders as the unhelpful generic "Unknown error during streaming" in
-    // lib/providers.js's attachToStream.
+    // lib/engines/providers.js's attachToStream.
     finish({ type: "error", error: err?.message || String(err) });
   }
 }
@@ -590,39 +590,71 @@ async function generateTransformersSuggestions(
 // popup-triggered job does. finalizeSummaryJob (wired into every
 // generation path's own completion) persists the result and generates
 // suggested questions once it's done, whether or not a popup ever opens.
-async function runBackgroundSummarize(tab, { notifyOnFinish }) {
+async function runBackgroundSummarize(
+  tab,
+  { notifyOnFinish, selectionText } = {},
+) {
   const settings = await getSettings();
   const providerType = getProviderType(settings);
   const model = getModelForSettings(settings);
 
-  const pageData = await extractFromActiveTab(tab);
-  if (!pageData) {
-    // With no popup open, a bare `return` here leaves a context-menu/shortcut
-    // summarize looking like it silently did nothing; a notification (when one
-    // was requested) explains the no-op.
-    if (notifyOnFinish) {
-      notifyNothingToSummarize(
-        tab,
-        "Couldn't read this page. Try reloading it, or pick a different tab.",
-      );
+  const selection = selectionText ? selectionText.trim() : "";
+  const isSelection = selection.length > 0;
+
+  let pageData;
+  if (isSelection) {
+    // "Summarize selection": the highlighted text *is* the content, so page
+    // extraction is skipped. Treated as a plain generic document (no YouTube
+    // transcript handling, no PDF path), keyed to the tab's title/url only so
+    // any timestamp-free prose prompt still has sensible context.
+    pageData = {
+      title: tab.title || "Selected text",
+      url: tab.url,
+      content: selection,
+      type: "generic",
+      isPdf: false,
+    };
+  } else {
+    pageData = await extractFromActiveTab(tab);
+    if (!pageData) {
+      // With no popup open, a bare `return` here leaves a context-menu/shortcut
+      // summarize looking like it silently did nothing; a notification (when one
+      // was requested) explains the no-op.
+      if (notifyOnFinish) {
+        notifyNothingToSummarize(
+          tab,
+          "Couldn't read this page. Try reloading it, or pick a different tab.",
+        );
+      }
+      return;
     }
-    return;
-  }
-  // Gmail returns empty content when no thread is open; nothing sensible
-  // to summarize there, same check summarizeActivePage makes.
-  if (!pageData.isPdf && !pageData.content) {
-    if (notifyOnFinish) {
-      notifyNothingToSummarize(
-        tab,
-        "Nothing to summarize here yet — open a page, email, or video first.",
-      );
+    // Gmail returns empty content when no thread is open; nothing sensible
+    // to summarize there, same check summarizeActivePage makes.
+    if (!pageData.isPdf && !pageData.content) {
+      if (notifyOnFinish) {
+        notifyNothingToSummarize(
+          tab,
+          "Nothing to summarize here yet — open a page, email, or video first.",
+        );
+      }
+      return;
     }
-    return;
   }
 
+  // A selection summary is an ad-hoc snippet, not "the summary of this page",
+  // so it never persists: caching its content or result under the tab's URL
+  // would clobber the real page summary keyed to that same URL. It streams
+  // live to an open popup (and replays from the stream buffer on reattach)
+  // instead. Its cache keys are derived from a synthetic URL purely as
+  // correlation IDs for live message delivery, so they can't collide with the
+  // page's own keys either.
+  const persist = isSelection ? false : await shouldPersist(tab.url);
+  const cacheUrl = isSelection ? `${tab.url}#apogee-selection` : tab.url;
+
   if (
+    !isSelection &&
     CACHEABLE_PAGE_TYPES.has(pageData.type) &&
-    (await shouldPersist(tab.url))
+    persist
   ) {
     await persistContent(tab.url, pageData);
   }
@@ -643,18 +675,24 @@ async function runBackgroundSummarize(tab, { notifyOnFinish }) {
 
   const finalize = {
     cacheKey: getSummaryCacheKey(
-      tab.url,
+      cacheUrl,
       settings.responseFormat,
       model,
       settings.summaryLanguage,
     ),
     promptsCacheKey: getPromptsCacheKey(
-      tab.url,
+      cacheUrl,
       settings.responseFormat,
       model,
       settings.summaryLanguage,
     ),
-    persist: await shouldPersist(tab.url),
+    persist,
+    // A selection summary isn't persisted to the URL-keyed page cache (see the
+    // `persist` note above), so the popup can't rehydrate it from there on a
+    // later open. Flagged here so finalizeSummaryJob instead stashes the final
+    // text inline in the tab's view state, the one place a background,
+    // popup-closed selection summarize can leave a viewable result.
+    isSelection,
     providerType,
     host: settings.ollamaHost,
     notifyOnFinish,
@@ -750,6 +788,7 @@ function notifyJobFailed(err, tab) {
 }
 
 const SUMMARIZE_CONTEXT_MENU_ID = "apogee-summarize";
+const SUMMARIZE_SELECTION_CONTEXT_MENU_ID = "apogee-summarize-selection";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -757,13 +796,29 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Summarize this page",
     contexts: ["page"],
   });
+  // Shown only when text is selected (contexts: ["selection"]), so the two
+  // items are mutually exclusive and never crowd the menu together.
+  chrome.contextMenus.create({
+    id: SUMMARIZE_SELECTION_CONTEXT_MENU_ID,
+    title: "Summarize selection",
+    contexts: ["selection"],
+  });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId !== SUMMARIZE_CONTEXT_MENU_ID || !tab) return;
-  runBackgroundSummarize(tab, { notifyOnFinish: true }).catch((err) =>
-    notifyJobFailed(err, tab),
-  );
+  if (!tab) return;
+  if (info.menuItemId === SUMMARIZE_CONTEXT_MENU_ID) {
+    runBackgroundSummarize(tab, { notifyOnFinish: true }).catch((err) =>
+      notifyJobFailed(err, tab),
+    );
+  } else if (info.menuItemId === SUMMARIZE_SELECTION_CONTEXT_MENU_ID) {
+    // The highlighted text is the whole job — pass it through so
+    // runBackgroundSummarize skips page extraction entirely.
+    runBackgroundSummarize(tab, {
+      notifyOnFinish: true,
+      selectionText: info.selectionText,
+    }).catch((err) => notifyJobFailed(err, tab));
+  }
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
@@ -777,7 +832,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 // A closed tab's per-tab view state (which can hold a full question + answer)
 // is no longer reachable, so drop it now rather than leaving it to eventual
-// FIFO eviction (see removeViewState / MAX_VIEW_STATES in lib/viewState.js).
+// FIFO eviction (see removeViewState / MAX_VIEW_STATES in lib/storage/viewState.js).
 chrome.tabs.onRemoved.addListener((tabId) => {
   removeViewState(tabId).catch(() => {});
 });
@@ -965,7 +1020,7 @@ async function runSuggestQuestionsJob(payload) {
 // document and has to notify this one proactively.
 //
 // `finalize` is undefined for "ask" jobs (only summarize.summarize() passes
-// it, see lib/providers.js) and for a cancelled job (finish()/emit() both
+// it, see lib/engines/providers.js) and for a cancelled job (finish()/emit() both
 // return before reaching the "done" branch that calls this once cancelled,
 // see their own comments), so this never persists a partial/irrelevant
 // result.
@@ -975,6 +1030,7 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
     cacheKey,
     promptsCacheKey,
     persist,
+    isSelection,
     providerType,
     host,
     notifyOnFinish,
@@ -987,6 +1043,23 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
 
   if (persist) {
     await persistSummary(cacheKey, promptsCacheKey, text, title);
+  } else if (isSelection) {
+    // A selection summary has no URL-keyed cache entry to rehydrate from, so
+    // park the finished text in the tab's view state instead. That's what lets
+    // the popup, opened after the "Summary ready" notification (once the live
+    // stream buffer has been reclaimed), still show the result. saveViewState
+    // drops summaryText on non-persistable hosts, so this stays consistent with
+    // the extension's history-off / sensitive-host privacy rules. streamId is
+    // cleared so the open path renders this text instead of trying to reattach
+    // to the now-finished stream.
+    await saveViewState(tabId, {
+      view: "summaryView",
+      subview: "summary",
+      url,
+      streamId: null,
+      summaryText: text,
+      promptsCacheKey,
+    });
   }
   // Fire-and-forget: runSuggestQuestionsJob already handles its own
   // persist-vs-not branching and popup notification.
@@ -1297,10 +1370,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // immediately, independent of any popup or relay port, and
           // responds once it's registered. For "ask", it also narrows the
           // content down to the passages most relevant to the question
-          // itself (see lib/rag.js), since that requires the same
+          // itself (see lib/retrieval/rag.js), since that requires the same
           // dynamic-import-capable document context WebLLM already runs in
           // (dynamic import() in this file's ServiceWorkerGlobalScope has
-          // been unreliable in Chrome MV3, see lib/embeddings.js).
+          // been unreliable in Chrome MV3, see lib/engines/embeddings.js).
           const resp = await chrome.runtime.sendMessage({
             target: "offscreen",
             action: message.action,
@@ -1454,7 +1527,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         // "Highlight in page": relays to the offscreen document's
-        // findBestPassage (see lib/rag.js), same embedding-model/
+        // findBestPassage (see lib/retrieval/rag.js), same embedding-model/
         // offscreen-document dependency as the "ask" RAG path
         // (getRelevantAskContent above), so Chromium only, same as that.
         case "find-passage": {

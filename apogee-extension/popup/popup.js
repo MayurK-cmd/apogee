@@ -24,7 +24,7 @@ import {
   attachToStream,
   cancelStream,
   StreamCancelledError,
-} from "../lib/providers.js";
+} from "../lib/engines/providers.js";
 import {
   PROVIDERS,
   WEBLLM_MODELS,
@@ -33,10 +33,10 @@ import {
   DEFAULT_OLLAMA_HOST,
   SUMMARY_LANGUAGES,
 } from "../lib/constants.js";
-import { getSettings } from "../lib/settings.js";
-import { formatSummaryAsMarkdown } from "../lib/exportFormat.js";
-import { formatTimeSaved, formatVideoTimeSaved } from "../lib/readingTime.js";
-import { saveViewState, loadViewState } from "../lib/viewState.js";
+import { getSettings } from "../lib/storage/settings.js";
+import { formatSummaryAsMarkdown } from "../lib/util/exportFormat.js";
+import { formatTimeSaved, formatVideoTimeSaved } from "../lib/util/readingTime.js";
+import { saveViewState, loadViewState } from "../lib/storage/viewState.js";
 import {
   hashUrl,
   getSummaryCacheKey,
@@ -45,11 +45,11 @@ import {
   getCachedContent,
   shouldPersist,
   CACHEABLE_PAGE_TYPES,
-} from "../lib/pageCache.js";
+} from "../lib/storage/pageCache.js";
 import {
   extractFromActiveTab,
   extractPdfContent,
-} from "../lib/pageExtraction.js";
+} from "../lib/extract/pageExtraction.js";
 
 const summarizeBtn = document.getElementById("summarizeBtn");
 const summarizeShortcutHint = document.getElementById("summarizeShortcutHint");
@@ -637,7 +637,7 @@ function escapeHtml(text) {
 // Renders `[label](url)` as a real link before the bold/italic/code passes
 // below run, pulled out into placeholder tokens rather than substituted
 // inline: YouTube video IDs (and their timestamp links, see
-// buildYoutubeAssemblyPrompt in lib/prompts.js) routinely contain `_`/`*`,
+// buildYoutubeAssemblyPrompt in lib/summarize/prompts.js) routinely contain `_`/`*`,
 // which would otherwise trip the italic/bold regexes into matching *across*
 // an already-rendered <a href="..."> and corrupting it. Only http(s) URLs
 // are linkified. escapedText is already HTML-entity-escaped by the time
@@ -770,6 +770,24 @@ function renderMarkdown(source) {
   return html;
 }
 
+// Past summaries are rendered on Home, where the popup's linkify origin
+// (linkifyPageHost) reflects whichever tab is currently active, not the tab
+// the stored summary came from, whose origin we no longer have (cache entries
+// only keep { s, p, t }). Rendering with that unrelated origin made a stored
+// summary's links clickable-or-not depending on the current tab. Render these
+// with no trusted page origin instead, so the result is deterministic: only
+// always-trusted hosts (YouTube timestamps) linkify, everything else stays
+// plain text.
+function renderStoredSummaryMarkdown(text) {
+  const savedHost = linkifyPageHost;
+  linkifyPageHost = null;
+  try {
+    return renderMarkdown(text);
+  } finally {
+    linkifyPageHost = savedHost;
+  }
+}
+
 function resetQuestionCards() {
   setSuggestedQuestions([]);
 }
@@ -866,10 +884,15 @@ async function loadPastSummaries() {
 
     const toggleExpanded = () => {
       const expanded = card.classList.toggle("expanded");
-      if (expanded) preview.innerHTML = renderMarkdown(text);
+      if (expanded) preview.innerHTML = renderStoredSummaryMarkdown(text);
       else preview.textContent = firstLineOf(text);
     };
-    card.addEventListener("click", toggleExpanded);
+    card.addEventListener("click", (e) => {
+      // A link inside an expanded card (e.g. a YouTube timestamp) should
+      // follow the link without also toggling the card collapsed underneath.
+      if (e.target.closest("a")) return;
+      toggleExpanded();
+    });
     card.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
@@ -1323,6 +1346,11 @@ cancelSummarizeBtn?.addEventListener("click", () => {
   cancelStream(activeSummarizeStreamId);
 });
 
+// Shown in place of the answer when a question comes back empty, both live
+// (consumeAnswerStream) and when restoring a previously-empty answer.
+const EMPTY_ANSWER_MESSAGE =
+  "No answer came back — try rephrasing the question.";
+
 // Consumes an "ask" stream to completion, rendering into answerBox and
 // persisting the final answer text so a reopened popup can show it without
 // needing to re-run the question. Shared between a freshly started ask and
@@ -1340,7 +1368,9 @@ async function consumeAnswerStream(stream, { tab, question }) {
     answerBox.textContent = fullText.trimStart();
   }
   if (started) answerBox.innerHTML = renderMarkdown(answerBox.textContent);
-  else answerBox.textContent = "";
+  // A model that streams back nothing usable (empty or all-whitespace) would
+  // otherwise leave a blank bordered box, indistinguishable from a glitch.
+  else answerBox.textContent = EMPTY_ANSWER_MESSAGE;
 
   currentAnswerText = fullText;
   copyAnswerBtn.classList.toggle("hidden", !started);
@@ -1653,7 +1683,11 @@ document.addEventListener("DOMContentLoaded", async () => {
           showOnlyView("summaryView");
           showAnswerContext(state.question);
           currentAnswerText = state.answerText || "";
-          answerBox.innerHTML = renderMarkdown(currentAnswerText);
+          if (currentAnswerText.trim()) {
+            answerBox.innerHTML = renderMarkdown(currentAnswerText);
+          } else {
+            answerBox.textContent = EMPTY_ANSWER_MESSAGE;
+          }
           copyAnswerBtn.classList.toggle("hidden", !currentAnswerText.trim());
           return;
         }
@@ -1661,6 +1695,43 @@ document.addEventListener("DOMContentLoaded", async () => {
           showOnlyView("summaryView");
           showAskContext();
           questionInput.focus();
+          return;
+        }
+        if (state.subview === "summary" && state.summaryText) {
+          // A background "Summarize selection" job parked its finished result
+          // here (see finalizeSummaryJob): it's deliberately not in the
+          // URL-keyed page cache, so render this inline text directly rather
+          // than falling through to the cache lookup below, which would only
+          // ever find the real page summary (or nothing).
+          currentSummaryText = state.summaryText;
+          currentSummaryLanguage = settings.summaryLanguage;
+          summaryText.innerHTML = renderMarkdown(state.summaryText);
+          makeSummaryPassagesFocusable();
+          setSummaryCopyButtonsVisible(!!state.summaryText.trim());
+          updateResummarizeHint(settings);
+          showOnlyView("summaryView");
+          const selPromptsKey = state.promptsCacheKey;
+          const stored = selPromptsKey
+            ? await chrome.storage.local.get(selPromptsKey)
+            : {};
+          if (selPromptsKey && stored[selPromptsKey] !== undefined) {
+            showSummaryContext(stored[selPromptsKey]);
+          } else {
+            showSummaryContext([]);
+            setSuggestedQuestionsLoading();
+            startSuggestedQuestionsBg(
+              selPromptsKey,
+              {
+                title: tab.title || "",
+                url: tab.url,
+                summary: state.summaryText,
+              },
+              settings,
+              // Selection summaries never persist, so neither do their
+              // suggested questions; they arrive live via the listeners above.
+              false,
+            );
+          }
           return;
         }
         // subview === "summary" (or unknown) falls through to the cache
@@ -2040,6 +2111,26 @@ function makeSummaryPassagesFocusable() {
     el.setAttribute("title", "Locate this passage on the page");
   });
 }
+
+// Links (e.g. YouTube timestamps) navigate the page being summarized in its
+// own tab rather than spawning a new one. Registered unconditionally, and
+// before the highlight handler below, so a link click is fully consumed here
+// (stopImmediatePropagation) and never also triggers passage highlighting.
+// This must stay outside the HIGHLIGHT_SUPPORTED gate since Firefox drops that
+// block but still needs same-tab link behavior.
+summaryText?.addEventListener("click", (event) => {
+  const link = event.target.closest("a[href]");
+  if (!link || !summaryText.contains(link)) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const tabId = activeTabId;
+  if (tabId != null) {
+    chrome.tabs.update(tabId, { url: link.href, active: true });
+    window.close();
+  } else {
+    chrome.tabs.create({ url: link.href });
+  }
+});
 
 if (HIGHLIGHT_SUPPORTED) {
   summaryText?.classList.add("apogee-groundable");

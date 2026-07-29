@@ -31,6 +31,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   without a granted tab URL (e.g. via a completion notification).
 - The "Unknown or expired stream" internal error string was replaced with a
   user-readable explanation.
+- **Summary and answer links now open in the current tab.** Clickable links in
+  a summary or answer (e.g. YouTube jump-to-timestamp links) opened a new tab
+  every time; they now navigate the tab being summarized in place.
+- **Clicking a link in an expanded Past Summary no longer collapses the card.**
+  A link inside an expanded entry (again, YouTube timestamps) bubbled up to the
+  card's expand/collapse toggle, so following one also snapped the summary shut.
+- **Long unbroken strings no longer get clipped.** A long URL, hash, or code
+  span in a summary or answer ran past the popup edge (clipped by the popup's
+  `overflow-x: hidden`) instead of wrapping; these now break to the next line.
+- **An empty answer now explains itself.** A question that streamed back nothing
+  left a blank bordered box, indistinguishable from a glitch; it now shows a
+  short "No answer came back, try rephrasing" message.
+- Past Summaries linkify their content deterministically instead of depending on
+  whichever tab happens to be active (a stored summary carries no origin of its
+  own, so only always-trusted YouTube timestamp links stay clickable).
+- Settings radio buttons keep their circular shape when a long label wraps, and
+  the summary footer no longer leaves an empty gap when it has nothing to show
+  (e.g. after a summarize error).
 
 ### Changed
 
@@ -42,17 +60,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Chrome Web Store "no remotely hosted code" policy risk; only model weights
   (data) are fetched at runtime. `@mlc-ai/web-llm` is now pinned exactly so
   the bundled kernels can't drift from the engine version.
-- **SponsorBlock lookup can now be disabled** under Settings → "YouTube
+- **SponsorBlock lookup can now be disabled** under Settings, then "YouTube
   Sponsor Removal". Even k-anonymized, it was the extension's only
   third-party request; turning it off uses the local phrase heuristic with no
   network call at all.
+- The two in-browser AI provider options are now labeled **In-Browser AI (GPU)**
+  (WebGPU) and **In-Browser AI (CPU)** (Transformers.js), instead of two
+  identical "In-Browser AI" rows told apart only by a small badge.
+- A distinct amber "Checking…" status dot shows during the initial connection
+  probe (which can take a few seconds on a cold WebGPU start) instead of the
+  gray "disconnected" dot.
+- The header logo no longer shows a clickable cursor on Home, where its "back to
+  Home" click is a no-op; it still works as that shortcut from Summary and the
+  other views.
+- **Internal code layout:** `lib/` (30 flat modules) and its `tests/` were
+  reorganized into domain subfolders, `engines/`, `summarize/`, `language/`,
+  `extract/`, `retrieval/`, `storage/`, and `util/`, with `constants.js` kept at
+  the root. A pure move plus import-path rewrite; no behavior change.
 
 ### Added
 
 - **Translations: summaries, Q&A answers, and suggested questions can now be
-  produced in a chosen output language** (Settings → Summary language; 29
+  produced in a chosen output language** (Settings, then Summary language; 29
   languages, English by default, "Same as article" to keep the source
-  language). Two engines are selectable under Settings → Translation engine:
+  language). Two engines are selectable under Settings, then Translation engine:
   the default **LLM** engine (the summarization model writes directly in the
   target language, verified, with a translate-pass fallback, no extra
   download), and an opt-in **Opus-MT** engine (dedicated Helsinki-NLP

@@ -24,7 +24,7 @@ What you expected to happen instead.
 
 **Debug logs**
 If the bug happened during a summarize/ask, paste the output of
-Settings → "Show logs" if relevant.
+Settings, then "Show logs" if relevant.
 
 **Additional context**
 Anything else that might help (console errors, screenshots, the page/site

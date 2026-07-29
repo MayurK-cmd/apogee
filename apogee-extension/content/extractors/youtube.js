@@ -143,7 +143,7 @@ function inAnyRange(t, ranges) {
 // "MM:SS", or "H:MM:SS" past the hour mark. Matches the inline markers
 // buildCleanTranscript sprinkles through the transcript text, and what the
 // summarizer is told to copy verbatim into timestamp links (see
-// buildYoutubeAssemblyPrompt in lib/prompts.js).
+// buildYoutubeAssemblyPrompt in lib/summarize/prompts.js).
 function formatTimestamp(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds));
   const h = Math.floor(s / 3600);
@@ -203,8 +203,8 @@ function heuristicStripSponsors(segments) {
 // SponsorBlock data, falls back to the local phrase heuristic. Returns a
 // plain transcript string with inline [MM:SS] markers (see
 // TIMESTAMP_MARKER_INTERVAL_SECONDS) so the summarizer can cite specific
-// moments and build "jump to this part" links (see lib/prompts.js /
-// lib/youtubeSummarize.js), replacing the old flat, marker-free string this
+// moments and build "jump to this part" links (see lib/summarize/prompts.js /
+// lib/summarize/youtubeSummarize.js), replacing the old flat, marker-free string this
 // used to return.
 async function buildCleanTranscript(segments, videoId) {
   if (!segments.length) return "";
@@ -343,6 +343,47 @@ function cleanDescription(description) {
     .trim();
 }
 
+// A description line that opens with a chapter timestamp: an optional bullet,
+// then "M:SS" / "MM:SS" / "H:MM:SS", then the chapter title. Anchoring the
+// timestamp to the line start (not just anywhere in the line) keeps prose like
+// "check out 3:45 in the video" from being mistaken for a chapter.
+const CHAPTER_LINE =
+  /^\s*(?:[-•*]\s*)?(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\b[\s\-–—:.)]*(.+?)\s*$/;
+
+// Parses YouTube chapters out of a raw video description. Returns
+// `[{ start, title }]` (start in seconds) only when the lines form a real
+// chapter list by YouTube's own activation rules — at least three chapters,
+// the first at 0:00, strictly increasing — otherwise `[]`. lib/summarize/youtubeChapters.js
+// parses the block this feeds into; keep the emitted format below in sync.
+function parseDescriptionChapters(description, durationSeconds) {
+  if (!description) return [];
+
+  const byStart = new Map();
+  for (const line of description.split(/\r?\n/)) {
+    const m = line.match(CHAPTER_LINE);
+    if (!m) continue;
+    const [, h, mm, ss, titleRaw] = m;
+    const start = (h ? Number(h) * 3600 : 0) + Number(mm) * 60 + Number(ss);
+    const title = titleRaw.trim().replace(/\s+/g, " ");
+    if (!title || title.length > 100) continue;
+    // First title wins for a repeated timestamp; a Map also sorts nothing, so
+    // we sort explicitly below.
+    if (!byStart.has(start)) byStart.set(start, title);
+  }
+
+  let chapters = [...byStart.entries()]
+    .map(([start, title]) => ({ start, title }))
+    .sort((a, b) => a.start - b.start);
+
+  // Drop stray timestamps past the video's end before validating.
+  if (durationSeconds) {
+    chapters = chapters.filter((c) => c.start <= durationSeconds);
+  }
+
+  if (chapters.length < 3 || chapters[0].start !== 0) return [];
+  return chapters;
+}
+
 async function extractYoutube() {
   const playerResponse = getPlayerResponse();
   const videoDetails = playerResponse?.videoDetails;
@@ -367,8 +408,11 @@ async function extractYoutube() {
       ?.innerText ||
     "";
 
-  const duration = videoDetails?.lengthSeconds
-    ? `${Math.round(Number(videoDetails.lengthSeconds) / 60)} min`
+  const durationSeconds = videoDetails?.lengthSeconds
+    ? Number(videoDetails.lengthSeconds)
+    : 0;
+  const duration = durationSeconds
+    ? `${Math.round(durationSeconds / 60)} min`
     : "";
 
   // Grab visible comments if available (YouTube lazy-loads these on scroll,
@@ -399,7 +443,7 @@ async function extractYoutube() {
   }
 
   // Anti-hallucination ceiling for the summarizer's timestamp links (see
-  // buildYoutubeAssemblyPrompt in lib/prompts.js): the last caption actually
+  // buildYoutubeAssemblyPrompt in lib/summarize/prompts.js): the last caption actually
   // seen, not lengthSeconds, since a sponsor-stripped tail or a video with
   // partial captions means the transcript itself may end earlier.
   const lastAvailableSeconds = transcriptSegments.length
@@ -411,6 +455,19 @@ async function extractYoutube() {
   if (duration) content += `\nDuration: ${duration}\n`;
   if (info) content += `\n${info}\n`;
   if (cleanedDescription) content += `\nDescription:\n${cleanedDescription}\n`;
+  // Chapters come from the RAW description (cleanDescription strips its
+  // timestamp lines). Only meaningful alongside a transcript, since the brief
+  // fills each chapter from transcript content. Emitted as a machine-parseable
+  // block (see lib/summarize/youtubeChapters.js) that lib/summarize/youtubeSummarize.js turns into
+  // a chaptered brief.
+  const chapters = transcript
+    ? parseDescriptionChapters(description, durationSeconds)
+    : [];
+  if (chapters.length) {
+    content += `\nChapters:\n${chapters
+      .map((c) => `- [${formatTimestamp(c.start)}] ${c.title}`)
+      .join("\n")}\n`;
+  }
   content += transcript
     ? `\nLast transcript timestamp: ${formatTimestamp(lastAvailableSeconds)} (${Math.floor(lastAvailableSeconds)}s)\n\nTranscript:\n${transcript}\n`
     : "\n(No transcript/captions available for this video.)\n";
@@ -426,8 +483,6 @@ async function extractYoutube() {
     // Raw seconds (not the rounded "N min" string folded into `content`
     // above) so popup.js's time-saved badge can measure against the video's
     // actual runtime instead of a word-count estimate of the transcript.
-    durationSeconds: videoDetails?.lengthSeconds
-      ? Number(videoDetails.lengthSeconds)
-      : 0,
+    durationSeconds,
   };
 }

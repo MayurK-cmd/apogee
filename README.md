@@ -162,85 +162,6 @@ models (e.g. `llama3.1`, `qwen2.5`, `gemma3`) get bigger chunks and fewer
 passes over long content, rather than the same fixed chunk size regardless
 of what the model can actually handle.
 
-## Translations
-
-Apogee can produce its summaries, Q&A answers, and suggested questions in a
-language other than the source page's. Pick an output language under
-**Settings → Summary language**. The default is **English** (summaries come
-out in English no matter what language the page is in), and **"Same as
-article"** keeps the page's own language. 29 target languages are supported.
-
-Under the hood there are **two translation engines**, selectable under
-**Settings → Translation engine**:
-
-- **LLM (default).** The summarization model translates as it writes: one
-  generation pass with a system-level "write in X" directive, the output is
-  language-checked, and only if the model slipped does an explicit translate
-  pass run. No extra download; it reuses the model already loaded for
-  summarizing. Works for every language, but small in-browser models get
-  weaker the further a language sits from English.
-- **Opus-MT (opt-in).** A dedicated [Helsinki-NLP Opus-MT](https://huggingface.co/Helsinki-NLP)
-  translation model. The summary is generated neutrally (in English), then
-  translated by a purpose-built model: deterministic, structure-preserving
-  (bullets and `[MM:SS](url)` timestamp links are kept intact), and noticeably
-  stronger on the low-resource long tail where the summarization LLM is
-  weakest. Each model is a small (~80&nbsp;MB) ONNX file downloaded from
-  Hugging Face on first use and then cached offline. Any language Opus-MT
-  can't reach automatically falls back to the LLM engine.
-
-Opus-MT is English-centric, so it uses one of three tiers per language. The
-table below is the **English → target** path used when translating a summary:
-
-| Language              | Opus-MT model (English → target) | Tier            | Recommended engine |
-| --------------------- | -------------------------------- | --------------- | ------------------ |
-| Spanish               | `opus-mt-en-es`                  | Dedicated model | Opus or LLM        |
-| French                | `opus-mt-en-fr`                  | Dedicated model | Opus or LLM        |
-| German                | `opus-mt-en-de`                  | Dedicated model | Opus or LLM        |
-| Italian               | `opus-mt-en-it`                  | Dedicated model | Opus or LLM        |
-| Dutch                 | `opus-mt-en-nl`                  | Dedicated model | Opus or LLM        |
-| Russian               | `opus-mt-en-ru`                  | Dedicated model | Opus or LLM        |
-| Chinese (Simplified)  | `opus-mt-en-zh`                  | Dedicated model | Opus or LLM        |
-| Japanese              | `opus-mt-en-jap`                 | Dedicated model | Opus or LLM        |
-| Ukrainian             | `opus-mt-en-uk`                  | Dedicated model | **Opus**           |
-| Czech                 | `opus-mt-en-cs`                  | Dedicated model | **Opus**           |
-| Romanian              | `opus-mt-en-ro`                  | Dedicated model | **Opus**           |
-| Hungarian             | `opus-mt-en-hu`                  | Dedicated model | **Opus**           |
-| Swedish               | `opus-mt-en-sv`                  | Dedicated model | **Opus**           |
-| Danish                | `opus-mt-en-da`                  | Dedicated model | **Opus**           |
-| Finnish               | `opus-mt-en-fi`                  | Dedicated model | **Opus**           |
-| Indonesian            | `opus-mt-en-id`                  | Dedicated model | **Opus**           |
-| Portuguese            | `opus-mt-en-mul` (`>>por<<`)     | Grouped model   | **Opus**           |
-| Polish                | `opus-mt-en-mul` (`>>pol<<`)     | Grouped model   | **Opus**           |
-| Slovenian             | `opus-mt-en-mul` (`>>slv<<`)     | Grouped model   | **Opus**           |
-| Bulgarian             | `opus-mt-en-mul` (`>>bul<<`)     | Grouped model   | **Opus**           |
-| Greek                 | `opus-mt-en-mul` (`>>ell<<`)     | Grouped model   | **Opus**           |
-| Turkish               | `opus-mt-en-mul` (`>>tur<<`)     | Grouped model   | **Opus**           |
-| Norwegian             | `opus-mt-en-mul` (`>>nob<<`)     | Grouped model   | **Opus**           |
-| Estonian              | `opus-mt-en-mul` (`>>est<<`)     | Grouped model   | **Opus**           |
-| Latvian               | `opus-mt-en-mul` (`>>lav<<`)     | Grouped model   | **Opus**           |
-| Lithuanian            | `opus-mt-en-mul` (`>>lit<<`)     | Grouped model   | **Opus**           |
-| Slovak                | none (LLM only)                  | No Opus model   | LLM (only option)  |
-| Korean                | none (LLM only)                  | No Opus model   | LLM (only option)  |
-| Chinese (Traditional) | none (LLM only)                  | No Opus model   | LLM (only option)  |
-
-**How to read this:**
-
-- **Dedicated model**: a small, single-pair Opus-MT model (`opus-mt-en-<code>`),
-  the highest-quality tier. For well-resourced languages (Spanish, French,
-  German, Italian, Dutch, Russian, Chinese, Japanese) the default LLM engine is
-  already strong, so either engine works; for the rest, Opus is the better pick.
-- **Grouped model**: the multilingual `opus-mt-en-mul` model, steered to the
-  target with a `>>code<<` token. These are mostly the lower-resource languages
-  the summarization LLM handles least well, so **Opus is recommended**.
-- **No Opus model**: Slovak, Korean, and Traditional Chinese have no
-  English→target Opus-MT path, so they always use the **LLM** engine (choosing
-  Opus for these silently falls back to the LLM anyway).
-
-When translating the other direction (a non-English page summarized in
-English), Opus-MT uses the matching `opus-mt-<code>-en` dedicated models where
-they exist and the grouped `opus-mt-mul-en` catch-all otherwise. Non-English ↔
-non-English pairs aren't translated directly and fall back to the LLM engine.
-
 ## Browser Support
 
 Apogee ships two builds: a Chromium build (`dist/chrome`, Manifest V3 with an
@@ -265,6 +186,86 @@ and a better source of truth than a number hardcoded here. A GPU with WebGPU
 support (most GPUs from the last several years) is required for the
 In-Browser (WebLLM) mode specifically. Local Ollama mode has no GPU
 requirement of its own beyond whatever Ollama itself needs.
+
+## Translations
+
+Apogee can produce its summaries, Q&A answers, and suggested questions in a
+language other than the source page's. Pick an output language under
+**Settings, then Summary language**. The default is **English** (summaries come
+out in English no matter what language the page is in), and **"Same as
+article"** keeps the page's own language. 29 target languages are supported.
+
+Under the hood there are **two translation engines**, selectable under
+**Settings, then Translation engine**:
+
+- **LLM (default).** The summarization model translates as it writes: one
+  generation pass with a system-level "write in X" directive, the output is
+  language-checked, and only if the model slipped does an explicit translate
+  pass run. No extra download; it reuses the model already loaded for
+  summarizing. Works for every language, but small in-browser models get
+  weaker the further a language sits from English.
+- **Opus-MT (opt-in).** A dedicated [Helsinki-NLP Opus-MT](https://huggingface.co/Helsinki-NLP)
+  translation model. The summary is generated neutrally (in English), then
+  translated by a purpose-built model: deterministic, structure-preserving
+  (bullets and `[MM:SS](url)` timestamp links are kept intact), and noticeably
+  stronger on the low-resource long tail where the summarization LLM is
+  weakest. Each model is a small (~80&nbsp;MB) ONNX file downloaded from
+  Hugging Face on first use and then cached offline. Any language Opus-MT
+  can't reach automatically falls back to the LLM engine.
+
+Opus-MT is English-centric, so it uses one of three tiers per language. The
+table below is the **English-to-target** path used when translating a summary:
+
+| Language              | Opus-MT model (English-to-target) | Tier            | Recommended engine |
+| --------------------- | --------------------------------- | --------------- | ------------------ |
+| Spanish               | `opus-mt-en-es`                   | Dedicated model | Opus or LLM        |
+| French                | `opus-mt-en-fr`                   | Dedicated model | Opus or LLM        |
+| German                | `opus-mt-en-de`                   | Dedicated model | Opus or LLM        |
+| Italian               | `opus-mt-en-it`                   | Dedicated model | Opus or LLM        |
+| Dutch                 | `opus-mt-en-nl`                   | Dedicated model | Opus or LLM        |
+| Russian               | `opus-mt-en-ru`                   | Dedicated model | Opus or LLM        |
+| Chinese (Simplified)  | `opus-mt-en-zh`                   | Dedicated model | Opus or LLM        |
+| Japanese              | `opus-mt-en-jap`                  | Dedicated model | Opus or LLM        |
+| Ukrainian             | `opus-mt-en-uk`                   | Dedicated model | **Opus**           |
+| Czech                 | `opus-mt-en-cs`                   | Dedicated model | **Opus**           |
+| Romanian              | `opus-mt-en-ro`                   | Dedicated model | **Opus**           |
+| Hungarian             | `opus-mt-en-hu`                   | Dedicated model | **Opus**           |
+| Swedish               | `opus-mt-en-sv`                   | Dedicated model | **Opus**           |
+| Danish                | `opus-mt-en-da`                   | Dedicated model | **Opus**           |
+| Finnish               | `opus-mt-en-fi`                   | Dedicated model | **Opus**           |
+| Indonesian            | `opus-mt-en-id`                   | Dedicated model | **Opus**           |
+| Portuguese            | `opus-mt-en-mul` (`>>por<<`)      | Grouped model   | **Opus**           |
+| Polish                | `opus-mt-en-mul` (`>>pol<<`)      | Grouped model   | **Opus**           |
+| Slovenian             | `opus-mt-en-mul` (`>>slv<<`)      | Grouped model   | **Opus**           |
+| Bulgarian             | `opus-mt-en-mul` (`>>bul<<`)      | Grouped model   | **Opus**           |
+| Greek                 | `opus-mt-en-mul` (`>>ell<<`)      | Grouped model   | **Opus**           |
+| Turkish               | `opus-mt-en-mul` (`>>tur<<`)      | Grouped model   | **Opus**           |
+| Norwegian             | `opus-mt-en-mul` (`>>nob<<`)      | Grouped model   | **Opus**           |
+| Estonian              | `opus-mt-en-mul` (`>>est<<`)      | Grouped model   | **Opus**           |
+| Latvian               | `opus-mt-en-mul` (`>>lav<<`)      | Grouped model   | **Opus**           |
+| Lithuanian            | `opus-mt-en-mul` (`>>lit<<`)      | Grouped model   | **Opus**           |
+| Slovak                | none (LLM only)                   | No Opus model   | LLM (only option)  |
+| Korean                | none (LLM only)                   | No Opus model   | LLM (only option)  |
+| Chinese (Traditional) | none (LLM only)                   | No Opus model   | LLM (only option)  |
+
+**How to read this:**
+
+- **Dedicated model**: a small, single-pair Opus-MT model (`opus-mt-en-<code>`),
+  the highest-quality tier. For well-resourced languages (Spanish, French,
+  German, Italian, Dutch, Russian, Chinese, Japanese) the default LLM engine is
+  already strong, so either engine works; for the rest, Opus is the better pick.
+- **Grouped model**: the multilingual `opus-mt-en-mul` model, steered to the
+  target with a `>>code<<` token. These are mostly the lower-resource languages
+  the summarization LLM handles least well, so **Opus is recommended**.
+- **No Opus model**: Slovak, Korean, and Traditional Chinese have no
+  English-to-target Opus-MT path, so they always use the **LLM** engine (choosing
+  Opus for these silently falls back to the LLM anyway).
+
+When translating the other direction (a non-English page summarized in
+English), Opus-MT uses the matching `opus-mt-<code>-en` dedicated models where
+they exist and the grouped `opus-mt-mul-en` catch-all otherwise.
+Non-English-to-non-English pairs aren't translated directly and fall back to
+the LLM engine.
 
 ## Install the Extension
 
@@ -377,7 +378,7 @@ relaunch Ollama:
 setx OLLAMA_ORIGINS "<your-extension-origin>"
 ```
 
-(Equivalently, add `OLLAMA_ORIGINS` via Settings → "Edit environment variables
+(Equivalently, add `OLLAMA_ORIGINS` via Settings, then "Edit environment variables
 for your account". `setx` only affects processes started _after_ it runs, so
 the relaunch matters.)
 
@@ -447,7 +448,7 @@ Privacy is the core pillar of Apogee. The key guarantee is simple: **your page c
 - **The only outbound network requests Apogee makes**:
   - **Model weights** are downloaded once from **Hugging Face** (in-browser mode) or pulled by **Ollama** (local mode), then cached and reused offline. This transfers no page content, only the model files themselves.
   - **YouTube transcripts**: on a YouTube page, the extractor fetches that video's caption track from YouTube/Google (the site you're already on) to feed the transcript to the model. It is restricted to genuine `youtube.com`/`google.com`/`googlevideo.com` hosts.
-  - **YouTube sponsor-segment lookup (SponsorBlock)**: when summarizing a YouTube video, Apogee asks the crowdsourced [SponsorBlock](https://sponsor.ajay.app) API which parts of the video are sponsor reads/self-promo, so they can be stripped from the transcript. This uses SponsorBlock's privacy-preserving k-anonymity endpoint: only the first 4 hex characters of the SHA-256 hash of the video ID are sent (never the video ID, URL, or any page content), and the matching entry is picked out locally. If the lookup fails, a local phrase heuristic runs instead, with no network call at all. You can also turn the lookup off entirely under **Settings → YouTube Sponsor Removal** ("Local phrase heuristic"), which makes sponsor detection fully network-free.
+  - **YouTube sponsor-segment lookup (SponsorBlock)**: when summarizing a YouTube video, Apogee asks the crowdsourced [SponsorBlock](https://sponsor.ajay.app) API which parts of the video are sponsor reads/self-promo, so they can be stripped from the transcript. This uses SponsorBlock's privacy-preserving k-anonymity endpoint: only the first 4 hex characters of the SHA-256 hash of the video ID are sent (never the video ID, URL, or any page content), and the matching entry is picked out locally. If the lookup fails, a local phrase heuristic runs instead, with no network call at all. You can also turn the lookup off entirely under **Settings, then YouTube Sponsor Removal** ("Local phrase heuristic"), which makes sponsor detection fully network-free.
   - That's it, there are no other external calls. (See the extension's `content_security_policy.connect-src` in `manifest.json` for the exact allow-list this is enforced against, and `ALLOWED_OLLAMA_HOSTS` in `background/service-worker.js`, which rejects any Local Ollama host setting that isn't plain `http://127.0.0.1` or `http://localhost`.)
 - **No remotely loaded code**: every piece of executable code, JavaScript and WebAssembly alike, ships inside the extension package. That includes onnxruntime-web's WASM runtime (Ask's local embedding model and the Transformers.js engine) and WebLLM's per-model WASM kernels, which are downloaded and SHA-256-verified at **build** time (see `apogee-extension/scripts/model-libs.mjs`) rather than fetched from a CDN or GitHub at runtime. Only model _weights_ (data, not code) are fetched at runtime, from Hugging Face, as described above.
 - **PDFs**: PDF text extraction runs fully client-side using `pdf.js` bundled into the extension, the PDF is downloaded straight into the browser tab (using that tab's own network context) and parsed there. Only the extracted text is ever handed to the model; the file itself never passes through any other process.

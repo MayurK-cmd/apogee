@@ -2,28 +2,28 @@
 // Receives messages from the service worker, runs inference, and streams tokens back via chrome.runtime port connections.
 // IMPORTANT: We use dynamic imports for @mlc-ai/web-llm and prompt helpers so that message handlers (especially check-webgpu) register immediately without waiting for the heavy ~6 MB web-llm module to load. If the static import fails at the top level, the entire module dies and no handlers register,this was the root cause of the false "WebGPU not supported" bug.
 
-import { parseSuggestedQuestions } from "../lib/questions.js";
-import { summarizeText } from "../lib/ollamaSummarize.js";
-import { resolveEffectiveLanguage } from "../lib/detectLanguage.js";
+import { parseSuggestedQuestions } from "../lib/summarize/questions.js";
+import { summarizeText } from "../lib/summarize/ollamaSummarize.js";
+import { resolveEffectiveLanguage } from "../lib/language/detectLanguage.js";
 import {
   streamInTargetLanguage,
   generateInTargetLanguage,
-} from "../lib/languageOutput.js";
-import { makeOpusTranslateFn } from "../lib/opusTranslateEngine.js";
-import { retrieveRelevantContent, findBestPassage } from "../lib/rag.js";
-import { createLock } from "../lib/mutex.js";
+} from "../lib/language/languageOutput.js";
+import { makeOpusTranslateFn } from "../lib/language/opusTranslateEngine.js";
+import { retrieveRelevantContent, findBestPassage } from "../lib/retrieval/rag.js";
+import { createLock } from "../lib/util/mutex.js";
 import { WEBLLM_MODELS, TRANSLATION_ENGINES } from "../lib/constants.js";
 // Chrome/Edge run the Transformers.js (ONNX/WASM) provider here in the offscreen
 // document too, not just WebLLM: the MV3 service worker can't reliably
 // dynamic-import @huggingface/transformers (same reason the embedding pipeline
-// runs here, see lib/embeddings.js). On Firefox this engine runs in the
+// runs here, see lib/engines/embeddings.js). On Firefox this engine runs in the
 // background page instead (see background/service-worker.js's transformers-stream
 // handler); these helpers are browser-agnostic, so both hosts share them.
 import {
   withTransformersEngine,
   transformersChatStream,
   getTransformersStatus,
-} from "../lib/transformersEngine.js";
+} from "../lib/engines/transformersEngine.js";
 
 // Forward all console logs to the service worker for remote debugging
 const originalConsole = {
@@ -97,7 +97,7 @@ let engine = null;
 let currentModelId = null;
 let loadingModelId = null;
 
-// Serialization Mutex for the WebLLM engine (see lib/mutex.js):
+// Serialization Mutex for the WebLLM engine (see lib/util/mutex.js):
 // Because MLCEngine / WebGPU is highly stateful, running overlapping model operations (such as starting a new inference task or suggestions while a previous inference stream is finishing, or loading/unloading models concurrently) can corrupt the WebGPU device context and throw "Buffer was unmapped before mapping was resolved" errors.
 // This guarantees only one engine operation runs at a time.
 const acquireLock = createLock();
@@ -121,7 +121,7 @@ async function getWebLLM() {
 
 async function getPrompts() {
   if (!_prompts) {
-    _prompts = await import("../lib/prompts.js");
+    _prompts = await import("../lib/summarize/prompts.js");
   }
   return _prompts;
 }
@@ -322,7 +322,7 @@ async function* drainWebLLMStream(eng, completion, signal) {
   }
 }
 
-// lib/languageOutput.js-shaped chat function over the WebLLM engine:
+// lib/language/languageOutput.js-shaped chat function over the WebLLM engine:
 // chatFn(prompt, { signal, system }) -> async iterable of text tokens, with an
 // optional system message. Used by the ask/suggest language wrappers so they
 // get the same single-pass-directive + verify + translate-fallback behavior as
@@ -396,7 +396,7 @@ function opusTranslateFor(translationEngine) {
 }
 
 // Chunk-aware summarization for the small in-browser models, delegated to the
-// shared summarizeText core (lib/ollamaSummarize.js) so WebLLM and Ollama
+// shared summarizeText core (lib/summarize/ollamaSummarize.js) so WebLLM and Ollama
 // produce identical output for the same page. summarizeText owns the
 // chunking + map-reduce logic; here we only adapt the WebLLM engine to look
 // like an Ollama-style token stream and forward its tokens.
@@ -405,7 +405,7 @@ function opusTranslateFor(translationEngine) {
 // reduce/synthesis pass over all chunks' output together, so a long document
 // still reads as one coherent result instead of a flat concatenation of
 // per-chunk output. Bullets' reduce pass scales its target bullet count with
-// how many chunks were merged (see buildScaledBulletsStyle in lib/prompts.js)
+// how many chunks were merged (see buildScaledBulletsStyle in lib/summarize/prompts.js)
 // so a long PDF still gets proportionally more bullets instead of being
 // crushed to a fixed 8-14 total.
 async function runSummarize(eng, pending, emit, signal) {
@@ -645,7 +645,7 @@ async function runStream(streamId, pending, stream) {
     // proactively tell the service worker it's done rather than being able
     // to call finalizeSummaryJob itself. Only for summarize jobs carrying a
     // `finalize` (background-triggered jobs and popup-triggered ones alike,
-    // see lib/providers.js's WebLLMProvider.summarize), and only on success,
+    // see lib/engines/providers.js's WebLLMProvider.summarize), and only on success,
     // a cancelled job never reaches here (guarded above) and an error
     // shouldn't persist a partial/failed result.
     if (
@@ -668,7 +668,7 @@ async function runStream(streamId, pending, stream) {
   };
 
   try {
-    // Computed outside withEngine: it's WASM/CPU work (see lib/embeddings.js),
+    // Computed outside withEngine: it's WASM/CPU work (see lib/engines/embeddings.js),
     // unrelated to the WebGPU engine the lock exists to serialize, so it
     // shouldn't sit blocked behind (or block) another engine operation.
     let askPrompt = null;
@@ -868,7 +868,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // from Ollama directly rather than through this document's engine, it
         // only needs the relevant-content selection itself, which requires
         // the embedding model's dynamic import(), disallowed in the service
-        // worker's ServiceWorkerGlobalScope by spec (see lib/embeddings.js).
+        // worker's ServiceWorkerGlobalScope by spec (see lib/engines/embeddings.js).
         case "retrieve-context": {
           const { content, question } = message.payload;
           const relevantContent = await retrieveRelevantContent({
@@ -880,7 +880,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         // "Highlight in page": find which original-content chunk a clicked
-        // summary bullet is most likely grounded in, see lib/rag.js's
+        // summary bullet is most likely grounded in, see lib/retrieval/rag.js's
         // findBestPassage and the popup.js click handler that calls this.
         // Same embedding-model/offscreen-document constraint as
         // "retrieve-context" above, Chrome/Chromium only.

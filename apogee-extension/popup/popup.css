@@ -216,6 +216,17 @@ body {
   transform: rotate(15deg) scale(1.05);
 }
 
+/* On Home the brand is already the current view, so its click (a "go home"
+   shortcut, only meaningful from Summary) is a no-op. Drop the pointer cursor
+   and hover animation there so it doesn't imply an action that isn't. */
+#homeView .brand {
+  cursor: default;
+}
+
+#homeView .brand:hover .logo {
+  transform: none;
+}
+
 .brand-name {
   font-family: "Mozilla_Text", sans-serif;
   font-weight: 700;
@@ -382,6 +393,10 @@ body {
   line-height: 1.5;
   color: var(--text-muted);
   white-space: pre-wrap;
+  /* pre-wrap alone won't break a long unbroken token (URL, hash, code span);
+     without this it runs past the card and gets clipped by body's
+     overflow-x: hidden. */
+  overflow-wrap: break-word;
 }
 
 /* Highlight-in-page affordance (Chromium builds only, see
@@ -431,6 +446,16 @@ body {
   display: flex;
   align-items: center;
   margin-top: 12px;
+}
+
+/* Drop the top margin when the footer has nothing visible to show (e.g. a
+   summary error, where the time-saved badge and every action button are
+   hidden), so it doesn't leave a dangling gap under the text. The actions
+   wrapper is always present, so emptiness is tested on its buttons, not it. */
+.summary-footer:not(:has(.time-saved-badge:not(.hidden))):not(
+    :has(.summary-footer-actions button:not(.hidden))
+  ) {
+  margin-top: 0;
 }
 
 .summary-footer-actions {
@@ -733,6 +758,7 @@ body {
 .past-summary-card.expanded .past-summary-preview {
   white-space: normal;
   overflow: visible;
+  overflow-wrap: break-word;
 }
 
 .past-summary-card .copy-btn {
@@ -862,6 +888,7 @@ body {
   line-height: 1.5;
   color: var(--text-muted);
   white-space: pre-wrap;
+  overflow-wrap: break-word;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
   margin-top: 10px;
 }
@@ -983,6 +1010,9 @@ body {
   appearance: none;
   width: 16px;
   height: 16px;
+  /* Keep the circle from being squeezed into an oval when a long label
+     (e.g. the translation-engine options) wraps in the flex row. */
+  flex-shrink: 0;
   border: 2px solid var(--radio-border);
   border-radius: 50%;
   outline: none;
@@ -1270,6 +1300,26 @@ body {
   background: #64748b;
 }
 
+/* Initial state while the connection probe is still in flight (which can take
+   a few seconds on a cold WebLLM start): amber + pulse, so it reads as "still
+   checking" rather than looking briefly disconnected. Swapped to
+   connected/disconnected by updateConnectionUI once the probe resolves. */
+.status-dot.checking {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+  animation: status-pulse-checking 1.4s infinite ease-in-out;
+}
+
+@keyframes status-pulse-checking {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .apogee-loading {
   display: flex;
   align-items: center;
@@ -1329,7 +1379,8 @@ body {
     content: "...";
   }
 
-  .status-dot.connected {
+  .status-dot.connected,
+  .status-dot.checking {
     animation: none;
   }
 

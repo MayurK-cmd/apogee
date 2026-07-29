@@ -1,6 +1,6 @@
 // "Highlight in page": given the original-content chunk a clicked summary
 // bullet is most likely grounded in (found via embedding similarity, see
-// lib/rag.js's findBestPassage), locate that text in the *live* page and
+// lib/retrieval/rag.js's findBestPassage), locate that text in the *live* page and
 // scroll to / highlight it. Injected fresh on demand by popup.js each time
 // a bullet is clicked (chrome.scripting.executeScript({files, func}), the
 // same pull-style pattern content.js's extractors use, not a persistent
@@ -11,10 +11,10 @@
 // optimize for, so there's nothing to gain from tracking staleness here.
 //
 // The matching logic below (escapeRegExp/buildFlexibleMatcher/tryMatch/
-// splitIntoSpans/findMatchingRange) intentionally mirrors lib/passageMatch.js
+// splitIntoSpans/findMatchingRange) intentionally mirrors lib/retrieval/passageMatch.js
 // rather than importing it: content scripts here are injected as plain,
 // non-module scripts (see content.js's own comment on why), so they can't
-// use ES module imports. lib/passageMatch.js stays the canonical,
+// use ES module imports. lib/retrieval/passageMatch.js stays the canonical,
 // unit-tested version; keep this copy in sync with it by hand.
 
 function escapeRegExp(str) {

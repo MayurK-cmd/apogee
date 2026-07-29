@@ -17,7 +17,7 @@
 
           <div class="status-pill" id="homeStatus">
             <span id="homeStatusText">Checking...</span>
-            <span id="homeStatusDot" class="status-dot disconnected"></span>
+            <span id="homeStatusDot" class="status-dot checking"></span>
           </div>
 
           <div class="header-actions">
@@ -79,7 +79,7 @@
 
           <div class="status-pill" id="summaryStatus">
             <span id="summaryStatusText">Checking...</span>
-            <span id="summaryStatusDot" class="status-dot disconnected"></span>
+            <span id="summaryStatusDot" class="status-dot checking"></span>
           </div>
 
           <div class="header-actions">
@@ -300,10 +300,7 @@
             <div class="status-row">
               <span id="settingsStatusText"> Checking... </span>
 
-              <span
-                id="settingsStatusDot"
-                class="status-dot disconnected"
-              ></span>
+              <span id="settingsStatusDot" class="status-dot checking"></span>
             </div>
           </div>
 
@@ -316,7 +313,7 @@
             <label class="radio-option" id="webllmProviderOption">
               <input type="radio" name="provider" value="webllm" checked />
               <span
-                >In-Browser AI
+                >In-Browser AI (GPU)
                 <small class="provider-badge">WebGPU</small></span
               >
             </label>
@@ -324,7 +321,7 @@
             <label class="radio-option" id="transformersProviderOption">
               <input type="radio" name="provider" value="transformers" />
               <span
-                >In-Browser AI
+                >In-Browser AI (CPU)
                 <small class="provider-badge">Transformers.js</small></span
               >
             </label>
@@ -406,11 +403,6 @@
               <img src="../assets/languages.svg" alt="" />
               <span>Summary Language</span>
             </div>
-            <p class="settings-hint">
-              Summaries and answers are written in this language, whatever the
-              page's original language. "Same as article" keeps the page's own
-              language.
-            </p>
             <select id="summaryLanguageSelect" class="settings-select"></select>
           </div>
 
@@ -419,13 +411,6 @@
               <img src="../assets/refresh-cw.svg" alt="" />
               <span>Translation Engine</span>
             </div>
-            <p class="settings-hint">
-              How non-English output is translated. "Dedicated translator" uses
-              a separate Opus-MT model (downloaded per language, higher accuracy
-              on less-common languages) instead of the summarization model. Only
-              applies to the in-browser engines.
-            </p>
-
             <label class="radio-option">
               <input
                 type="radio"
