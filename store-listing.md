@@ -45,11 +45,11 @@ A system notification tells you when the summary is ready.
 
 TWO WAYS TO RUN IT
 
-1) In-Browser AI (zero setup)
-Runs small, fast models entirely in your browser. On first use it downloads the model weights (roughly 270 MB to 2.2 GB depending on the model) and caches them locally. After that, everything works offline. Defaults to WebGPU (WebLLM) on Chrome and Edge, with a WebAssembly (Transformers.js) option in Settings for machines without WebGPU.
+1. In-Browser AI (zero setup)
+   Runs small, fast models entirely in your browser. On first use it downloads the model weights (roughly 270 MB to 2.2 GB depending on the model) and caches them locally. After that, everything works offline. Defaults to WebGPU (WebLLM) on Chrome and Edge, with a WebAssembly (Transformers.js) option in Settings for machines without WebGPU.
 
-2) Local Ollama (for power users)
-Prefer larger, more capable models? Point Apogee at your own local Ollama instance and it talks to it directly over 127.0.0.1, with no separate backend to install or run. Any model you've pulled shows up automatically. Still fully local; nothing leaves your machine.
+2. Local Ollama (for power users)
+   Prefer larger, more capable models? Point Apogee at your own local Ollama instance and it talks to it directly over 127.0.0.1, with no separate backend to install or run. Any model you've pulled shows up automatically. Still fully local; nothing leaves your machine.
 
 PRIVACY
 

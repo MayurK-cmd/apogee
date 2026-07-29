@@ -38,7 +38,7 @@ If `format:check` fails, run `npm run format` to auto-fix it.
 
 ## Code style
 
-- No comments explaining *what* code does, only *why*, when the reason isn't
+- No comments explaining _what_ code does, only _why_, when the reason isn't
   obvious from reading it (a workaround, a non-obvious constraint, a subtle
   invariant).
 - Keep changes scoped: a bug fix shouldn't carry an unrelated refactor along

@@ -191,37 +191,37 @@ Under the hood there are **two translation engines**, selectable under
 Opus-MT is English-centric, so it uses one of three tiers per language. The
 table below is the **English → target** path used when translating a summary:
 
-| Language                 | Opus-MT model (English → target) | Tier             | Recommended engine     |
-| ------------------------ | -------------------------------- | ---------------- | ---------------------- |
-| Spanish                  | `opus-mt-en-es`                  | Dedicated model  | Opus or LLM            |
-| French                   | `opus-mt-en-fr`                  | Dedicated model  | Opus or LLM            |
-| German                   | `opus-mt-en-de`                  | Dedicated model  | Opus or LLM            |
-| Italian                  | `opus-mt-en-it`                  | Dedicated model  | Opus or LLM            |
-| Dutch                    | `opus-mt-en-nl`                  | Dedicated model  | Opus or LLM            |
-| Russian                  | `opus-mt-en-ru`                  | Dedicated model  | Opus or LLM            |
-| Chinese (Simplified)     | `opus-mt-en-zh`                  | Dedicated model  | Opus or LLM            |
-| Japanese                 | `opus-mt-en-jap`                 | Dedicated model  | Opus or LLM            |
-| Ukrainian                | `opus-mt-en-uk`                  | Dedicated model  | **Opus**               |
-| Czech                    | `opus-mt-en-cs`                  | Dedicated model  | **Opus**               |
-| Romanian                 | `opus-mt-en-ro`                  | Dedicated model  | **Opus**               |
-| Hungarian                | `opus-mt-en-hu`                  | Dedicated model  | **Opus**               |
-| Swedish                  | `opus-mt-en-sv`                  | Dedicated model  | **Opus**               |
-| Danish                   | `opus-mt-en-da`                  | Dedicated model  | **Opus**               |
-| Finnish                  | `opus-mt-en-fi`                  | Dedicated model  | **Opus**               |
-| Indonesian               | `opus-mt-en-id`                  | Dedicated model  | **Opus**               |
-| Portuguese               | `opus-mt-en-mul` (`>>por<<`)     | Grouped model    | **Opus**               |
-| Polish                   | `opus-mt-en-mul` (`>>pol<<`)     | Grouped model    | **Opus**               |
-| Slovenian                | `opus-mt-en-mul` (`>>slv<<`)     | Grouped model    | **Opus**               |
-| Bulgarian                | `opus-mt-en-mul` (`>>bul<<`)     | Grouped model    | **Opus**               |
-| Greek                    | `opus-mt-en-mul` (`>>ell<<`)     | Grouped model    | **Opus**               |
-| Turkish                  | `opus-mt-en-mul` (`>>tur<<`)     | Grouped model    | **Opus**               |
-| Norwegian                | `opus-mt-en-mul` (`>>nob<<`)     | Grouped model    | **Opus**               |
-| Estonian                 | `opus-mt-en-mul` (`>>est<<`)     | Grouped model    | **Opus**               |
-| Latvian                  | `opus-mt-en-mul` (`>>lav<<`)     | Grouped model    | **Opus**               |
-| Lithuanian               | `opus-mt-en-mul` (`>>lit<<`)     | Grouped model    | **Opus**               |
-| Slovak                   | none (LLM only)                  | No Opus model    | LLM (only option)      |
-| Korean                   | none (LLM only)                  | No Opus model    | LLM (only option)      |
-| Chinese (Traditional)    | none (LLM only)                  | No Opus model    | LLM (only option)      |
+| Language              | Opus-MT model (English → target) | Tier            | Recommended engine |
+| --------------------- | -------------------------------- | --------------- | ------------------ |
+| Spanish               | `opus-mt-en-es`                  | Dedicated model | Opus or LLM        |
+| French                | `opus-mt-en-fr`                  | Dedicated model | Opus or LLM        |
+| German                | `opus-mt-en-de`                  | Dedicated model | Opus or LLM        |
+| Italian               | `opus-mt-en-it`                  | Dedicated model | Opus or LLM        |
+| Dutch                 | `opus-mt-en-nl`                  | Dedicated model | Opus or LLM        |
+| Russian               | `opus-mt-en-ru`                  | Dedicated model | Opus or LLM        |
+| Chinese (Simplified)  | `opus-mt-en-zh`                  | Dedicated model | Opus or LLM        |
+| Japanese              | `opus-mt-en-jap`                 | Dedicated model | Opus or LLM        |
+| Ukrainian             | `opus-mt-en-uk`                  | Dedicated model | **Opus**           |
+| Czech                 | `opus-mt-en-cs`                  | Dedicated model | **Opus**           |
+| Romanian              | `opus-mt-en-ro`                  | Dedicated model | **Opus**           |
+| Hungarian             | `opus-mt-en-hu`                  | Dedicated model | **Opus**           |
+| Swedish               | `opus-mt-en-sv`                  | Dedicated model | **Opus**           |
+| Danish                | `opus-mt-en-da`                  | Dedicated model | **Opus**           |
+| Finnish               | `opus-mt-en-fi`                  | Dedicated model | **Opus**           |
+| Indonesian            | `opus-mt-en-id`                  | Dedicated model | **Opus**           |
+| Portuguese            | `opus-mt-en-mul` (`>>por<<`)     | Grouped model   | **Opus**           |
+| Polish                | `opus-mt-en-mul` (`>>pol<<`)     | Grouped model   | **Opus**           |
+| Slovenian             | `opus-mt-en-mul` (`>>slv<<`)     | Grouped model   | **Opus**           |
+| Bulgarian             | `opus-mt-en-mul` (`>>bul<<`)     | Grouped model   | **Opus**           |
+| Greek                 | `opus-mt-en-mul` (`>>ell<<`)     | Grouped model   | **Opus**           |
+| Turkish               | `opus-mt-en-mul` (`>>tur<<`)     | Grouped model   | **Opus**           |
+| Norwegian             | `opus-mt-en-mul` (`>>nob<<`)     | Grouped model   | **Opus**           |
+| Estonian              | `opus-mt-en-mul` (`>>est<<`)     | Grouped model   | **Opus**           |
+| Latvian               | `opus-mt-en-mul` (`>>lav<<`)     | Grouped model   | **Opus**           |
+| Lithuanian            | `opus-mt-en-mul` (`>>lit<<`)     | Grouped model   | **Opus**           |
+| Slovak                | none (LLM only)                  | No Opus model   | LLM (only option)  |
+| Korean                | none (LLM only)                  | No Opus model   | LLM (only option)  |
+| Chinese (Traditional) | none (LLM only)                  | No Opus model   | LLM (only option)  |
 
 **How to read this:**
 
