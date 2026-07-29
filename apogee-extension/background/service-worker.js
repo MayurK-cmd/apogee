@@ -44,7 +44,10 @@ import {
   extractFromActiveTab,
   extractPdfContent,
 } from "../lib/extract/pageExtraction.js";
-import { getProviderType, getModelForSettings } from "../lib/engines/providers.js";
+import {
+  getProviderType,
+  getModelForSettings,
+} from "../lib/engines/providers.js";
 import { PROVIDERS, TRANSLATION_ENGINES } from "../lib/constants.js";
 import { saveViewState, removeViewState } from "../lib/storage/viewState.js";
 
@@ -651,11 +654,7 @@ async function runBackgroundSummarize(
   const persist = isSelection ? false : await shouldPersist(tab.url);
   const cacheUrl = isSelection ? `${tab.url}#apogee-selection` : tab.url;
 
-  if (
-    !isSelection &&
-    CACHEABLE_PAGE_TYPES.has(pageData.type) &&
-    persist
-  ) {
+  if (!isSelection && CACHEABLE_PAGE_TYPES.has(pageData.type) && persist) {
     await persistContent(tab.url, pageData);
   }
 

@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import { attachToStream, StreamCancelledError } from "../../lib/engines/providers.js";
+import {
+  attachToStream,
+  StreamCancelledError,
+} from "../../lib/engines/providers.js";
 
 function createFakePort() {
   const listeners = { message: [], disconnect: [] };

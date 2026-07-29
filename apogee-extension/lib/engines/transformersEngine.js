@@ -8,7 +8,10 @@
 // so it isn't affected by the blob:-URL-worker CSP restriction that blocks
 // wllama in every extension execution context on both browsers.
 
-import { TRANSFORMERS_MODELS, EXPERIMENTAL_WASM_THREADS } from "../constants.js";
+import {
+  TRANSFORMERS_MODELS,
+  EXPERIMENTAL_WASM_THREADS,
+} from "../constants.js";
 import { getTransformers } from "./transformersLib.js";
 import { ortWasmUrl, ortWasmBinary } from "./onnxWasm.js";
 import { createLock } from "../util/mutex.js";

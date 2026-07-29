@@ -35,7 +35,10 @@ import {
 } from "../lib/constants.js";
 import { getSettings } from "../lib/storage/settings.js";
 import { formatSummaryAsMarkdown } from "../lib/util/exportFormat.js";
-import { formatTimeSaved, formatVideoTimeSaved } from "../lib/util/readingTime.js";
+import {
+  formatTimeSaved,
+  formatVideoTimeSaved,
+} from "../lib/util/readingTime.js";
 import { saveViewState, loadViewState } from "../lib/storage/viewState.js";
 import {
   hashUrl,

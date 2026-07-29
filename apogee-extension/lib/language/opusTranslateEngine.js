@@ -5,7 +5,10 @@
 // (Chrome) and the background page (Firefox), which are the only hosts that
 // build this. Ollama jobs never use it.
 
-import { withTranslator, translateBatch } from "../engines/transformersEngine.js";
+import {
+  withTranslator,
+  translateBatch,
+} from "../engines/transformersEngine.js";
 import { detectPrimaryLanguage } from "./detectLanguage.js";
 import {
   resolveOpusModel,

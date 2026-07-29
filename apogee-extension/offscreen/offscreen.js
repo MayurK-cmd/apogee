@@ -10,7 +10,10 @@ import {
   generateInTargetLanguage,
 } from "../lib/language/languageOutput.js";
 import { makeOpusTranslateFn } from "../lib/language/opusTranslateEngine.js";
-import { retrieveRelevantContent, findBestPassage } from "../lib/retrieval/rag.js";
+import {
+  retrieveRelevantContent,
+  findBestPassage,
+} from "../lib/retrieval/rag.js";
 import { createLock } from "../lib/util/mutex.js";
 import { WEBLLM_MODELS, TRANSLATION_ENGINES } from "../lib/constants.js";
 // Chrome/Edge run the Transformers.js (ONNX/WASM) provider here in the offscreen

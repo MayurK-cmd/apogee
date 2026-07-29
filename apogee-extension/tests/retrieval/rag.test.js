@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import { retrieveRelevantContent, findBestPassage } from "../../lib/retrieval/rag.js";
+import {
+  retrieveRelevantContent,
+  findBestPassage,
+} from "../../lib/retrieval/rag.js";
 
 // Fake 2-D "embedding": [1,0] if the text mentions banana, [0,1] if it
 // mentions carrot, [0,0] otherwise. A question about banana then scores

@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert";
-import { splitIntoSections, chunkBySections } from "../../lib/summarize/sections.js";
+import {
+  splitIntoSections,
+  chunkBySections,
+} from "../../lib/summarize/sections.js";
 
 test("splitIntoSections returns null for text with no headings", () => {
   const text =

@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import { getMaxChunkChars, getMaxChunks } from "../../lib/engines/modelLimits.js";
+import {
+  getMaxChunkChars,
+  getMaxChunks,
+} from "../../lib/engines/modelLimits.js";
 import { TRANSFORMERS_MODELS } from "../../lib/constants.js";
 
 test("getMaxChunkChars caps WebLLM's uniformly small context window", () => {

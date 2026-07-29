@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert";
-import { formatTimeSaved, formatVideoTimeSaved } from "../../lib/util/readingTime.js";
+import {
+  formatTimeSaved,
+  formatVideoTimeSaved,
+} from "../../lib/util/readingTime.js";
 
 function words(n) {
   return Array(n).fill("word").join(" ");
