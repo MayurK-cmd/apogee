@@ -59,8 +59,10 @@ function buildThreadNodes(items) {
 
 // Keeps the comments `eligible(node)` accepts (non-dead, within downvote/depth
 // limits), branch-weighted down to maxComments when the thread is too big:
-// largest subtree first, then every ancestor of a kept node re-added so paths
-// stay coherent. Returns survivors in original pre-order (thread) sequence.
+// largest subtree first, then every *eligible* ancestor of a kept node
+// re-added so a kept deep reply keeps its parent context. Ineligible (dead/
+// removed) ancestors stay dropped — paths are absolute, so the numbering reads
+// coherently regardless. Returns survivors in original pre-order sequence.
 function selectThreadComments(nodes, eligible, maxComments) {
   const survivors = nodes.filter(eligible);
   if (survivors.length <= maxComments) return survivors;

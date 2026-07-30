@@ -102,13 +102,18 @@ async function fetchTranscript(playerResponse) {
     playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
   if (!tracks || tracks.length === 0) return [];
 
-  // Prefer a human-written track in the viewer's language, then any
-  // human-written track, then fall back to auto-generated (kind "asr").
+  // Prefer the viewer's own language above all else: a human-written track in
+  // it, then even its auto-generated (kind "asr") track, before falling back
+  // to a human-written track in some OTHER language, then whatever's first.
+  // Trying "any human track" before the viewer-language asr used to pull a
+  // foreign human track (e.g. the original French captions on a video an
+  // English viewer is watching) over the English auto-captions, yielding a
+  // wrong-language transcript and a wasteful translate pass.
   const preferredLang = (navigator.language || "en").split("-")[0];
   const track =
     tracks.find((t) => t.languageCode === preferredLang && t.kind !== "asr") ||
-    tracks.find((t) => t.kind !== "asr") ||
     tracks.find((t) => t.languageCode === preferredLang) ||
+    tracks.find((t) => t.kind !== "asr") ||
     tracks[0];
 
   if (!track.baseUrl) return [];

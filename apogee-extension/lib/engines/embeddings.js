@@ -45,7 +45,14 @@ async function getExtractor() {
         dtype: "q8",
         device: "wasm",
       });
-    })();
+    })().catch((err) => {
+      // Drop the memo so a transient failure (e.g. a model-weights or WASM
+      // fetch blip on first use) can be retried, instead of poisoning every
+      // later Ask/highlight-in-page with the same rejected promise for the
+      // life of the offscreen document. Mirrors ortWasmBinary in onnxWasm.js.
+      _extractorPromise = null;
+      throw err;
+    });
   }
   return _extractorPromise;
 }

@@ -2,7 +2,7 @@ function extractGmail() {
   // Find the email subject
   const subjectEl =
     document.querySelector("h1.hP") || document.querySelector(".hP");
-  const subject = subjectEl ? subjectEl.innerText : document.title;
+  const subject = subjectEl ? subjectEl.innerText.trim() : document.title;
 
   // Find all email message bodies in the active thread (handling conversation threads)
   const messageEls = document.querySelectorAll("div.a3s");

@@ -525,9 +525,17 @@ async function getPageData(tab) {
   return pageData;
 }
 
+// Pending "hide the progress bar 1.5s after it hit 100%" timer. Tracked (not
+// fire-and-forget) so a *new* download starting right after a previous one
+// finished — e.g. the Opus translator loading just after the summarization
+// model — cancels the stale hide instead of having it blank out the bar
+// mid-download. Every incoming progress message clears it first.
+let modelProgressHideTimer = null;
+
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "model-progress" && message.progress) {
     const p = message.progress;
+    clearTimeout(modelProgressHideTimer);
     modelProgress?.classList.remove("hidden");
     modelProgressText.textContent = p.text || "Loading model...";
     if (typeof p.progress === "number") {
@@ -535,7 +543,10 @@ chrome.runtime.onMessage.addListener((message) => {
       modelProgressPercent.textContent = `${pct}%`;
       modelProgressFill.style.width = `${pct}%`;
       if (pct >= 100) {
-        setTimeout(() => modelProgress?.classList.add("hidden"), 1500);
+        modelProgressHideTimer = setTimeout(
+          () => modelProgress?.classList.add("hidden"),
+          1500,
+        );
       }
     }
   }
