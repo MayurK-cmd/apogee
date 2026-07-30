@@ -46,6 +46,10 @@ export async function extractFromActiveTab(tab) {
         "/content/extractors/generic.js",
         "/content/extractors/youtube.js",
         "/content/extractors/gmail.js",
+        "/content/extractors/thread.js",
+        "/content/extractors/hackernews.js",
+        "/content/extractors/reddit.js",
+        "/content/extractors/github.js",
         "/content/content.js",
       ],
     });

@@ -21,24 +21,21 @@ import {
   buildYoutubeBriefPrompt,
 } from "./prompts.js";
 import { parseChaptersBlock, stripChaptersBlock } from "./youtubeChapters.js";
+import { timestampToSeconds } from "./timestamps.js";
 import { detectPrimaryLanguage } from "../language/detectLanguage.js";
-import { streamInTargetLanguage } from "../language/languageOutput.js";
 import { cleanText } from "./cleaner.js";
 import { chatStream } from "../engines/ollamaClient.js";
-import { getMaxChunkChars, getMaxChunks } from "../engines/modelLimits.js";
+import { mapReduceStream } from "./mapReduce.js";
 
 // Matches the [MM:SS] / [H:MM:SS] markers content/extractors/youtube.js
 // threads through the transcript text, used to find the anti-hallucination
 // ceiling passed to buildYoutubeAssemblyPrompt.
-const TIMESTAMP_MARKER = /\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g;
+const TIMESTAMP_MARKER = /\[(\d{1,2}(?::\d{2}){1,2})\]/g;
 
 function lastAvailableSecondsIn(text) {
   let last = 0;
   for (const match of text.matchAll(TIMESTAMP_MARKER)) {
-    const [, a, b, c] = match;
-    const seconds = c
-      ? Number(a) * 3600 + Number(b) * 60 + Number(c)
-      : Number(a) * 60 + Number(b);
+    const seconds = timestampToSeconds(match[1]);
     if (seconds > last) last = seconds;
   }
   return last;
@@ -90,54 +87,21 @@ export async function* summarizeYoutube(
           mode,
         );
 
-  let chunks = chunkTextFn(transcriptContent, getMaxChunkChars(model));
-  // Truncate rather than grow chunks past the model's context budget, same
-  // rationale as summarizeText's identical block (see ollamaSummarize.js).
-  const maxChunks = getMaxChunks(model);
-  if (chunks.length > maxChunks) {
-    onProgress?.({ stage: "truncated", kept: maxChunks, total: chunks.length });
-    chunks = chunks.slice(0, maxChunks);
-  }
-
-  // Errors are left to propagate, same as summarizeText: the caller
-  // (service-worker.js's buffered stream runner / offscreen.js's runStream)
-  // catches them and emits a clean `type:"error"` message.
-
-  // Same shared single-pass (system directive) + verify + translate-fallback
-  // strategy as summarizeText (see lib/languageOutput.js). Whichever path runs,
-  // the system directive / buildTranslatePrompt keep the [MM:SS](url) timestamp
-  // deep-links intact.
-  const chat = (prompt, opts) => chatStreamFn(host, model, prompt, opts);
-  function streamFinal(finalPrompt) {
-    return streamInTargetLanguage(chat, finalPrompt, language, {
-      signal,
-      detectLanguageFn,
-      translateFn,
-      onFallback: () => onProgress?.({ stage: "translate" }),
-    });
-  }
-
-  // Short video, one chunk: skip the map stage and assemble straight from
-  // the raw timestamped transcript, no intermediate notes to lose fidelity.
-  if (chunks.length <= 1) {
-    if (signal?.aborted) return;
-    yield* streamFinal(buildAssembly(chunks[0] || ""));
-    return;
-  }
-
-  const notes = [];
-  for (let i = 0; i < chunks.length; i++) {
-    if (signal?.aborted) return;
-    onProgress?.({ stage: "map", index: i, total: chunks.length });
-    const prompt = buildYoutubeMapPrompt(title, chunks[i], i, chunks.length);
-    let partial = "";
-    for await (const token of chatStreamFn(host, model, prompt, { signal })) {
-      partial += token;
-    }
-    notes.push(partial.trim());
-  }
-
-  if (signal?.aborted) return;
-  onProgress?.({ stage: "reduce" });
-  yield* streamFinal(buildAssembly(notes.join("\n")));
+  // Shared clean/chunk/cap + map/reduce + target-language machinery (see
+  // mapReduceStream). YouTube's only departures from the article path are the
+  // prompts: the single-chunk and reduce passes both ASSEMBLE (buildAssembly —
+  // a flat brief, or a chaptered one when the description defined chapters),
+  // while each chunk's map pass emits timestamped notes. The system directive /
+  // buildTranslatePrompt keep the [MM:SS](url) deep-links intact across the
+  // target-language pass.
+  yield* mapReduceStream(
+    { text: transcriptContent, model, host, signal, language },
+    { chunkTextFn, chatStreamFn, onProgress, detectLanguageFn, translateFn },
+    {
+      buildSingle: (chunk) => buildAssembly(chunk),
+      buildMap: (chunk, i, total) =>
+        buildYoutubeMapPrompt(title, chunk, i, total),
+      buildReduce: (notes) => buildAssembly(notes.join("\n")),
+    },
+  );
 }

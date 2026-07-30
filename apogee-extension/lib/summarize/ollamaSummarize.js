@@ -4,13 +4,35 @@
 // same as they did under the old backend-relayed Local Ollama mode.
 
 import { chunkBySections } from "./sections.js";
-import { buildSummaryPrompt, buildScaledBulletsStyle } from "./prompts.js";
+import {
+  buildSummaryPrompt,
+  buildDiscussionPrompt,
+  buildExtractNotesPrompt,
+  buildSynthesisPrompt,
+  buildScaledBulletsStyle,
+} from "./prompts.js";
 import { detectPrimaryLanguage } from "../language/detectLanguage.js";
-import { streamInTargetLanguage } from "../language/languageOutput.js";
-import { cleanText } from "./cleaner.js";
 import { chatStream } from "../engines/ollamaClient.js";
-import { getMaxChunkChars, getMaxChunks } from "../engines/modelLimits.js";
+import { mapReduceStream } from "./mapReduce.js";
 import { summarizeYoutube } from "./youtubeSummarize.js";
+
+// How much of a discussion's post body to carry into each later chunk as
+// context (see discussionPostExcerpt / the buildMap below).
+const POST_CONTEXT_EXCERPT_CHARS = 800;
+
+// Pulls the "Post:" body the discussion extractors emit (see
+// content/extractors/reddit.js and hackernews.js) out of the extracted content,
+// trimmed to a short excerpt. Empty for link posts / stories with no body.
+export function discussionPostExcerpt(content) {
+  const m = content.match(
+    /\nPost:\n([\s\S]*?)\n\n(?:Comments \(|\(No comments)/,
+  );
+  if (!m) return "";
+  const body = m[1].trim();
+  return body.length > POST_CONTEXT_EXCERPT_CHARS
+    ? `${body.slice(0, POST_CONTEXT_EXCERPT_CHARS).trim()}…`
+    : body;
+}
 
 /**
  * Async-generator yielding summary tokens for the given text via Ollama.
@@ -30,12 +52,15 @@ export async function* summarizeText(
     onProgress,
     detectLanguageFn = detectPrimaryLanguage,
     translateFn,
+    selectChunksFn,
   } = {},
 ) {
   // YouTube still honors `mode`, but always runs a single map+assemble pass
   // with timestamp links woven through. See youtubeSummarize.js's own
   // module comment for why that's a separate pipeline rather than another
-  // branch here.
+  // branch here. (No selectChunksFn: a video's chunks are chronological, so
+  // mapReduceStream's stratified sampling — even coverage across the runtime —
+  // fits better than reordering by salience.)
   if (type === "youtube") {
     yield* summarizeYoutube(
       { text, title, url, mode, model, host, signal, language },
@@ -44,76 +69,74 @@ export async function* summarizeText(
     return;
   }
 
-  const cleanedContent = cleanText(text);
-  let chunks = chunkTextFn(cleanedContent, getMaxChunkChars(model));
-  // Never grow chunks past the model's context budget to fit more input (the
-  // old behavior: re-chunk at content/maxChunks, unbounded, which blew past
-  // WebLLM's hard 4096-token window on very long pages and buried the CPU
-  // engines in quadratically slower prefills that looked like a freeze).
-  // Summarize the first maxChunks context-sized chunks instead and tell the
-  // UI the tail was dropped.
-  const maxChunks = getMaxChunks(model);
-  if (chunks.length > maxChunks) {
-    onProgress?.({ stage: "truncated", kept: maxChunks, total: chunks.length });
-    chunks = chunks.slice(0, maxChunks);
-  }
+  // Threaded discussions (HN/Reddit) get a conversation-synthesis prompt that
+  // reads the extractors' path notation and draws out viewpoints/disagreements,
+  // instead of the article-condensing default. Everything else summarizes as an
+  // article. `buildPrompt` keeps the same (title, url, content, mode, style)
+  // shape either way.
+  const isDiscussion = type === "hackernews" || type === "reddit";
+  const buildPrompt = isDiscussion ? buildDiscussionPrompt : buildSummaryPrompt;
 
-  // Errors are left to propagate: the caller (service-worker.js's buffered
-  // stream runner) catches them and emits a clean `type:"error"` message,
-  // same as offscreen.js's runStream does for WebLLM failures.
+  // Carry the post itself into every later chunk of a discussion. When a big
+  // thread splits across chunks, only the first chunk holds the "Post:" body;
+  // later chunks would otherwise summarize comments blind to what the thread is
+  // even about. Prepend a short post excerpt to those chunks — the idea
+  // reddit-gpt-summarizer uses when it frames each comment group with the
+  // (condensed) title + selftext. Extractive (first N chars), so no extra pass.
+  const postExcerpt = isDiscussion ? discussionPostExcerpt(text) : "";
+  const withPostContext = (chunk, i) =>
+    i > 0 && postExcerpt
+      ? `[Post context]\n${postExcerpt}\n\n[Comments in this part of the thread]\n${chunk}`
+      : chunk;
 
-  // Emits the final summary in the target language via the shared single-pass
-  // (system directive) + verify + translate-fallback strategy (see
-  // lib/languageOutput.js). `language` is already resolved to "auto" by the
-  // caller when the page is in the target language, so no work is wasted then.
-  const chat = (prompt, opts) => chatStreamFn(host, model, prompt, opts);
-  function streamFinal(finalPrompt) {
-    return streamInTargetLanguage(chat, finalPrompt, language, {
-      signal,
+  const scaledFor = (partials) =>
+    mode === "bullets" ? buildScaledBulletsStyle(partials.length) : undefined;
+
+  // The clean/chunk/cap + map/reduce + target-language machinery lives in
+  // mapReduceStream (including chunk selection when a doc is too long — see
+  // selectChunksFn). This only supplies the per-stage prompts.
+  //
+  // A single chunk always summarizes directly in the requested mode (highest
+  // fidelity — no intermediate compression). Multi-chunk splits by content:
+  //   - Discussions keep the conversation-synthesis prompt for map and reduce,
+  //     with the post carried into later chunks (see withPostContext).
+  //   - Articles use extract-then-abstract: each chunk's map pass EXTRACTS dense
+  //     grounded notes (buildExtractNotesPrompt), then one reduce pass composes
+  //     the mode-formatted summary from all the notes (buildSynthesisPrompt).
+  //     Pulling atomic facts first and composing once preserves more specifics
+  //     than re-summarizing already-compressed per-chunk prose.
+  yield* mapReduceStream(
+    { text, model, host, signal, language },
+    {
+      chunkTextFn,
+      chatStreamFn,
+      onProgress,
       detectLanguageFn,
       translateFn,
-      onFallback: () => onProgress?.({ stage: "translate" }),
-    });
-  }
-
-  // --- Single chunk: one summary pass, then translate if needed ---
-  if (chunks.length <= 1) {
-    const prompt = buildSummaryPrompt(title, url, chunks[0] || "", mode);
-    yield* streamFinal(prompt);
-    return;
-  }
-
-  // Map every chunk in the requested mode, then run a final reduce/synthesis
-  // pass over all chunk summaries together (also in that mode) rather than
-  // just concatenating them, so points that show up in more than one chunk
-  // get deduplicated into one. Mirrors youtubeSummarize.js's map+assemble
-  // shape. Bullets' reduce pass uses a scaled point-count target (see
-  // buildScaledBulletsStyle) instead of the base style's fixed 8-14, since
-  // that's meant for a single pass, not a merge of many chunks' worth of
-  // content.
-  const chunkSummaries = [];
-  for (let i = 0; i < chunks.length; i++) {
-    if (signal?.aborted) return;
-    onProgress?.({ stage: "map", index: i, total: chunks.length });
-    const prompt = buildSummaryPrompt(title, url, chunks[i], mode);
-    let partial = "";
-    for await (const token of chatStreamFn(host, model, prompt, { signal })) {
-      partial += token;
-    }
-    chunkSummaries.push(partial.trim());
-  }
-
-  if (signal?.aborted) return;
-  onProgress?.({ stage: "reduce" });
-  const combinedText = chunkSummaries.join("\n");
-  const styleOverride =
-    mode === "bullets" ? buildScaledBulletsStyle(chunks.length) : undefined;
-  const mergePrompt = buildSummaryPrompt(
-    title,
-    url,
-    combinedText,
-    mode,
-    styleOverride,
+      selectChunksFn,
+    },
+    {
+      buildSingle: (chunk) => buildPrompt(title, url, chunk, mode),
+      buildMap: isDiscussion
+        ? (chunk, i) => buildPrompt(title, url, withPostContext(chunk, i), mode)
+        : (chunk, i, total) => buildExtractNotesPrompt(title, chunk, i, total),
+      buildReduce: isDiscussion
+        ? (partials) =>
+            buildPrompt(
+              title,
+              url,
+              partials.join("\n"),
+              mode,
+              scaledFor(partials),
+            )
+        : (partials) =>
+            buildSynthesisPrompt(
+              title,
+              url,
+              partials.join("\n"),
+              mode,
+              scaledFor(partials),
+            ),
+    },
   );
-  yield* streamFinal(mergePrompt);
 }

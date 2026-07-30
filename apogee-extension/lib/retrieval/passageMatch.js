@@ -10,6 +10,15 @@ function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Upper bound on the length of text turned into a matcher. The needle comes
+// from page-derived content (a retrieved passage), so cap it defensively:
+// building a regex from an unbounded string — and running it over the whole
+// page text — is wasted work at best, and a long alternation of `\s+`-joined
+// tokens is the kind of pattern that can pin the regex engine at worst. A
+// too-long needle returns no matcher here; findMatchingRange then falls through
+// to its shorter sentence/prefix tiers, which are well within this bound.
+const MAX_MATCH_TEXT_CHARS = 1500;
+
 // Builds a case-insensitive RegExp that matches `text` against a haystack
 // while tolerating any run of whitespace wherever `text` itself has one.
 // Readability's extraction and the live DOM's actual rendered text can
@@ -21,7 +30,9 @@ function escapeRegExp(str) {
 // run, breaking that correspondence, which the caller needs intact to
 // locate the match in the live DOM afterward.
 function buildFlexibleMatcher(text) {
-  const escaped = escapeRegExp(text.trim()).replace(/\s+/g, "\\s+");
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > MAX_MATCH_TEXT_CHARS) return null;
+  const escaped = escapeRegExp(trimmed).replace(/\s+/g, "\\s+");
   if (!escaped) return null;
   try {
     return new RegExp(escaped, "i");

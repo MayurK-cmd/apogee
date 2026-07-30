@@ -11,16 +11,13 @@
 // non-ESM scripts injected via chrome.scripting — so it mirrors this emit
 // format inline; keep the two in sync.
 
+import { timestampToSeconds } from "./timestamps.js";
+
 // The "Chapters:" header plus its run of consecutive "- [ts] title" lines.
 const CHAPTER_BLOCK = /^Chapters:\n((?:- \[\d{1,2}(?::\d{2}){1,2}\] .+\n?)+)/m;
 
 // A single "- [MM:SS] Title" / "- [H:MM:SS] Title" item within that block.
 const CHAPTER_ITEM = /^- \[(\d{1,2}(?::\d{2}){1,2})\]\s+(.+)$/;
-
-// "0:45" -> 45, "3:12" -> 192, "1:02:03" -> 3723.
-function timestampToSeconds(ts) {
-  return ts.split(":").reduce((acc, n) => acc * 60 + Number(n), 0);
-}
 
 /**
  * Extracts `[{ start, title }]` from the "Chapters:" block in `text`, or `[]`

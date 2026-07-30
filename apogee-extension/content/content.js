@@ -33,6 +33,24 @@ async function extractPageContent() {
     return { ...data, isPdf: false };
   }
 
+  // Discussion-thread sites. Each extractor returns null for pages it doesn't
+  // specifically handle (e.g. a subreddit listing, a GitHub code file), so
+  // those fall through to the generic Readability extractor below.
+  if (isHost("news.ycombinator.com")) {
+    const data = extractHackerNews();
+    if (data) return { ...data, isPdf: false };
+  }
+
+  if (isHost("reddit.com")) {
+    const data = await extractReddit();
+    if (data) return { ...data, isPdf: false };
+  }
+
+  if (isHost("github.com")) {
+    const data = await extractGitHub();
+    if (data) return { ...data, isPdf: false };
+  }
+
   // Default: Readability-based generic extractor
   const data = extractGeneric();
   return { ...data, isPdf: false };

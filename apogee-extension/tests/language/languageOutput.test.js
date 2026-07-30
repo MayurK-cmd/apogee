@@ -91,6 +91,32 @@ test("translateFn (opus mode): generates neutrally then uses the MT function, no
   assert.strictEqual(calls[0].system, null, "no system directive in opus mode");
 });
 
+test("translateFn (opus mode): output already in target skips the translate step and onFallback", async () => {
+  const { fn, calls } = makeChat(["Respuesta ya en español"]);
+  let translateCalled = false;
+  let onFallback = false;
+  const out = await collect(
+    streamInTargetLanguage(fn, "PROMPT", "es", {
+      detectLanguageFn: async () => "es", // neutral pass already produced target
+      translateFn: async () => {
+        translateCalled = true;
+        return "should not be used";
+      },
+      onFallback: () => {
+        onFallback = true;
+      },
+    }),
+  );
+  assert.strictEqual(out, "Respuesta ya en español");
+  assert.strictEqual(calls.length, 1, "only the neutral generation pass ran");
+  assert.strictEqual(translateCalled, false, "no MT translate for a no-op");
+  assert.strictEqual(
+    onFallback,
+    false,
+    "no 'Translating...' label for a no-op",
+  );
+});
+
 test("translateFn returning null falls back to the LLM translate pass", async () => {
   const { fn, calls } = makeChat(["English summary", "traducción LLM"]);
   const out = await collect(

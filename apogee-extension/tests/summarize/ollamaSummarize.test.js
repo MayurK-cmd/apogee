@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import { summarizeText } from "../../lib/summarize/ollamaSummarize.js";
+import {
+  summarizeText,
+  discussionPostExcerpt,
+} from "../../lib/summarize/ollamaSummarize.js";
 
 async function collect(gen) {
   const out = [];
@@ -123,9 +126,31 @@ test("summarizeText (bullets) also runs every chunk plus a final reduce/synthesi
   assert.match(prompts[2], /bullet from chunk 1/);
   assert.match(prompts[2], /bullet from chunk 2/);
   // The reduce pass's bullet-count target must scale with chunk count (see
-  // buildScaledBulletsStyle), not stay at the base single-pass 8-14 - two
-  // chunks scales to 12-18.
-  assert.match(prompts[2], /Output 12-18 concise bullet points/);
+  // buildScaledBulletsStyle), not stay at the base single-pass 5-8 - two
+  // chunks scales to 7-10.
+  assert.match(prompts[2], /Output 7-10 bullet points/);
+});
+
+test("summarizeText (multi-chunk article) uses extract-then-abstract: extract notes per chunk, synthesize the reduce", async () => {
+  const prompts = [];
+  async function* chatStreamFn(_host, _model, prompt) {
+    prompts.push(prompt);
+    yield "- extracted point\n";
+  }
+
+  await collect(
+    summarizeText(
+      { text: "long article", title: "T", url: "u", mode: "bullets" },
+      { chunkTextFn: () => ["part A", "part B"], chatStreamFn },
+    ),
+  );
+
+  // prompts[0], [1] = map (extract), prompts[2] = reduce (synthesis).
+  assert.match(prompts[0], /extracting the key information/i);
+  assert.match(prompts[0], /PART 1 OF 2/);
+  assert.match(prompts[1], /PART 2 OF 2/);
+  assert.match(prompts[2], /notes extracted from across a long document/i);
+  assert.match(prompts[2], /EXTRACTED NOTES/);
 });
 
 test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', still honoring mode", async () => {
@@ -158,6 +183,50 @@ test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', s
   assert.match(prompts[0], /A Video/);
   assert.match(prompts[0], /youtube\.com\/watch\?v=abc/);
   assert.match(prompts[0], /Output exactly 10-15 concise sentences/);
+});
+
+// --- Discussion post-context: carry the post into later chunks ---
+
+test("discussionPostExcerpt pulls the Post body out of extracted discussion content, empty for link posts", () => {
+  const withPost =
+    "Reddit discussion\n\nTitle: Foo\nr/bar\n\nPost:\nThis is the self text body.\n\nComments (path [n.n] shows the reply tree):\n[1] a: hi";
+  assert.strictEqual(
+    discussionPostExcerpt(withPost),
+    "This is the self text body.",
+  );
+
+  const linkPost =
+    "Reddit discussion\n\nTitle: Foo\nr/bar\nLinks to: https://x.com\n\nComments (path [n.n] shows the reply tree):\n[1] a: hi";
+  assert.strictEqual(discussionPostExcerpt(linkPost), "");
+});
+
+test("summarizeText (reddit) prepends the post as context to later chunks but not the first", async () => {
+  const prompts = [];
+  async function* chatStreamFn(_host, _model, prompt) {
+    prompts.push(prompt);
+    yield "note";
+  }
+
+  await collect(
+    summarizeText(
+      {
+        text: "Reddit discussion\n\nTitle: T\n\nPost:\nOriginal poster's story.\n\nComments (path [n.n] shows the reply tree):\n[1] a: hi",
+        title: "T",
+        url: "https://reddit.com/r/x/comments/1/",
+        mode: "bullets",
+        type: "reddit",
+      },
+      {
+        chunkTextFn: () => ["comments chunk A", "comments chunk B"],
+        chatStreamFn,
+      },
+    ),
+  );
+
+  // prompts[0] = map chunk 0, prompts[1] = map chunk 1, prompts[2] = reduce.
+  assert.doesNotMatch(prompts[0], /Post context/);
+  assert.match(prompts[1], /\[Post context\]/);
+  assert.match(prompts[1], /Original poster's story\./);
 });
 
 // --- Output-language: single-pass system directive, verify, translate fallback ---

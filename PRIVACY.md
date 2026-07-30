@@ -1,6 +1,6 @@
 # Apogee Privacy Policy
 
-_Last updated: 2026-07-27_
+_Last updated: 2026-07-30_
 
 Apogee is a private, in-browser AI assistant. It is designed so that the
 content you summarize or ask questions about is processed **entirely on your
@@ -17,6 +17,15 @@ not collect, transmit, sell, or share any user data.
   Apogee to summarize or answer questions about is read from the tab you are
   actively viewing, processed locally by an AI model running on your device,
   and then discarded. It is never uploaded.
+- **Local summary cache.** So that reopening a summary is instant and the same
+  page is not re-processed needlessly, the summaries you generate — and, for
+  plain articles and web pages only, the extracted page text — are cached in
+  your browser's local extension storage. This data **stays on your device**,
+  is keyed by a one-way hash of the page URL (the raw URL, which can contain
+  session tokens, is not stored), and is evicted automatically over time.
+  Content from YouTube, Gmail, Reddit, Hacker News, and GitHub pages is **not**
+  cached. Clearing the extension's data (or the browser's site data for the
+  extension) removes it.
 - **Your settings** (chosen AI provider and model, summary format, and other
   preferences) are stored locally in your browser via the extension storage
   API. They stay on your device.
@@ -33,7 +42,11 @@ third party.
    This is a one-time download of the model itself; no information about the
    pages you visit is included. As with any file download, Hugging Face sees
    your IP address and which model you fetched, and nothing more. After
-   caching, in-browser AI runs fully offline.
+   caching, in-browser AI runs fully offline. Model weight files are not
+   cryptographically pinned, but they are loaded only as data inside the
+   browser's sandboxed WebAssembly/WebGPU runtime — a model cannot execute code
+   on your machine or read your data; at worst a tampered model could produce a
+   lower-quality summary.
 
 2. **Local Ollama (optional).** If you opt into Local Ollama mode, Apogee
    connects to an Ollama instance running on your own machine at
@@ -51,8 +64,19 @@ third party.
    YouTube summary is happening, but not which video. It can be disabled in
    the extension's settings.
 
-We do not control Hugging Face or SponsorBlock; their own privacy policies
-govern the requests described above.
+4. **Fetching the content of the page you are summarizing.** For a few sites,
+   Apogee reads the material to summarize from that site's own public endpoint
+   rather than only scraping the rendered page: the caption/transcript track
+   for a YouTube video (from `youtube.com` / `googlevideo.com`), a Reddit
+   thread's public JSON (from `reddit.com`, the same site you are on), and a
+   GitHub pull request's diff (from GitHub's public API, `api.github.com`).
+   These requests are sent **without your cookies or login session**, go to the
+   same service whose page you are already viewing, and carry no information
+   about your other browsing. The fetched content is summarized on your device
+   and never uploaded anywhere else.
+
+We do not control Hugging Face, SponsorBlock, YouTube, Reddit, or GitHub; their
+own privacy policies govern the requests described above.
 
 ## Data sharing
 

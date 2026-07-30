@@ -5,29 +5,28 @@ import {
   buildScaledBulletsStyle,
   buildLanguageSystemPrompt,
   buildTranslatePrompt,
+  buildDiscussionPrompt,
   resolveLanguageName,
 } from "../../lib/summarize/prompts.js";
 
-test("buildScaledBulletsStyle matches the base 8-14 range for a single chunk", () => {
-  assert.match(buildScaledBulletsStyle(1), /Output 8-14 concise bullet points/);
+test("buildScaledBulletsStyle matches the base 5-8 range for a single chunk", () => {
+  assert.match(buildScaledBulletsStyle(1), /Output 5-8 bullet points/);
+});
+
+test("bullets style asks for substantial multi-sentence bullets, not one-liners", () => {
+  assert.match(buildScaledBulletsStyle(1), /2-3 full sentences/);
 });
 
 test("buildScaledBulletsStyle grows the target range with chunk count", () => {
-  assert.match(
-    buildScaledBulletsStyle(2),
-    /Output 12-18 concise bullet points/,
-  );
-  assert.match(
-    buildScaledBulletsStyle(3),
-    /Output 16-22 concise bullet points/,
-  );
+  assert.match(buildScaledBulletsStyle(2), /Output 7-10 bullet points/);
+  assert.match(buildScaledBulletsStyle(3), /Output 9-12 bullet points/);
 });
 
 test("buildScaledBulletsStyle plateaus at the max bullet count for long documents instead of growing unbounded", () => {
   const atPlateau = buildScaledBulletsStyle(5);
   const wellPastPlateau = buildScaledBulletsStyle(12);
-  assert.match(atPlateau, /Output 24-30 concise bullet points/);
-  assert.match(wellPastPlateau, /Output 24-30 concise bullet points/);
+  assert.match(atPlateau, /Output 11-14 bullet points/);
+  assert.match(wellPastPlateau, /Output 11-14 bullet points/);
 });
 
 test("resolveLanguageName maps codes to display names, null for auto/unknown", () => {
@@ -46,6 +45,25 @@ test("buildLanguageSystemPrompt is null for auto/unknown, a forceful directive o
   const fr = buildLanguageSystemPrompt("fr");
   assert.match(fr, /French/);
   assert.match(fr, /ENTIRE response in French/);
+});
+
+test("buildDiscussionPrompt frames a thread synthesis, explains path notation, and keeps the mandatory style", () => {
+  const p = buildDiscussionPrompt(
+    "Ask HN: X?",
+    "https://news.ycombinator.com/item?id=1",
+    "[1] <replies: 2> alice: point\n[1.1] {downvotes: 3} bob: reply",
+    "bullets",
+  );
+  // Discussion-oriented framing, not the article summarizer.
+  assert.match(p, /discussion thread/i);
+  assert.match(p, /disagree/i);
+  // Explains the extractor's path / replies / downvotes notation.
+  assert.match(p, /path in the reply tree/i);
+  assert.match(p, /downvotes/i);
+  // Still carries the mandatory selected style and the thread body.
+  assert.match(p, /5-8 bullet points/);
+  assert.match(p, /The SUMMARY STYLE is mandatory/);
+  assert.match(p, /\[1\.1\] \{downvotes: 3\} bob: reply/);
 });
 
 test("buildTranslatePrompt targets the language and preserves links/timestamps", () => {

@@ -459,7 +459,9 @@ async function startTransformersStream(
   // (Firefox runs Transformers.js here, so it can host the translator too).
   const translateFn =
     translationEngine === TRANSLATION_ENGINES.OPUS
-      ? makeOpusTranslateFn((p) => onProgress({ progress: 0, text: p.text }))
+      ? makeOpusTranslateFn((p) =>
+          onProgress({ progress: p.progress ?? 0, text: p.text }),
+        )
       : undefined;
 
   // Stage label + word ticker, mirroring offscreen.js's runTransformersJob
@@ -511,7 +513,7 @@ async function startTransformersStream(
             },
             onProgress: (p) => {
               if (p.stage === "truncated") {
-                longNote = "Long page — summarizing the beginning. ";
+                longNote = "Long page — summarizing the key parts. ";
                 onProgress({ progress: 0, text: longNote.trim() });
                 return;
               }

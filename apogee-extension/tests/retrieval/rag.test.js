@@ -4,6 +4,7 @@ import assert from "node:assert";
 import {
   retrieveRelevantContent,
   findBestPassage,
+  selectSalientChunks,
 } from "../../lib/retrieval/rag.js";
 
 // Fake 2-D "embedding": [1,0] if the text mentions banana, [0,1] if it
@@ -93,6 +94,66 @@ test("retrieveRelevantContent falls back to truncation if embedding fails", asyn
   assert.ok(result.length <= 100 + 30);
 });
 
+// Orthogonal unit vectors per topic keyword, for exercising salience+diversity.
+function topicEmbed(texts) {
+  return texts.map((t) => {
+    const l = t.toLowerCase();
+    return [
+      l.includes("apple") ? 1 : 0,
+      l.includes("banana") ? 1 : 0,
+      l.includes("cherry") ? 1 : 0,
+    ];
+  });
+}
+
+test("selectSalientChunks returns chunks unchanged when already within budget", async () => {
+  const chunks = ["a", "b"];
+  const result = await selectSalientChunks(chunks, 5, {
+    embedTextsFn: topicEmbed,
+  });
+  assert.strictEqual(result, chunks);
+});
+
+test("selectSalientChunks covers the document's distinct topics instead of keeping the first N", async () => {
+  // Three apple chunks up front, then banana and cherry. Head-truncation to 3
+  // would keep only apples; salience+diversity must instead span all 3 topics,
+  // returned in original order.
+  const chunks = [
+    "apple one",
+    "apple two",
+    "apple three",
+    "banana content",
+    "cherry content",
+  ];
+  const result = await selectSalientChunks(chunks, 3, {
+    embedTextsFn: topicEmbed,
+  });
+
+  assert.strictEqual(result.length, 3);
+  assert.ok(
+    result.some((c) => c.includes("banana")),
+    "must include the banana topic, not only apples",
+  );
+  assert.ok(
+    result.some((c) => c.includes("cherry")),
+    "must include the cherry topic, not only apples",
+  );
+  // Original document order is preserved.
+  assert.deepStrictEqual(
+    result,
+    [...result].sort((a, b) => chunks.indexOf(a) - chunks.indexOf(b)),
+  );
+});
+
+test("selectSalientChunks returns null if embedding fails (caller falls back)", async () => {
+  const result = await selectSalientChunks(["a", "b", "c"], 2, {
+    embedTextsFn: () => {
+      throw new Error("model unavailable");
+    },
+  });
+  assert.strictEqual(result, null);
+});
+
 test("findBestPassage returns the chunk most similar to the query, with a score", async () => {
   const banana = "banana ".repeat(200);
   const carrot = "carrot ".repeat(200);
@@ -108,6 +169,27 @@ test("findBestPassage returns the chunk most similar to the query, with a score"
   assert.ok(result.chunk.toLowerCase().includes("banana"));
   assert.ok(!result.chunk.toLowerCase().includes("carrot"));
   assert.equal(result.score, 1);
+});
+
+test("findBestPassage refines a coarse chunk down to the single query-relevant sentence", async () => {
+  // One long chunk with three real sentences; only the middle one is about
+  // banana. The old behavior returned the whole ~1000-char chunk (and the
+  // in-page matcher then highlighted whichever sentence was longest); now the
+  // returned passage must be just the banana sentence.
+  const filler = "Carrots grow underground and are orange root vegetables. ";
+  const bananaSentence =
+    "A banana is a long curved yellow tropical fruit that grows in bunches.";
+  const content = filler.repeat(6) + bananaSentence + " " + filler.repeat(6);
+
+  const result = await findBestPassage(
+    { content, query: "tell me about banana" },
+    { embedTextsFn: fakeEmbed },
+  );
+
+  assert.ok(result);
+  assert.strictEqual(result.chunk, bananaSentence);
+  // The score stays the coarse chunk-level score, not a per-sentence one.
+  assert.strictEqual(result.score, 1);
 });
 
 test("findBestPassage returns null for empty content or query", async () => {

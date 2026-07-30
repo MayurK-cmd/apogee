@@ -56,6 +56,9 @@ export default [
         extractGeneric: "readonly",
         extractGmail: "readonly",
         extractYoutube: "readonly",
+        extractHackerNews: "readonly",
+        extractReddit: "readonly",
+        extractGitHub: "readonly",
       },
     },
   },
@@ -65,6 +68,39 @@ export default [
     files: ["content/extractors/generic.js"],
     languageOptions: {
       globals: { Readability: "readonly" },
+    },
+  },
+  {
+    // thread.js DEFINES the shared discussion-thread helpers that hackernews.js
+    // and reddit.js consume; within thread.js itself they read as unused.
+    files: ["content/extractors/thread.js"],
+    rules: {
+      "no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern:
+            "^(threadTruncate|buildThreadNodes|selectThreadComments|formatThreadComments|THREAD_COMMENTS_HEADER)$",
+        },
+      ],
+    },
+  },
+  {
+    // These CONSUME thread.js's globals (loaded first, see the extractor
+    // injection order in lib/extract/pageExtraction.js).
+    files: [
+      "content/extractors/hackernews.js",
+      "content/extractors/reddit.js",
+      "content/extractors/github.js",
+    ],
+    languageOptions: {
+      globals: {
+        threadTruncate: "readonly",
+        buildThreadNodes: "readonly",
+        selectThreadComments: "readonly",
+        formatThreadComments: "readonly",
+        THREAD_COMMENTS_HEADER: "readonly",
+      },
     },
   },
   prettier,

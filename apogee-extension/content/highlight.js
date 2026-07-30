@@ -21,8 +21,15 @@ function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// See lib/retrieval/passageMatch.js's MAX_MATCH_TEXT_CHARS: cap the needle so a
+// long page-derived passage can't build a pathological regex; findMatchingRange
+// falls through to its shorter sentence/prefix tiers instead.
+const MAX_MATCH_TEXT_CHARS = 1500;
+
 function buildFlexibleMatcher(text) {
-  const escaped = escapeRegExp(text.trim()).replace(/\s+/g, "\\s+");
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > MAX_MATCH_TEXT_CHARS) return null;
+  const escaped = escapeRegExp(trimmed).replace(/\s+/g, "\\s+");
   if (!escaped) return null;
   try {
     return new RegExp(escaped, "i");

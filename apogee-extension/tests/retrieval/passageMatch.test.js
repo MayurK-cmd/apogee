@@ -75,3 +75,16 @@ test("findMatchingRange returns null for empty inputs", () => {
   assert.strictEqual(findMatchingRange("some page text", ""), null);
   assert.strictEqual(findMatchingRange("", ""), null);
 });
+
+test("findMatchingRange caps an oversized needle: skips the full match, falls back to a sentence", () => {
+  // A needle far longer than MAX_MATCH_TEXT_CHARS must not be turned into one
+  // giant regex; findMatchingRange should still locate a real sentence within
+  // it via its span-tier fallback (each sentence stays well under the cap).
+  const target = "This exact sentence appears verbatim on the page.";
+  const page = `Lead-in text. ${target} Trailing text.`;
+  // ~2800 chars total (over the cap), but split into individual sentences.
+  const oversizedNeedle = "Filler sentence number one. ".repeat(100) + target;
+  const result = findMatchingRange(page, oversizedNeedle);
+  assert.ok(result, "should still find the embedded sentence");
+  assert.strictEqual(page.slice(result.start, result.end), target);
+});

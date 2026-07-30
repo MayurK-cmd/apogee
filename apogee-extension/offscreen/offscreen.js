@@ -13,6 +13,7 @@ import { makeOpusTranslateFn } from "../lib/language/opusTranslateEngine.js";
 import {
   retrieveRelevantContent,
   findBestPassage,
+  selectSalientChunks,
 } from "../lib/retrieval/rag.js";
 import { createLock } from "../lib/util/mutex.js";
 import { WEBLLM_MODELS, TRANSLATION_ENGINES } from "../lib/constants.js";
@@ -380,22 +381,24 @@ async function streamCompletion(
   emit({ type: "done" });
 }
 
-function reportProgress(text) {
+function reportProgress(text, progress = 0) {
   chrome.runtime
     .sendMessage({
       target: "service-worker",
       type: "model-progress",
-      progress: { text, progress: 0 },
+      progress: { text, progress },
     })
     .catch(() => {});
 }
 
 // Builds the Opus-MT translateFn for a job when its translationEngine is
 // "opus", else undefined (LLM path). Download progress surfaces on the same
-// model-progress line as everything else.
+// model-progress line as everything else — forward the numeric fraction the
+// engine reports (see ensureTranslator in transformersEngine.js) so the
+// download bar actually fills instead of sitting at 0% behind a text label.
 function opusTranslateFor(translationEngine) {
   if (translationEngine !== TRANSLATION_ENGINES.OPUS) return undefined;
-  return makeOpusTranslateFn((p) => reportProgress(p.text));
+  return makeOpusTranslateFn((p) => reportProgress(p.text, p.progress ?? 0));
 }
 
 // Chunk-aware summarization for the small in-browser models, delegated to the
@@ -436,7 +439,7 @@ async function runSummarize(eng, pending, emit, signal) {
 
   const onProgress = (p) => {
     if (p.stage === "truncated") {
-      reportProgress("Long page — summarizing the beginning.");
+      reportProgress("Long page — summarizing the key parts.");
     } else if (p.stage === "reduce") {
       reportProgress("Merging summary...");
     } else if (p.stage === "translate") {
@@ -466,6 +469,9 @@ async function runSummarize(eng, pending, emit, signal) {
       chatStreamFn: webllmChatStream,
       onProgress,
       translateFn: opusTranslateFor(pending.translationEngine),
+      // Cover a too-long page by embedding-salience (the model runs here in the
+      // offscreen document), not head-truncation. See selectSalientChunks.
+      selectChunksFn: (chunks, k) => selectSalientChunks(chunks, k),
     },
   )) {
     emit({ type: "chunk", text: token });
@@ -564,6 +570,7 @@ async function runTransformersJob(
             // effect between tokens here and, via summarizeText's own signal
             // checks, between chunks.
             translateFn: opusTranslateFor(pending.translationEngine),
+            selectChunksFn: (chunks, k) => selectSalientChunks(chunks, k),
             chatStreamFn: async function* (_host, _model, prompt, opts) {
               let count = 0;
               for await (const token of transformersChatStream(eng, prompt, {
@@ -579,7 +586,7 @@ async function runTransformersJob(
             },
             onProgress: (p) => {
               if (p.stage === "truncated") {
-                longNote = "Long page — summarizing the beginning. ";
+                longNote = "Long page — summarizing the key parts. ";
                 reportProgress(longNote.trim());
                 return;
               }

@@ -66,6 +66,16 @@ export async function* streamInTargetLanguage(
       yield out;
       return;
     }
+    // Fast path: the neutral pass already produced the target language (e.g.
+    // target == the generation language, English → English), so no translation
+    // is needed. Emit as-is without running a translate pass or firing
+    // onFallback — otherwise the UI shows a "Translating..." step for a no-op.
+    // Mirrors the LLM-mode verify below.
+    const detected = await detectLanguageFn(out);
+    if (detectedMatchesTarget(detected, target)) {
+      yield out;
+      return;
+    }
     onFallback?.();
     const translated = await translateFn(out, target);
     if (translated != null) {

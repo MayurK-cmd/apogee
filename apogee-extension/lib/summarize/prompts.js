@@ -2,6 +2,7 @@
 // Used by the WebLLM offscreen engine so it can generate prompts without a backend server.
 
 import { SUMMARY_LANGUAGES } from "../constants.js";
+import { formatSecondsAsTimestamp } from "./timestamps.js";
 
 // code -> English language name (see SUMMARY_LANGUAGES). "auto" (and any
 // unknown code) maps to null, meaning "no target language"; callers then skip
@@ -59,7 +60,8 @@ function bulletsStyle(min, max) {
     "Return only the final answer.",
     "",
     "Rules:",
-    `- Output ${min}-${max} concise bullet points.`,
+    `- Output ${min}-${max} bullet points.`,
+    "- CRITICAL LENGTH RULE: every single bullet MUST be 2-3 full sentences (2 minimum). Write the point in the first sentence, then use one or two more sentences to explain it, give the reason, or add the key supporting detail (a number, name, cause, or consequence). A one-sentence bullet or a short fragment is WRONG and must not appear.",
     "- Each bullet must be on its own line.",
     "- Do not write any introduction.",
     "- Do not write any heading.",
@@ -67,11 +69,16 @@ function bulletsStyle(min, max) {
     "- Do not explain what you are doing.",
     '- Do not prefix the output with phrases like "Here is the summary", "Summary:", or similar.',
     "- Output only the bullet points.",
+    "",
+    "Here is ONE example bullet showing the REQUIRED length and depth (its topic is unrelated — copy only its length and level of detail, never its content):",
+    "- Researchers found that the coating cuts heat loss by nearly 40% compared with standard glass. It works by reflecting infrared light back into the room while still letting visible light through, so windows stay clear. The team estimates a typical household could save around $300 a year on heating once the coating is widely available.",
+    "",
+    "Notice that the example bullet is three full sentences — every bullet you write must have that much substance.",
   ].join("\n");
 }
 
 export const SUMMARY_STYLES = {
-  bullets: bulletsStyle(8, 14),
+  bullets: bulletsStyle(5, 8),
 
   sentences: [
     "Return only the final answer.",
@@ -106,23 +113,24 @@ export const SUMMARY_STYLES = {
 
 // Bullets' reduce/synthesis pass (see ollamaSummarize.js's summarizeText)
 // needs a bullet-count target that scales with how many chunks got merged,
-// not the fixed 8-14 SUMMARY_STYLES.bullets uses for a single pass: merging
-// a long, many-chunk document down to always-8-14-bullets loses most of its
-// content, the exact regression a prior fix avoided by not merging bullets
-// at all (see offscreen.js's runSummarize comment). Grows by
-// BULLET_COUNT_STEP per chunk beyond the first, capped at MAX_BULLET_COUNT
-// so a very long document still gets a comprehensive, but still skimmable,
-// list instead of an ever-growing one.
-const BULLET_COUNT_STEP = 4;
-const MAX_BULLET_COUNT = 30;
+// not the fixed 5-8 SUMMARY_STYLES.bullets uses for a single pass: merging a
+// long, many-chunk document down to always-5-8-bullets loses most of its
+// content, the exact regression a prior fix avoided by not merging bullets at
+// all (see offscreen.js's runSummarize comment). Grows by BULLET_COUNT_STEP
+// per chunk beyond the first, capped at MAX_BULLET_COUNT. Counts are lower
+// than before because each bullet is now a fuller 2-3 sentence point (see
+// bulletsStyle), so a shorter list still carries a comprehensive summary
+// instead of an overwhelming wall.
+const BULLET_COUNT_STEP = 2;
+const MAX_BULLET_COUNT = 14;
 
 export function buildScaledBulletsStyle(chunkCount) {
   const min = Math.min(
-    8 + BULLET_COUNT_STEP * (chunkCount - 1),
-    MAX_BULLET_COUNT - 6,
+    5 + BULLET_COUNT_STEP * (chunkCount - 1),
+    MAX_BULLET_COUNT - 3,
   );
   const max = Math.min(
-    14 + BULLET_COUNT_STEP * (chunkCount - 1),
+    8 + BULLET_COUNT_STEP * (chunkCount - 1),
     MAX_BULLET_COUNT,
   );
   return bulletsStyle(min, max);
@@ -161,6 +169,128 @@ export function buildSummaryPrompt(title, url, content, mode, styleOverride) {
     "The SUMMARY STYLE is mandatory. Follow it exactly.",
     "",
     "ARTICLE CONTENT:",
+    content,
+  ].join("\n");
+}
+
+// Map stage of a multi-chunk article summary: extract the substantive points
+// from ONE part of a long document as dense, grounded notes for a later
+// synthesis pass (buildSynthesisPrompt). Extract-then-abstract — pull the
+// atomic facts first, then compose the summary from all of them at once —
+// keeps far more specifics than summarizing each part into prose and then
+// re-summarizing that prose (which compounds compression loss and drops
+// details). Chunk boundaries are plain slices, so this only ever sees PART of
+// the document: it must extract what THIS part says, not summarize "the whole
+// document" or write a conclusion, or a multi-chunk result reads like several
+// disjoint mini-summaries.
+export function buildExtractNotesPrompt(title, chunk, chunkIndex, chunkTotal) {
+  return [
+    "You are Apogee, extracting the key information from one part of a document.",
+    "",
+    `This is PART ${chunkIndex + 1} OF ${chunkTotal} — only a fragment. Extract what THIS part states; do not summarize the whole document or add a conclusion.`,
+    "",
+    "Extract the substantive points as a plain list:",
+    '- One point per line, each starting with "- ".',
+    "- Capture facts, findings, arguments, events, names, and numbers — keep concrete specifics, do not generalize them away.",
+    "- Stay strictly grounded in this part's text; do NOT invent or infer beyond it.",
+    "- IGNORE promotional or non-substantive material (ads, sponsor reads, calls to action, navigation, boilerplate).",
+    "- Output only the list: no preamble, no heading, no conclusion.",
+    "",
+    "DOCUMENT TITLE:",
+    title,
+    "",
+    `PART ${chunkIndex + 1} OF ${chunkTotal}:`,
+    chunk,
+  ].join("\n");
+}
+
+// Reduce stage: compose the final summary, in the requested style, from the
+// notes buildExtractNotesPrompt pulled out of every part. Chain-of-density in
+// spirit — cover all the important points, stay concrete and information-dense,
+// and merge duplicates — rather than a loose re-summary of already-compressed
+// text.
+export function buildSynthesisPrompt(title, url, notes, mode, styleOverride) {
+  const style = styleOverride || SUMMARY_STYLES[mode] || SUMMARY_STYLES.bullets;
+  return [
+    "You are Apogee, a strict factual browser summarizer.",
+    "",
+    "Below are notes extracted from across a long document (assembled from its parts). Compose ONE coherent summary of the whole document from them.",
+    "",
+    "IMPORTANT RULES:",
+    "- Base the summary ONLY on the notes; do NOT invent, speculate, or add opinions.",
+    "- Cover the important points from across ALL the notes, not just the first few.",
+    "- Merge duplicates: if a point recurs across notes, state it once.",
+    "- Be specific and information-dense: prefer concrete facts, numbers, and names over vague statements, and cut filler.",
+    "- Summarize as a neutral third party; do NOT advertise or promote.",
+    "",
+    "DOCUMENT TITLE:",
+    title,
+    "",
+    "DOCUMENT URL:",
+    url,
+    "",
+    "SUMMARY STYLE:",
+    style,
+    "",
+    "The SUMMARY STYLE is mandatory. Follow it exactly.",
+    "",
+    "EXTRACTED NOTES:",
+    notes,
+  ].join("\n");
+}
+
+// Summary prompt for threaded discussions (Hacker News, Reddit). Same
+// map/reduce shape and mandatory SUMMARY STYLE as buildSummaryPrompt, but the
+// job is synthesizing a conversation, not condensing an article: surface the
+// themes, the range of opinion, and where people actually disagree, rather than
+// flattening a many-voice thread into one neutral article summary. The thread
+// arrives in the path notation the discussion extractors emit (see
+// content/extractors/hackernews.js) — this explains that notation to the model
+// so it can weight and, where useful, attribute what was said.
+export function buildDiscussionPrompt(
+  title,
+  url,
+  content,
+  mode,
+  styleOverride,
+) {
+  const style = styleOverride || SUMMARY_STYLES[mode] || SUMMARY_STYLES.bullets;
+  return [
+    "You are Apogee, summarizing an online discussion thread as a neutral observer.",
+    "",
+    "The thread is provided as a hierarchy of comments. Each line is one comment:",
+    "  [1], [1.1], [1.1.1] … is its path in the reply tree (so [1.1] is a reply to [1]).",
+    "  <replies: N> is how many direct replies it drew; more replies = a more significant point of discussion.",
+    "  (score: N) is the comment's net upvotes where available; higher = the community endorsed it more.",
+    "  {downvotes: N} marks a comment the community pushed back on; treat it with skepticism.",
+    "  Then the username and the comment text.",
+    "",
+    "Your job:",
+    "- Identify the main themes and arguments the discussion actually centered on.",
+    "- Represent the range of viewpoints, especially where commenters disagree, and note any rough consensus.",
+    "- Surface genuinely insightful or high-engagement sub-threads over one-off asides.",
+    "- Stay neutral: report what people argued, do not take a side or add your own opinion.",
+    "",
+    "IMPORTANT RULES:",
+    "- Do NOT invent comments, users, or positions that are not in the thread",
+    "- Do NOT speculate beyond what was written",
+    "- Base the summary on the comments, treating the title/post as context",
+    "- You MAY attribute a notable point to its username when it aids clarity, but do not force it",
+    "- IGNORE spam, flame, and off-topic noise; weight heavily-downvoted comments lightly",
+    "- If there is little real discussion, say so plainly instead of padding",
+    "",
+    "DISCUSSION TITLE:",
+    title,
+    "",
+    "DISCUSSION URL:",
+    url,
+    "",
+    "SUMMARY STYLE:",
+    style,
+    "",
+    "The SUMMARY STYLE is mandatory. Follow it exactly.",
+    "",
+    "DISCUSSION THREAD:",
     content,
   ].join("\n");
 }
@@ -300,9 +430,9 @@ export function buildYoutubeBriefPrompt(
     "You are Apogee, turning timestamped notes from a YouTube video into a structured brief that stays easy to navigate.",
     "",
     "Write the brief in Markdown with EXACTLY this structure:",
-    '1. A "## Overview" heading, then 1-2 sentences on what the video is about.',
-    "2. Then the chapter sections listed below, IN THE GIVEN ORDER, each starting with the provided heading line copied VERBATIM (do not change its link, timestamp, or title), followed by 2-4 concise bullet points summarizing that chapter.",
-    '3. A final "**Key Takeaways**" line, then 3-5 bullets capturing the most important points of the whole video.',
+    '1. A "## Overview" heading, then 2-3 sentences on what the video is about.',
+    "2. Then the chapter sections listed below, IN THE GIVEN ORDER, each starting with the provided heading line copied VERBATIM (do not change its link, timestamp, or title), followed by 2-3 bullet points summarizing that chapter. Each bullet must be a substantial point of 2-3 full sentences, not a one-line fragment.",
+    '3. A final "**Key Takeaways**" line, then 3-4 bullets capturing the most important points of the whole video, each a full 2-3 sentence point.',
     "",
     "Core rules:",
     "- Base every point strictly on the notes. Do not invent facts, quotes, names, or timestamps.",
@@ -322,16 +452,6 @@ export function buildYoutubeBriefPrompt(
     "TIMESTAMPED NOTES:",
     notes,
   ].join("\n");
-}
-
-function formatSecondsAsTimestamp(totalSeconds) {
-  const s = Math.max(0, Math.floor(totalSeconds || 0));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
-  const ss = String(sec).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 export function buildAnswerPrompt(title, url, content, question) {
