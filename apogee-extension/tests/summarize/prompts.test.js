@@ -18,7 +18,10 @@ test("youtubeSummaryScale grows key-moment and gist targets with video length", 
   const long = youtubeSummaryScale(90 * 60); // 90 min
 
   // A short clip gets a small, floor-bounded target; a long talk many more.
-  assert.ok(short.minMoments >= 3 && short.maxMoments <= 6, "short stays small");
+  assert.ok(
+    short.minMoments >= 3 && short.maxMoments <= 6,
+    "short stays small",
+  );
   assert.ok(
     medium.minMoments > short.maxMoments,
     "a 23-min video asks for more moments than a 3-min one",

@@ -108,7 +108,11 @@ test("summarizeYoutube caps the map-stage chunk size so a long transcript on a b
         title: "Poker Video",
         url: "https://youtube.com/watch?v=abc",
       },
-      { chunkTextFn: realChunk, chatStreamFn, onProgress: (p) => progress.push(p) },
+      {
+        chunkTextFn: realChunk,
+        chatStreamFn,
+        onProgress: (p) => progress.push(p),
+      },
     ),
   );
 
