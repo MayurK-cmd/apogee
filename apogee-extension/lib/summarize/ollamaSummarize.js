@@ -10,7 +10,9 @@ import {
   buildExtractNotesPrompt,
   buildSynthesisPrompt,
   buildScaledBulletsStyle,
+  withCustomInstructions,
 } from "./prompts.js";
+import { isVideoType } from "../constants.js";
 import { detectPrimaryLanguage } from "../language/detectLanguage.js";
 import { chatStream } from "../engines/ollamaClient.js";
 import { mapReduceStream } from "./mapReduce.js";
@@ -45,7 +47,18 @@ export function discussionPostExcerpt(content) {
  * the model's chunk fan-out budget (see getMaxChunks) and its tail dropped.
  */
 export async function* summarizeText(
-  { text, title, url, mode, model, host, signal, type, language },
+  {
+    text,
+    title,
+    url,
+    mode,
+    model,
+    host,
+    signal,
+    type,
+    language,
+    customInstructions,
+  },
   {
     chunkTextFn = chunkBySections,
     chatStreamFn = chatStream,
@@ -55,15 +68,26 @@ export async function* summarizeText(
     selectChunksFn,
   } = {},
 ) {
-  // YouTube still honors `mode`, but always runs a single map+assemble pass
-  // with timestamp links woven through. See youtubeSummarize.js's own
-  // module comment for why that's a separate pipeline rather than another
-  // branch here. (No selectChunksFn: a video's chunks are chronological, so
-  // mapReduceStream's stratified sampling — even coverage across the runtime —
+  // Videos (YouTube, Bilibili — see isVideoType) still honor `mode`, but
+  // always run a map+assemble pass with timestamp links woven through. See
+  // youtubeSummarize.js's own module comment for why that's a separate pipeline
+  // rather than another branch here. (No selectChunksFn: a video's chunks are
+  // chronological, so mapReduceStream's stratified sampling — even coverage
+  // across the runtime —
   // fits better than reordering by salience.)
-  if (type === "youtube") {
+  if (isVideoType(type)) {
     yield* summarizeYoutube(
-      { text, title, url, mode, model, host, signal, language },
+      {
+        text,
+        title,
+        url,
+        mode,
+        model,
+        host,
+        signal,
+        language,
+        customInstructions,
+      },
       { chunkTextFn, chatStreamFn, onProgress, detectLanguageFn, translateFn },
     );
     return;
@@ -116,26 +140,39 @@ export async function* summarizeText(
       selectChunksFn,
     },
     {
-      buildSingle: (chunk) => buildPrompt(title, url, chunk, mode),
+      // Only the FINAL-response prompts (buildSingle, buildReduce) carry the
+      // user's custom instructions; the map/extract passes below feed a later
+      // synthesis step, not the user, so they stay untouched.
+      buildSingle: (chunk) =>
+        withCustomInstructions(
+          buildPrompt(title, url, chunk, mode),
+          customInstructions,
+        ),
       buildMap: isDiscussion
         ? (chunk, i) => buildPrompt(title, url, withPostContext(chunk, i), mode)
         : (chunk, i, total) => buildExtractNotesPrompt(title, chunk, i, total),
       buildReduce: isDiscussion
         ? (partials) =>
-            buildPrompt(
-              title,
-              url,
-              partials.join("\n"),
-              mode,
-              scaledFor(partials),
+            withCustomInstructions(
+              buildPrompt(
+                title,
+                url,
+                partials.join("\n"),
+                mode,
+                scaledFor(partials),
+              ),
+              customInstructions,
             )
         : (partials) =>
-            buildSynthesisPrompt(
-              title,
-              url,
-              partials.join("\n"),
-              mode,
-              scaledFor(partials),
+            withCustomInstructions(
+              buildSynthesisPrompt(
+                title,
+                url,
+                partials.join("\n"),
+                mode,
+                scaledFor(partials),
+              ),
+              customInstructions,
             ),
     },
   );

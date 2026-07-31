@@ -21,6 +21,7 @@ import { chatStream, checkHealth } from "../lib/engines/ollamaClient.js";
 import {
   buildAnswerPrompt,
   buildSuggestQuestionsPrompt,
+  withCustomInstructions,
 } from "../lib/summarize/prompts.js";
 import { truncateForPrompt } from "../lib/summarize/chunk.js";
 import { parseSuggestedQuestions } from "../lib/summarize/questions.js";
@@ -385,6 +386,10 @@ async function startOllamaStream(
     return;
   }
 
+  // Custom instructions are a global preference (see withCustomInstructions),
+  // read once here rather than threaded through the job payload.
+  const { customInstructions } = await getSettings();
+
   try {
     let generator;
     if (action === "summarize") {
@@ -396,13 +401,17 @@ async function startOllamaStream(
         type,
         model,
         language: await resolveEffectiveLanguage(content, language),
+        customInstructions,
         host: validHost,
         signal: stream.controller.signal,
       });
     } else if (action === "ask") {
       const relevantContent = await getRelevantAskContent(content, question);
       // Neutral prompt; the language wrapper enforces the answer's language.
-      const prompt = buildAnswerPrompt(title, url, relevantContent, question);
+      const prompt = withCustomInstructions(
+        buildAnswerPrompt(title, url, relevantContent, question),
+        customInstructions,
+      );
       const chat = (p, opts) => chatStream(validHost, model, p, opts);
       generator = streamInTargetLanguage(
         chat,
@@ -471,6 +480,9 @@ async function startTransformersStream(
   let longNote = "";
   let stageLabel = "Summarizing...";
 
+  // Global preference (see withCustomInstructions), read once for this job.
+  const { customInstructions } = await getSettings();
+
   try {
     await withTransformersEngine(model, onProgress, async (eng) => {
       if (action === "summarize") {
@@ -487,6 +499,7 @@ async function startTransformersStream(
             type,
             model,
             language: effectiveLanguage,
+            customInstructions,
             signal: stream.controller.signal,
           },
           {
@@ -533,7 +546,10 @@ async function startTransformersStream(
         // there's no offscreen document (Firefox), same as Ollama's ask.
         const relevantContent = await getRelevantAskContent(content, question);
         // Neutral prompt; the language wrapper enforces the answer's language.
-        const prompt = buildAnswerPrompt(title, url, relevantContent, question);
+        const prompt = withCustomInstructions(
+          buildAnswerPrompt(title, url, relevantContent, question),
+          customInstructions,
+        );
         const chat = (p, opts) =>
           transformersChatStream(eng, p, { system: opts?.system });
         const askLanguage = await resolveEffectiveLanguage(content, language);
@@ -718,6 +734,9 @@ async function runBackgroundSummarize(
     model,
     language: settings.summaryLanguage,
     translationEngine: settings.translationEngine,
+    // Consumed by the offscreen WebLLM path (which can't read chrome.storage);
+    // the Ollama/Transformers branches below re-read it from settings directly.
+    customInstructions: settings.customInstructions,
     finalize,
   };
 
@@ -849,14 +868,13 @@ const SPONSORBLOCK_CATEGORIES = ["sponsor", "selfpromo", "interaction"];
 // videos and never learns which one is being summarized (we match ours
 // locally). Returns [[startSec, endSec], ...]; [] on any failure, which makes
 // the caller fall back to its local phrase heuristic.
+//
+// The lookup always runs — it's no longer user-toggleable. Even k-anonymized,
+// it's the extension's only third-party request (it reveals the user's IP and
+// "a YouTube summary is happening now" to sponsor.ajay.app); when a video has
+// no crowd data the caller still falls back to the network-free phrase
+// heuristic, so this only ever adds the crowd-sourced segments on top.
 async function fetchSponsorBlockSegments(videoId) {
-  // Even k-anonymized, this is the extension's only third-party request (it
-  // reveals the user's IP and "a YouTube summary is happening now" to
-  // sponsor.ajay.app), so it's user-disableable; off means the caller's
-  // network-free phrase heuristic runs instead.
-  const settings = await getSettings();
-  if (settings.sponsorBlock === false) return [];
-
   if (!/^[A-Za-z0-9_-]{11}$/.test(videoId || "")) return [];
 
   const bytes = new TextEncoder().encode(videoId);
@@ -899,6 +917,99 @@ async function fetchSponsorBlockSegments(videoId) {
         s.segment.length === 2,
     )
     .map((s) => [s.segment[0], s.segment[1]]);
+}
+
+// Fetches a Bilibili video's subtitle (closed-caption) track and returns it as
+// timed segments ([{ start, text }], start in seconds), or [] when the video
+// has none. Routed through the service worker rather than the content script
+// because MV3 content-script fetches are CORS-bound (unlike the extension's own
+// fetches, which the *.bilibili.com / *.hdslb.com host_permissions relax) and
+// the subtitle JSON lives on the hdslb.com CDN, a different origin from the
+// page. Credentials are included so a logged-in user's SESSDATA cookie is sent:
+// Bilibili only exposes AI/human subtitle URLs to authenticated sessions, so
+// this is what makes captions available at all for most videos. Best-effort:
+// any failure (no login, no captions, network error) returns [], and the
+// extractor falls back to a description-only summary the same way the YouTube
+// path does for a caption-less video.
+async function fetchBilibiliSubtitles({ aid, bvid, cid, preferredLang }) {
+  if (!cid || (!aid && !bvid)) return [];
+  // Guard the ids we interpolate into the request URL: cid/aid are decimal,
+  // bvid is Bilibili's "BV" + 10 base58-ish chars. Anything else is page-
+  // supplied junk we shouldn't fetch with.
+  const cidStr = String(cid);
+  if (!/^\d+$/.test(cidStr)) return [];
+  const params = new URLSearchParams({ cid: cidStr });
+  if (bvid && /^BV[0-9A-Za-z]{10}$/.test(bvid)) params.set("bvid", bvid);
+  else if (aid && /^\d+$/.test(String(aid))) params.set("aid", String(aid));
+  else return [];
+
+  let listRes;
+  try {
+    listRes = await fetch(
+      `https://api.bilibili.com/x/player/v2?${params.toString()}`,
+      { credentials: "include", signal: AbortSignal.timeout(6000) },
+    );
+  } catch {
+    return [];
+  }
+  if (!listRes.ok) return [];
+
+  let listData;
+  try {
+    listData = await listRes.json();
+  } catch {
+    return [];
+  }
+
+  const subtitles = listData?.data?.subtitle?.subtitles;
+  if (!Array.isArray(subtitles) || subtitles.length === 0) return [];
+
+  // Prefer a track in the viewer's language, else the first available (often an
+  // AI-generated "ai-zh" track). lan looks like "zh-Hans", "en", "ai-zh".
+  const langPrefix = (preferredLang || "").split("-")[0].toLowerCase();
+  const chosen =
+    subtitles.find((s) =>
+      (s.lan || "").toLowerCase().replace(/^ai-/, "").startsWith(langPrefix),
+    ) || subtitles[0];
+
+  let subUrl = chosen?.subtitle_url;
+  if (!subUrl) return [];
+  // subtitle_url is protocol-relative ("//aisubtitle.hdslb.com/..."); only ever
+  // on the hdslb CDN, which the host_permissions cover.
+  if (subUrl.startsWith("//")) subUrl = `https:${subUrl}`;
+  let host;
+  try {
+    host = new URL(subUrl).hostname.toLowerCase();
+  } catch {
+    return [];
+  }
+  if (host !== "hdslb.com" && !host.endsWith(".hdslb.com")) return [];
+
+  let subRes;
+  try {
+    subRes = await fetch(subUrl, { signal: AbortSignal.timeout(6000) });
+  } catch {
+    return [];
+  }
+  if (!subRes.ok) return [];
+
+  let subData;
+  try {
+    subData = await subRes.json();
+  } catch {
+    return [];
+  }
+
+  const body = subData?.body;
+  if (!Array.isArray(body)) return [];
+  return body
+    .map((seg) => ({
+      start: Number(seg.from) || 0,
+      text: String(seg.content || "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    }))
+    .filter((seg) => seg.text);
 }
 
 // Used by runSuggestQuestionsJob's backgrounded job below.
@@ -1375,11 +1486,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // dynamic-import-capable document context WebLLM already runs in
           // (dynamic import() in this file's ServiceWorkerGlobalScope has
           // been unreliable in Chrome MV3, see lib/engines/embeddings.js).
+          // The offscreen document can't read chrome.storage (it only has
+          // chrome.runtime), so inject the custom-instructions setting into the
+          // payload here, where storage is available. See offscreen.js's
+          // runSummarize / runStream, which read pending.customInstructions.
+          const { customInstructions } = await getSettings();
           const resp = await chrome.runtime.sendMessage({
             target: "offscreen",
             action: message.action,
             streamId,
-            payload: message.payload,
+            payload: { ...message.payload, customInstructions },
           });
           if (resp?.error) throw new Error(resp.error);
 
@@ -1456,11 +1572,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // cancels there via isOffscreenStream().
             await ensureOffscreenDocument();
             const { action, ...jobPayload } = message.payload;
+            // Inject custom instructions here (offscreen has no chrome.storage,
+            // see the WebLLM summarize/ask case above).
+            const { customInstructions } = await getSettings();
             const resp = await chrome.runtime.sendMessage({
               target: "offscreen",
               action,
               streamId,
-              payload: { ...jobPayload, provider: "transformers" },
+              payload: {
+                ...jobPayload,
+                provider: "transformers",
+                customInstructions,
+              },
             });
             if (resp?.error) throw new Error(resp.error);
           } else {
@@ -1504,6 +1627,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const segments = await fetchSponsorBlockSegments(
             message.payload.videoId,
           );
+          sendResponse({ segments });
+          break;
+        }
+
+        case "bilibili-subtitles": {
+          const segments = await fetchBilibiliSubtitles(message.payload || {});
           sendResponse({ segments });
           break;
         }

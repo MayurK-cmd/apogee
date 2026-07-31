@@ -53,16 +53,17 @@ third party.
    `http://127.0.0.1` or `http://localhost`. This traffic stays on your
    device and never leaves it.
 
-3. **SponsorBlock (optional, YouTube only).** When summarizing a YouTube
-   video, Apogee can query the community SponsorBlock API
-   (`sponsor.ajay.app`) for sponsor-segment timings so it can skip sponsor
-   reads and self-promotion when summarizing the transcript. The full video
-   ID is never sent: Apogee sends only the first four characters of its
-   SHA-256 hash, a prefix shared by many videos, and filters the returned
-   segments locally (the same k-anonymity scheme the official SponsorBlock
-   clients use). SponsorBlock therefore sees your IP address and that a
-   YouTube summary is happening, but not which video. It can be disabled in
-   the extension's settings.
+3. **SponsorBlock (YouTube only).** When summarizing a YouTube video, Apogee
+   queries the community SponsorBlock API (`sponsor.ajay.app`) for
+   sponsor-segment timings so it can skip sponsor reads and self-promotion
+   when summarizing the transcript. The full video ID is never sent: Apogee
+   sends only the first four characters of its SHA-256 hash, a prefix shared
+   by many videos, and filters the returned segments locally (the same
+   k-anonymity scheme the official SponsorBlock clients use). SponsorBlock
+   therefore sees your IP address and that a YouTube summary is happening, but
+   not which video. This lookup runs automatically for YouTube videos; when a
+   video has no SponsorBlock data (or the request fails), Apogee falls back to
+   a local, network-free phrase heuristic instead.
 
 4. **Fetching the content of the page you are summarizing.** For a few sites,
    Apogee reads the material to summarize from that site's own public endpoint

@@ -27,6 +27,13 @@ async function extractPageContent() {
     return { ...data, isPdf: false };
   }
 
+  // Bilibili. The extractor returns null for non-video pages (homepage, user
+  // spaces, live rooms), which fall through to the generic Readability path.
+  if (isHost("bilibili.com")) {
+    const data = await extractBilibili();
+    if (data) return { ...data, isPdf: false };
+  }
+
   // Gmail
   if (isHost("mail.google.com")) {
     const data = extractGmail();

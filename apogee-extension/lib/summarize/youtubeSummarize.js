@@ -19,6 +19,7 @@ import {
   buildYoutubeMapPrompt,
   buildYoutubeAssemblyPrompt,
   buildYoutubeBriefPrompt,
+  withCustomInstructions,
 } from "./prompts.js";
 import { parseChaptersBlock, stripChaptersBlock } from "./youtubeChapters.js";
 import { timestampToSeconds } from "./timestamps.js";
@@ -48,7 +49,7 @@ function lastAvailableSecondsIn(text) {
  * summary..." UI hook) so both can share the same caller-side plumbing.
  */
 export async function* summarizeYoutube(
-  { text, title, url, mode, model, host, signal, language },
+  { text, title, url, mode, model, host, signal, language, customInstructions },
   {
     chunkTextFn = chunkText,
     chatStreamFn = chatStream,
@@ -70,22 +71,29 @@ export async function* summarizeYoutube(
     : cleanedContent;
   const lastAvailableSeconds = lastAvailableSecondsIn(transcriptContent);
 
+  // buildAssembly produces the FINAL summary prompt (flat or chaptered), so
+  // the user's custom instructions ride along here; the per-chunk map prompt
+  // (buildYoutubeMapPrompt) stays untouched — its notes feed this step, not the
+  // reader.
   const buildAssembly = (noteText) =>
-    chapters.length
-      ? buildYoutubeBriefPrompt(
-          title,
-          url,
-          noteText,
-          chapters,
-          lastAvailableSeconds,
-        )
-      : buildYoutubeAssemblyPrompt(
-          title,
-          url,
-          noteText,
-          lastAvailableSeconds,
-          mode,
-        );
+    withCustomInstructions(
+      chapters.length
+        ? buildYoutubeBriefPrompt(
+            title,
+            url,
+            noteText,
+            chapters,
+            lastAvailableSeconds,
+          )
+        : buildYoutubeAssemblyPrompt(
+            title,
+            url,
+            noteText,
+            lastAvailableSeconds,
+            mode,
+          ),
+      customInstructions,
+    );
 
   // Shared clean/chunk/cap + map/reduce + target-language machinery (see
   // mapReduceStream). YouTube's only departures from the article path are the

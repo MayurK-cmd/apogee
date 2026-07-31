@@ -56,6 +56,7 @@ export default [
         extractGeneric: "readonly",
         extractGmail: "readonly",
         extractYoutube: "readonly",
+        extractBilibili: "readonly",
         extractHackerNews: "readonly",
         extractReddit: "readonly",
         extractGitHub: "readonly",

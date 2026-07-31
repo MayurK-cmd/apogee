@@ -185,6 +185,67 @@ test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', s
   assert.match(prompts[0], /Output exactly 10-15 concise sentences/);
 });
 
+test("summarizeText dispatches to the video pipeline for type 'bilibili', with Bilibili-style jump links", async () => {
+  const prompts = [];
+  async function* chatStreamFn(_host, _model, prompt) {
+    prompts.push(prompt);
+    yield "brief";
+  }
+
+  const result = await collect(
+    summarizeText(
+      {
+        text: "[0:00] ni hao",
+        title: "A Bilibili Video",
+        url: "https://www.bilibili.com/video/BV1xx411c7mD",
+        mode: "bullets",
+        type: "bilibili",
+      },
+      {
+        chunkTextFn: () => ["[0:00] ni hao"],
+        chatStreamFn,
+      },
+    ),
+  );
+
+  assert.deepStrictEqual(result, ["brief"]);
+  // Routed through the same video-assembly prompt YouTube uses, but the jump
+  // links are the Bilibili bare-second form (?t=SECONDS, no "s" unit).
+  assert.match(prompts[0], /A Bilibili Video/);
+  assert.match(prompts[0], /BV1xx411c7mD\?t=SECONDS[^s]/);
+});
+
+test("summarizeText appends custom instructions to the final summary prompt only, not the per-chunk map passes", async () => {
+  const prompts = [];
+  async function* chatStreamFn(_host, _model, prompt) {
+    prompts.push(prompt);
+    yield "x";
+  }
+
+  await collect(
+    summarizeText(
+      {
+        text: "part A part B",
+        title: "Doc",
+        url: "https://example.com",
+        mode: "bullets",
+        customInstructions: "Answer in a formal tone.",
+      },
+      // Two chunks force the map/reduce split: map prompts (extract notes) must
+      // stay clean, the final reduce prompt must carry the instructions.
+      { chunkTextFn: () => ["part A", "part B"], chatStreamFn },
+    ),
+  );
+
+  const mapPrompts = prompts.slice(0, -1);
+  const reducePrompt = prompts[prompts.length - 1];
+  for (const p of mapPrompts) {
+    assert.doesNotMatch(p, /ADDITIONAL INSTRUCTIONS FROM THE USER/);
+  }
+  assert.match(reducePrompt, /ADDITIONAL INSTRUCTIONS FROM THE USER/);
+  assert.match(reducePrompt, /Answer in a formal tone\./);
+});
+
 // --- Discussion post-context: carry the post into later chunks ---
 
 test("discussionPostExcerpt pulls the Post body out of extracted discussion content, empty for link posts", () => {

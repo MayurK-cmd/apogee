@@ -56,7 +56,7 @@ PRIVACY
 • No cloud inference. Models run on your device
 • No API keys, no sign-in, no account
 • No analytics or tracking
-• Network access is limited to: downloading model weights (from Hugging Face) on first run, your own local Ollama at 127.0.0.1, and, for YouTube videos when enabled, the community SponsorBlock API to skip sponsor segments
+• Network access is limited to: downloading model weights (from Hugging Face) on first run, your own local Ollama at 127.0.0.1, and, for YouTube videos, the community SponsorBlock API to skip sponsor segments
 • Page content is processed locally and never uploaded
 
 REQUIREMENTS

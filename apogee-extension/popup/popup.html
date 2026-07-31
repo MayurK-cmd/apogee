@@ -451,25 +451,27 @@
 
           <div class="settings-card">
             <div class="card-title">
-              <img src="../assets/skip-forward.svg" alt="" />
-              <span>YouTube Sponsor Removal</span>
+              <img src="../assets/file-text.svg" alt="" />
+              <span>Custom Instructions</span>
             </div>
-
-            <label class="radio-option">
-              <input type="radio" name="sponsorBlock" value="on" checked />
-              <span
-                >SponsorBlock
-                <small class="provider-badge">anonymized lookup</small></span
+            <p class="settings-hint">
+              Extra instructions added to every summary and answer, on top of
+              Apogee's built-in prompt, e.g. "Explain like I'm five", "Focus on
+              the technical details", or "Answer in a formal tone". Leave blank
+              to use the defaults.
+            </p>
+            <textarea
+              id="customInstructionsInput"
+              class="settings-textarea"
+              rows="4"
+              maxlength="2000"
+              placeholder="e.g. Keep it concise and highlight any action items."
+            ></textarea>
+            <div class="settings-textarea-meta">
+              <span id="customInstructionsCount" class="char-count"
+                >0 / 2000</span
               >
-            </label>
-
-            <label class="radio-option">
-              <input type="radio" name="sponsorBlock" value="off" />
-              <span
-                >Local phrase heuristic
-                <small class="provider-badge">no network</small></span
-              >
-            </label>
+            </div>
           </div>
 
           <div class="settings-card">

@@ -45,6 +45,7 @@ export async function extractFromActiveTab(tab) {
         "/content/Readability.js",
         "/content/extractors/generic.js",
         "/content/extractors/youtube.js",
+        "/content/extractors/bilibili.js",
         "/content/extractors/gmail.js",
         "/content/extractors/thread.js",
         "/content/extractors/hackernews.js",

@@ -6,6 +6,8 @@ import {
   buildLanguageSystemPrompt,
   buildTranslatePrompt,
   buildDiscussionPrompt,
+  buildYoutubeAssemblyPrompt,
+  withCustomInstructions,
   resolveLanguageName,
 } from "../../lib/summarize/prompts.js";
 
@@ -72,4 +74,49 @@ test("buildTranslatePrompt targets the language and preserves links/timestamps",
   assert.match(p, /NEVER change the URL/);
   assert.match(p, /timestamps/);
   assert.match(p, /\[4:12\]\(http:\/\/x\) hola/);
+});
+
+test("withCustomInstructions is a no-op for blank/whitespace input", () => {
+  const base = "BASE PROMPT";
+  assert.strictEqual(withCustomInstructions(base, ""), base);
+  assert.strictEqual(withCustomInstructions(base, "   \n  "), base);
+  assert.strictEqual(withCustomInstructions(base, undefined), base);
+});
+
+test("withCustomInstructions appends the user's text under a subordinate, injection-resistant header", () => {
+  const p = withCustomInstructions("BASE PROMPT", "Explain like I'm five.");
+  // Keeps the original prompt intact and adds the user's instructions after it.
+  assert.match(p, /^BASE PROMPT/);
+  assert.match(p, /ADDITIONAL INSTRUCTIONS FROM THE USER/);
+  assert.match(p, /Explain like I'm five\./);
+  // The header must keep the grounding rules dominant so a hostile page can't
+  // smuggle instructions through this channel.
+  assert.match(p, /grounding rules win/);
+});
+
+test("buildYoutubeAssemblyPrompt emits YouTube-style unit-bearing jump links", () => {
+  const p = buildYoutubeAssemblyPrompt(
+    "T",
+    "https://www.youtube.com/watch?v=abc12345678",
+    "[4:12] a point",
+    600,
+    "bullets",
+  );
+  // YouTube's time param carries the "s" unit: ...&t=252s
+  assert.match(p, /watch\?v=abc12345678&t=SECONDSs/);
+  assert.match(p, /watch\?v=abc12345678&t=252s/);
+});
+
+test("buildYoutubeAssemblyPrompt emits Bilibili-style bare-second jump links", () => {
+  const p = buildYoutubeAssemblyPrompt(
+    "T",
+    "https://www.bilibili.com/video/BV1xx411c7mD",
+    "[4:12] a point",
+    600,
+    "bullets",
+  );
+  // Bilibili's time param is a bare integer second count (no "s" unit): ...?t=252
+  assert.match(p, /BV1xx411c7mD\?t=SECONDS[^s]/);
+  assert.match(p, /BV1xx411c7mD\?t=252[^s]/);
+  assert.doesNotMatch(p, /t=252s/);
 });

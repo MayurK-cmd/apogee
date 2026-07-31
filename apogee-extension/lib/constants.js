@@ -125,9 +125,28 @@ export const SUMMARY_LANGUAGES = [
   { code: "id", label: "Indonesian", name: "Indonesian" },
 ];
 
+// Page `type`s (set by the site-specific extractors, see content/extractors/)
+// that are timestamped videos rather than text. They share one pipeline: a
+// transcript with inline [MM:SS] markers, summarized with jump-to-moment deep
+// links (see summarizeYoutube / videoTimestampParts in lib/summarize/). Adding
+// a platform here (plus its extractor + jump-link host) routes it through that
+// same video path instead of the plain-article one.
+export const VIDEO_PAGE_TYPES = new Set(["youtube", "bilibili"]);
+
+export function isVideoType(type) {
+  return VIDEO_PAGE_TYPES.has(type);
+}
+
 // English default: summaries come out in English regardless of the source
 // article's language. Users who prefer native-language summaries pick "auto".
 export const DEFAULT_SUMMARY_LANGUAGE = "en";
+
+// Free-text "custom instructions" the user can add in Settings, injected into
+// every summary and Ask prompt on top of Apogee's built-in rules (see
+// withCustomInstructions in lib/summarize/prompts.js). Empty by default.
+// Capped so a runaway paste can't crowd out the page content in a small
+// model's context window; the popup enforces the same limit on input.
+export const CUSTOM_INSTRUCTIONS_MAX_CHARS = 2000;
 
 // How cross-language output is translated (see lib/languageOutput.js).
 // "llm" (default): the summarization model translates it itself (one pass with
@@ -191,6 +210,10 @@ export const DEFAULT_SETTINGS = {
   localModel: DEFAULT_LOCAL_MODEL,
   ollamaHost: DEFAULT_OLLAMA_HOST,
   responseFormat: "bullets",
+  // Extra user-authored instructions appended to summary/Ask prompts (see
+  // CUSTOM_INSTRUCTIONS_MAX_CHARS / withCustomInstructions). Empty = use
+  // Apogee's built-in prompts unchanged.
+  customInstructions: "",
   summaryLanguage: DEFAULT_SUMMARY_LANGUAGE,
   translationEngine: DEFAULT_TRANSLATION_ENGINE,
   theme: "dark",
@@ -199,9 +222,4 @@ export const DEFAULT_SETTINGS = {
   // isSensitiveUrl in popup.js) are always treated as non-persistable
   // regardless of this setting.
   saveHistory: true,
-  // When false, the SponsorBlock k-anonymity lookup for YouTube sponsor
-  // segments (the extension's only third-party network request, see
-  // fetchSponsorBlockSegments in background/service-worker.js) is skipped
-  // entirely and the local phrase heuristic is used instead.
-  sponsorBlock: true,
 };

@@ -32,12 +32,16 @@ import {
   LOCAL_MODELS,
   DEFAULT_OLLAMA_HOST,
   SUMMARY_LANGUAGES,
+  CUSTOM_INSTRUCTIONS_MAX_CHARS,
+  isVideoType,
 } from "../lib/constants.js";
 import { getSettings } from "../lib/storage/settings.js";
 import { formatSummaryAsMarkdown } from "../lib/util/exportFormat.js";
 import {
   formatTimeSaved,
   formatVideoTimeSaved,
+  timeSavedInputsFor,
+  formatTimeSavedFromInputs,
 } from "../lib/util/readingTime.js";
 import { saveViewState, loadViewState } from "../lib/storage/viewState.js";
 import {
@@ -87,6 +91,12 @@ const questionInput = document.getElementById("questionInput");
 const sendBtn = document.getElementById("sendBtn");
 const answerBox = document.getElementById("answerBox");
 const formatRadios = document.querySelectorAll('input[name="format"]');
+const customInstructionsInput = document.getElementById(
+  "customInstructionsInput",
+);
+const customInstructionsCount = document.getElementById(
+  "customInstructionsCount",
+);
 const summaryLanguageSelect = document.getElementById("summaryLanguageSelect");
 const translationEngineRadios = document.querySelectorAll(
   'input[name="translationEngine"]',
@@ -122,9 +132,6 @@ const debugLogsContent = document.getElementById("debugLogsContent");
 const clearDebugLogsBtn = document.getElementById("clearDebugLogsBtn");
 const saveHistoryRadios = document.querySelectorAll(
   'input[name="saveHistory"]',
-);
-const sponsorBlockRadios = document.querySelectorAll(
-  'input[name="sponsorBlock"]',
 );
 const clearDataBtn = document.getElementById("clearDataBtn");
 const clearDataStatus = document.getElementById("clearDataStatus");
@@ -428,6 +435,11 @@ async function applySettingsToUI(settings) {
   );
   if (fmtRadio) fmtRadio.checked = true;
 
+  if (customInstructionsInput) {
+    customInstructionsInput.value = settings.customInstructions || "";
+    updateCustomInstructionsCount();
+  }
+
   if (summaryLanguageSelect) {
     // Populate once (the option set is static); re-selecting the stored value
     // on every applySettingsToUI keeps the dropdown in sync after a reset.
@@ -451,11 +463,6 @@ async function applySettingsToUI(settings) {
     `input[name="saveHistory"][value="${settings.saveHistory === false ? "off" : "on"}"]`,
   );
   if (historyRadio) historyRadio.checked = true;
-
-  const sponsorRadio = document.querySelector(
-    `input[name="sponsorBlock"][value="${settings.sponsorBlock === false ? "off" : "on"}"]`,
-  );
-  if (sponsorRadio) sponsorRadio.checked = true;
 
   // Fire-and-forget: checkWebGPUSupport() can create the offscreen document
   // on a cold start (a few seconds on Chrome), which used to make every
@@ -674,11 +681,11 @@ function escapeHtml(text) {
 // prompt's headings/bullets put them; see buildYoutubeAssemblyPrompt).
 const LINK_PLACEHOLDER_MARK = "\uE000";
 
-// youtube.com is always allowed because the only links the app itself asks
-// the model to produce are YouTube jump-to-video timestamp links, which stay
-// clickable even when a past YouTube summary is rendered from a non-YouTube
-// tab (past-summary cards have no URL to derive an origin from).
-const ALWAYS_LINKIFY_HOSTS = new Set(["youtube.com"]);
+// The video hosts are always allowed because the only links the app itself asks
+// the model to produce are jump-to-moment timestamp links back to the video,
+// which stay clickable even when a past video summary is rendered from an
+// unrelated tab (past-summary cards have no URL to derive an origin from).
+const ALWAYS_LINKIFY_HOSTS = new Set(["youtube.com", "bilibili.com"]);
 
 // Host of the page whose summary/answer is currently being rendered; set from
 // the active tab on load (see DOMContentLoaded). null = only the always-allowed
@@ -949,20 +956,36 @@ function showSummarizingContext() {
   updateTimeSavedBadge(null, null);
 }
 
-// Only meaningful once a fresh summarize job has finished, since it needs
-// the original page (currentPageData) alongside the summary text; a summary
-// loaded straight from cache on popup reopen has no original page data on
-// hand, so the badge just stays hidden in that case rather than guessing.
-// YouTube pages measure against the video's actual runtime (durationSeconds)
-// rather than the transcript's word count; see formatVideoTimeSaved.
-function updateTimeSavedBadge(pageData, summaryText) {
+// Sets (or, for a null/empty label, hides) the badge. Shared by the live path
+// below and the restore-from-cache path (showTimeSavedFromInputs) so both
+// render the badge identically.
+function setTimeSavedBadgeLabel(label) {
   if (!timeSavedBadge) return;
-  const label =
-    pageData?.type === "youtube"
-      ? formatVideoTimeSaved(pageData.durationSeconds, summaryText)
-      : formatTimeSaved(pageData?.content, summaryText);
   timeSavedBadge.textContent = label || "";
   timeSavedBadge.classList.toggle("hidden", !label);
+}
+
+// Live path: compute + show the badge from the in-memory page data right after
+// a summarize job finishes. Video pages (YouTube, Bilibili — see isVideoType)
+// measure against the video's actual runtime (durationSeconds); everything else
+// against the original text's word count. On reopen, showTimeSavedFromInputs
+// takes over from persisted inputs.
+function updateTimeSavedBadge(pageData, summaryText) {
+  const label = isVideoType(pageData?.type)
+    ? formatVideoTimeSaved(pageData.durationSeconds, summaryText)
+    : formatTimeSaved(pageData?.content, summaryText);
+  setTimeSavedBadgeLabel(label);
+}
+
+// Re-shows the badge when a finished summary is restored from cache on popup
+// reopen: the live page data (currentPageData) is gone by then, but the inputs
+// the badge needs were persisted into the tab's view state on completion (see
+// consumeSummaryStream), so recompute from those against the restored summary.
+// Without this the badge would appear once, then vanish the first time the
+// popup closed and reopened. `inputs` absent (e.g. an older cached summary
+// saved before this was persisted, or a background job) → badge stays hidden.
+function showTimeSavedFromInputs(inputs, summaryText) {
+  setTimeSavedBadgeLabel(formatTimeSavedFromInputs(inputs, summaryText));
 }
 
 // Shared by every place that shows/hides the summary card's copy buttons
@@ -1187,6 +1210,14 @@ async function consumeSummaryStream(stream, { tab, promptsCacheKey }) {
     subview: "summary",
     url: tab.url,
     streamId: null,
+    // Persist just the inputs the badge needs (video runtime or original word
+    // count) so it can be recomputed and shown again when this summary is
+    // restored from cache on a later popup open, instead of vanishing.
+    timeSaved: timeSavedInputsFor({
+      type: currentPageData?.type,
+      durationSeconds: currentPageData?.durationSeconds,
+      content: currentPageData?.content,
+    }),
   });
   setSuggestedQuestionsLoading();
 
@@ -1723,6 +1754,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           makeSummaryPassagesFocusable();
           setSummaryCopyButtonsVisible(!!state.summaryText.trim());
           updateResummarizeHint(settings);
+          showTimeSavedFromInputs(state.timeSaved, state.summaryText);
           showOnlyView("summaryView");
           const selPromptsKey = state.promptsCacheKey;
           const stored = selPromptsKey
@@ -1777,6 +1809,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       makeSummaryPassagesFocusable();
       setSummaryCopyButtonsVisible(!!cached[cacheKey].trim());
       updateResummarizeHint(settings);
+      // Restore the "time saved" badge from the inputs persisted alongside this
+      // tab's view state, so it survives the popup closing and reopening.
+      showTimeSavedFromInputs(state?.timeSaved, cached[cacheKey]);
       showOnlyView("summaryView");
       // A present key (even []) means prompts finished; a missing key means
       // they were still generating when the popup closed, show loading and
@@ -1861,6 +1896,38 @@ formatRadios.forEach((radio) => {
   });
 });
 
+// Keeps the "N / 2000" counter under the custom-instructions box in sync.
+function updateCustomInstructionsCount() {
+  if (!customInstructionsCount || !customInstructionsInput) return;
+  const len = customInstructionsInput.value.length;
+  customInstructionsCount.textContent = `${len} / ${CUSTOM_INSTRUCTIONS_MAX_CHARS}`;
+}
+
+if (customInstructionsInput) {
+  // Update the counter live on every keystroke, but only persist once the user
+  // pauses/leaves the field: saving on every keystroke would thrash
+  // chrome.storage. The maxlength attribute caps input in the DOM; slice() here
+  // is defensive against a paste that somehow exceeds it (and matches the
+  // model-side CUSTOM_INSTRUCTIONS_MAX_CHARS budget).
+  let customInstructionsSaveTimer = null;
+  const persistCustomInstructions = async () => {
+    const value = customInstructionsInput.value
+      .slice(0, CUSTOM_INSTRUCTIONS_MAX_CHARS)
+      .trim();
+    await saveSettings({ customInstructions: value });
+  };
+
+  customInstructionsInput.addEventListener("input", () => {
+    updateCustomInstructionsCount();
+    clearTimeout(customInstructionsSaveTimer);
+    customInstructionsSaveTimer = setTimeout(persistCustomInstructions, 500);
+  });
+  customInstructionsInput.addEventListener("blur", () => {
+    clearTimeout(customInstructionsSaveTimer);
+    persistCustomInstructions();
+  });
+}
+
 summaryLanguageSelect?.addEventListener("change", async () => {
   const settings = await saveSettings({
     summaryLanguage: summaryLanguageSelect.value,
@@ -1886,12 +1953,6 @@ themeRadios.forEach((radio) => {
 saveHistoryRadios.forEach((radio) => {
   radio.addEventListener("change", async () => {
     await saveSettings({ saveHistory: radio.value === "on" });
-  });
-});
-
-sponsorBlockRadios.forEach((radio) => {
-  radio.addEventListener("change", async () => {
-    await saveSettings({ sponsorBlock: radio.value === "on" });
   });
 });
 

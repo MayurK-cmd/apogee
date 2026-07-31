@@ -454,6 +454,12 @@ async function runSummarize(eng, pending, emit, signal) {
     pending.content,
     pending.language,
   );
+  // The offscreen document has no chrome.storage API (only chrome.runtime), so
+  // the custom-instructions setting can't be read here — the service worker
+  // injects it into the job payload before forwarding (see the offscreen sends
+  // in background/service-worker.js). Same for runTransformersJob / the Ask
+  // path below.
+  const customInstructions = pending.customInstructions;
   for await (const token of summarizeText(
     {
       text: pending.content,
@@ -463,6 +469,7 @@ async function runSummarize(eng, pending, emit, signal) {
       type: pending.type,
       model: pending.model,
       language,
+      customInstructions,
       signal,
     },
     {
@@ -545,6 +552,10 @@ async function runTransformersJob(
   let longNote = "";
   let stageLabel = "Summarizing...";
 
+  // Injected into the payload by the service worker (offscreen has no
+  // chrome.storage; see the note in runSummarize).
+  const customInstructions = pending.customInstructions;
+
   await withTransformersEngine(
     pending.model,
     onDownloadProgress,
@@ -563,6 +574,7 @@ async function runTransformersJob(
             type: pending.type,
             model: pending.model,
             language,
+            customInstructions,
             signal,
           },
           {
@@ -691,11 +703,16 @@ async function runStream(streamId, pending, stream) {
       const prompts = await getPrompts();
       // No inline language directive on the prompt (small models ignore it);
       // the answer's language is enforced by streamInTargetLanguage instead.
-      askPrompt = prompts.buildAnswerPrompt(
-        pending.title,
-        pending.url,
-        relevantContent,
-        pending.question,
+      // Custom instructions apply to answers too (injected into the payload by
+      // the service worker — offscreen has no chrome.storage, see runSummarize).
+      askPrompt = prompts.withCustomInstructions(
+        prompts.buildAnswerPrompt(
+          pending.title,
+          pending.url,
+          relevantContent,
+          pending.question,
+        ),
+        pending.customInstructions,
       );
       // Detect against the full article so an answer about an already-in-target
       // page skips the directive/translate entirely.

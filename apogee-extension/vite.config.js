@@ -26,6 +26,11 @@ function copyStaticPlugin(targetBrowser) {
         // page, so its fetches ARE bound by this CSP, unlike Chrome's
         // service worker, and without the entry the lookup silently fails
         // into the local phrase heuristic.
+        // api.bilibili.com + *.hdslb.com are here for the same reason: the
+        // Bilibili subtitle fetch (fetchBilibiliSubtitles in
+        // background/service-worker.js) runs from Firefox's real background
+        // page, so it's CSP-bound; without them captions silently fail and the
+        // extractor degrades to a description-only summary.
         // No worker-src change needed here (unlike the earlier, reverted
         // wllama attempt): Transformers.js's WASM backend never spawns a
         // Worker (onnxruntime-web's env.wasm.proxy is hardcoded false by the
@@ -35,7 +40,7 @@ function copyStaticPlugin(targetBrowser) {
         );
         manifest.content_security_policy = {
           extension_pages:
-            "script-src 'self' 'wasm-unsafe-eval'; default-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:* https://huggingface.co https://*.huggingface.co https://*.hf.co https://sponsor.ajay.app; img-src 'self' data:; font-src 'self'; style-src 'self'",
+            "script-src 'self' 'wasm-unsafe-eval'; default-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:* https://huggingface.co https://*.huggingface.co https://*.hf.co https://sponsor.ajay.app https://api.bilibili.com https://*.hdslb.com; img-src 'self' data:; font-src 'self'; style-src 'self'",
         };
         if (manifest.background) {
           delete manifest.background.service_worker;
