@@ -33,6 +33,25 @@ import { mapReduceStream } from "./mapReduce.js";
 // ceiling passed to buildYoutubeAssemblyPrompt.
 const TIMESTAMP_MARKER = /\[(\d{1,2}(?::\d{2}){1,2})\]/g;
 
+// Upper bound on the map-stage chunk size for a transcript, independent of the
+// model's context budget. getMaxChunkChars (lib/engines/modelLimits.js) hands a
+// big-context model — Ollama's practical budget reaches ~88k chars/chunk — a
+// window large enough to fit an ENTIRE long transcript in a single chunk. That
+// chunk then takes mapReduceStream's single-chunk fast path, which feeds the raw
+// transcript straight into buildYoutubeAssemblyPrompt — a prompt written to
+// consume already-extracted timestamped NOTES, not a 20k-char transcript. A
+// small local model handed the whole raw transcript front-loads: it paraphrases
+// the opening and stops (echoing the transcript's own inline [MM:SS] markers
+// rather than emitting the mandated [MM:SS](url) deep-links, a tell the map
+// stage never ran), so a 23-minute video came back summarized only through
+// ~1:15. Capping the chunk size forces any substantial transcript into several
+// bounded map passes whose notes the assembly step then merges, restoring
+// full-video coverage. The cap is the largest chunk the in-browser engines
+// already map cleanly (WebLLM's per-chunk budget, 4096-token window minus
+// reserve, ×4 chars/token), so WebLLM/Transformers chunk boundaries are
+// unchanged and only oversized big-context chunks get reined in.
+const YOUTUBE_MAP_CHUNK_CHARS = 8192;
+
 function lastAvailableSecondsIn(text) {
   let last = 0;
   for (const match of text.matchAll(TIMESTAMP_MARKER)) {
@@ -59,6 +78,13 @@ export async function* summarizeYoutube(
   } = {},
 ) {
   const cleanedContent = cleanText(text);
+
+  // Cap the transcript's map-stage chunk size (see YOUTUBE_MAP_CHUNK_CHARS) so a
+  // long video on a big-context model is split into several map passes instead
+  // of collapsing into one raw-transcript assembly pass. The injected chunkTextFn
+  // still owns the actual splitting; we only bound the size it's asked for.
+  const cappedChunkTextFn = (t, maxChars) =>
+    chunkTextFn(t, Math.min(maxChars, YOUTUBE_MAP_CHUNK_CHARS));
 
   // When the video's description defined real chapter markers, the extractor
   // embeds them as a "Chapters:" block (see lib/youtubeChapters.js). Peel it
@@ -104,7 +130,13 @@ export async function* summarizeYoutube(
   // target-language pass.
   yield* mapReduceStream(
     { text: transcriptContent, model, host, signal, language },
-    { chunkTextFn, chatStreamFn, onProgress, detectLanguageFn, translateFn },
+    {
+      chunkTextFn: cappedChunkTextFn,
+      chatStreamFn,
+      onProgress,
+      detectLanguageFn,
+      translateFn,
+    },
     {
       buildSingle: (chunk) => buildAssembly(chunk),
       buildMap: (chunk, i, total) =>

@@ -7,9 +7,51 @@ import {
   buildTranslatePrompt,
   buildDiscussionPrompt,
   buildYoutubeAssemblyPrompt,
+  youtubeSummaryScale,
   withCustomInstructions,
   resolveLanguageName,
 } from "../../lib/summarize/prompts.js";
+
+test("youtubeSummaryScale grows key-moment and gist targets with video length", () => {
+  const short = youtubeSummaryScale(3 * 60); // 3 min
+  const medium = youtubeSummaryScale(23 * 60); // 23 min
+  const long = youtubeSummaryScale(90 * 60); // 90 min
+
+  // A short clip gets a small, floor-bounded target; a long talk many more.
+  assert.ok(short.minMoments >= 3 && short.maxMoments <= 6, "short stays small");
+  assert.ok(
+    medium.minMoments > short.maxMoments,
+    "a 23-min video asks for more moments than a 3-min one",
+  );
+  assert.ok(
+    medium.minMoments >= 15,
+    "a 23-min video still comfortably clears 15 moments",
+  );
+  // Bounded so a multi-hour video doesn't produce an unusable wall.
+  assert.ok(long.maxMoments <= 40, "capped for very long videos");
+  assert.ok(long.summaryMax >= short.summaryMax, "gist grows with length too");
+});
+
+test("buildYoutubeAssemblyPrompt scales the moment count into the prompt text", () => {
+  const shortPrompt = buildYoutubeAssemblyPrompt(
+    "T",
+    "https://www.youtube.com/watch?v=abc12345678",
+    "[0:30] a point",
+    3 * 60,
+  );
+  const longPrompt = buildYoutubeAssemblyPrompt(
+    "T",
+    "https://www.youtube.com/watch?v=abc12345678",
+    "[0:30] a point",
+    90 * 60,
+  );
+  const { minMoments: sMin } = youtubeSummaryScale(3 * 60);
+  const { minMoments: lMin } = youtubeSummaryScale(90 * 60);
+  assert.match(shortPrompt, new RegExp(`roughly ${sMin}-`));
+  assert.match(longPrompt, new RegExp(`roughly ${lMin}-`));
+  assert.match(shortPrompt, /This video is about 3 minutes long/);
+  assert.match(longPrompt, /This video is about 90 minutes long/);
+});
 
 test("buildScaledBulletsStyle matches the base 5-8 range for a single chunk", () => {
   assert.match(buildScaledBulletsStyle(1), /Output 5-8 bullet points/);

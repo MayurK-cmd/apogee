@@ -335,7 +335,7 @@ export function buildYoutubeMapPrompt(title, chunk, chunkIndex, chunkTotal) {
     "Rules:",
     "- Extract only the substantive points made in THIS PART: facts, claims, examples, numbers, names, conclusions.",
     "- IGNORE sponsor/ad reads, calls to action, subscribe/like/follow requests, channel or merch plugs, and other promotional filler.",
-    "- Write 3-8 concise bullet points.",
+    "- Write 6-12 concise bullet points — aim for roughly one per 30-45 seconds of this part — so the later assembly step has enough distinct moments to build a full timeline. Capture each substantive beat as it happens rather than collapsing the whole part into a few bullets.",
     "- Prefix each bullet with the single closest [MM:SS] marker from the transcript above, copied EXACTLY as written. Never invent, adjust, or estimate a timestamp.",
     "- Do not add any heading, introduction, or conclusion. Output only the bullets.",
     "",
@@ -403,36 +403,89 @@ function videoTimestampParts(url) {
   }
 }
 
+// Scales a video summary to its length: a short clip gets a couple of moments
+// and a two-sentence gist, a long talk gets a dense timeline and a fuller
+// overview. Computed deterministically from the transcript's own length
+// (lastAvailableSeconds) rather than left to the model, which only sees notes
+// and can't reliably judge the whole video's runtime. Targets ~one key moment
+// per minute, bounded so a 30-second clip isn't padded and a multi-hour video
+// doesn't produce an unusable wall (or blow up the token count).
+const MIN_KEY_MOMENTS = 3;
+const MAX_KEY_MOMENTS = 40;
+
+export function youtubeSummaryScale(lastAvailableSeconds) {
+  const minutes = Math.max(1, Math.round((lastAvailableSeconds || 0) / 60));
+  const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi);
+
+  // ~1 moment/min, with a ±20% band so the model has room to follow the
+  // content's actual density instead of hitting an exact number.
+  const minMoments = clamp(Math.round(minutes * 0.8), MIN_KEY_MOMENTS, 30);
+  const maxMoments = clamp(
+    Math.round(minutes * 1.2),
+    minMoments + 2,
+    MAX_KEY_MOMENTS,
+  );
+
+  // The written gist grows a little with length too, but stays short — the
+  // key-moments timeline carries the detail.
+  const summaryMin = minutes < 8 ? 2 : minutes < 25 ? 3 : 4;
+  const summaryMax = summaryMin + 2;
+
+  const lengthLabel =
+    lastAvailableSeconds >= 60
+      ? `about ${minutes} minute${minutes === 1 ? "" : "s"} long`
+      : "short";
+
+  return { minMoments, maxMoments, summaryMin, summaryMax, lengthLabel };
+}
+
 export function buildYoutubeAssemblyPrompt(
   title,
   url,
   notes,
   lastAvailableSeconds,
+  // `mode` (bullets/sentences/paragraphs) is intentionally ignored here. A
+  // video summary has its own fixed shape — a brief written summary plus a
+  // timeline of key moments — the same way the chaptered brief
+  // (buildYoutubeBriefPrompt) overrides the plain-page mode. The reader gets a
+  // scannable, jump-anywhere result regardless of their global style
+  // preference, which is what makes a long video actually navigable.
+  // eslint-disable-next-line no-unused-vars
   mode,
 ) {
-  const style = SUMMARY_STYLES[mode] || SUMMARY_STYLES.bullets;
   const lastTimestamp = formatSecondsAsTimestamp(lastAvailableSeconds);
   const { base: tsBase, suffix: tsSuffix } = videoTimestampParts(url);
+  const { minMoments, maxMoments, summaryMin, summaryMax, lengthLabel } =
+    youtubeSummaryScale(lastAvailableSeconds);
   return [
     "You are Apogee, an expert video summarizer.",
-    "Turn the timestamped notes below into a summary of the video, while still making it easy to jump to any part of the original video.",
+    "Turn the timestamped notes below into (1) a brief written summary of the video and (2) a timeline of its key moments that lets the reader jump to any part of the original video.",
+    `This video is ${lengthLabel}, so size the summary to match it — a longer video earns more key moments and a fuller gist, a short one fewer.`,
+    "",
+    "Write the output in Markdown with EXACTLY these two sections, in this order:",
+    "",
+    "## Summary",
+    `${summaryMin}-${summaryMax} sentences capturing the gist of the WHOLE video: what it covers and its main point, finding, or conclusion. Plain prose — do not put timestamps in this section.`,
+    "",
+    "## Key moments",
+    "A bulleted list of the notable moments, in CHRONOLOGICAL order (earliest timestamp first).",
+    `- Include roughly ${minMoments}-${maxMoments} key moments, matching this video's length. Give fewer only if the notes genuinely do not contain that many distinct substantive moments; a dense video may warrant a few more.`,
+    "- Spread the moments across the ENTIRE video: the first should be near the start and the last near the end of the transcript. Never cluster them all in the opening minutes.",
+    "- Merge duplicate or near-identical notes into one moment. Do not pad the list with repeats just to reach the count.",
     "",
     "Core rules:",
-    "- Base every claim strictly on the provided notes. Do not invent facts, quotes, names, or timestamps.",
-    "- Every timestamp you use MUST be copied from the notes exactly, or omitted. Never invent, adjust, or estimate one.",
+    "- Base every moment and every claim strictly on the provided notes. Do not invent facts, quotes, names, or timestamps.",
+    "- Every timestamp you use MUST be copied from the notes exactly. Never invent, adjust, or estimate one.",
     `- Never use a timestamp later than ${lastAvailableSeconds} seconds (${lastTimestamp}), the last moment actually covered by the transcript.`,
     "- Omit anything promotional (sponsor reads, subscribe asks, merch, calls to action) that may have slipped into the notes.",
     "- Be neutral: summarize and explain, do not editorialize.",
     "",
-    "Timestamp links (mandatory on every point):",
-    `- Every point MUST start with its timestamp as a Markdown link back to that moment in the video: [MM:SS](${tsBase}SECONDS${tsSuffix}), where SECONDS is the integer seconds copied from the notes (e.g. a [4:12] note becomes [4:12](${tsBase}252${tsSuffix})).`,
-    '- Format each point exactly as: "[MM:SS](link): summary text" - the timestamp link, then a colon, then the point itself.',
-    "- Never omit the timestamp from a point.",
+    "Key-moment link format (mandatory on EVERY moment):",
+    `- Start each bullet with its timestamp as a Markdown link back to that moment: [MM:SS](${tsBase}SECONDS${tsSuffix}), where SECONDS is the integer seconds copied from the notes (e.g. a [4:12] note becomes [4:12](${tsBase}252${tsSuffix})).`,
+    '- Format each bullet exactly as: "- [MM:SS](link): what happens at this moment" — the timestamp link, then a colon, then a concise one-sentence description.',
+    "- Never omit the timestamp link from a moment.",
     "",
-    "SUMMARY STYLE:",
-    style,
-    "",
-    "The SUMMARY STYLE above governs the overall structure (bullets/sentences/paragraph). Follow it exactly, but every point/sentence must still start with its timestamp per the mandatory rule above.",
+    "Output only the two sections above — no extra headings, preamble, or closing remarks.",
     "",
     "VIDEO TITLE:",
     title,

@@ -77,32 +77,90 @@ test("summarizeYoutube runs a map pass per chunk then a single reduce/assembly p
   assert.match(calls[2], /notes for:/);
 });
 
-test("summarizeYoutube passes mode through to the assembly prompt's summary style", async () => {
+test("summarizeYoutube caps the map-stage chunk size so a long transcript on a big-context model still fans out into map passes", async () => {
+  // Regression: on a big-context model (Ollama, ~88k-char budget) a ~20k-char
+  // transcript used to collapse into ONE chunk and take the single-chunk fast
+  // path, handing the whole raw transcript to the assembly prompt. The chunk
+  // size is now capped at 8192, so the transcript splits into multiple map
+  // passes that get assembled from extracted notes instead.
+  const requestedSizes = [];
+  const realChunk = (text, maxChars) => {
+    requestedSizes.push(maxChars);
+    const n = Math.ceil(text.length / maxChars);
+    return Array.from({ length: n }, (_, i) =>
+      text.slice(i * maxChars, (i + 1) * maxChars),
+    );
+  };
+
   const prompts = [];
   async function* chatStreamFn(_host, _model, prompt) {
     prompts.push(prompt);
-    yield "brief";
+    yield "notes";
   }
 
+  const progress = [];
   await collect(
     summarizeYoutube(
       {
-        text: "[0:00] hello world",
-        title: "My Video",
+        // ~20k chars, the scale of a 23-minute transcript; no model set, so
+        // getMaxChunkChars falls back to the large default Ollama budget.
+        text: "[0:00] " + "poker cheating scandal details ".repeat(700),
+        title: "Poker Video",
         url: "https://youtube.com/watch?v=abc",
-        mode: "paragraphs",
       },
-      {
-        chunkTextFn: () => ["[0:00] hello world"],
-        chatStreamFn,
-      },
+      { chunkTextFn: realChunk, chatStreamFn, onProgress: (p) => progress.push(p) },
     ),
   );
 
-  assert.match(
-    prompts[0],
+  // The size the chunker was asked for is the cap, not the model's ~88k budget.
+  assert.strictEqual(requestedSizes[0], 8192);
+  // More than one model call => the map/reduce path ran, not single-pass.
+  assert.ok(prompts.length > 1, "should run multiple map passes plus a reduce");
+  assert.ok(
+    progress.some((p) => p.stage === "map"),
+    "should emit map-stage progress",
+  );
+  // The final assembly prompt consumes extracted notes, not the raw transcript.
+  assert.match(prompts[prompts.length - 1], /TIMESTAMPED NOTES:/);
+});
+
+test("summarizeYoutube uses the fixed brief + key-moments video format regardless of mode", async () => {
+  // A video summary has its own shape (a brief summary plus a timeline of at
+  // least 15 key moments), overriding the reader's bullets/sentences/paragraphs
+  // preference the same way the chaptered brief does. So `mode` must NOT change
+  // the assembly prompt's structure.
+  async function run(mode) {
+    const prompts = [];
+    async function* chatStreamFn(_host, _model, prompt) {
+      prompts.push(prompt);
+      yield "brief";
+    }
+    await collect(
+      summarizeYoutube(
+        {
+          text: "[0:00] hello world",
+          title: "My Video",
+          url: "https://youtube.com/watch?v=abc",
+          mode,
+        },
+        { chunkTextFn: () => ["[0:00] hello world"], chatStreamFn },
+      ),
+    );
+    return prompts[0];
+  }
+
+  const paragraphsPrompt = await run("paragraphs");
+  const bulletsPrompt = await run("bullets");
+
+  // The fixed video format, not any mode's flat style.
+  assert.match(paragraphsPrompt, /## Key moments/);
+  assert.match(paragraphsPrompt, /key moments, matching this video's length/);
+  assert.doesNotMatch(
+    paragraphsPrompt,
     /Output one concise paragraph containing 10-15 sentences/,
   );
+  // Mode does not alter the prompt.
+  assert.strictEqual(paragraphsPrompt, bulletsPrompt);
 });
 
 test("summarizeYoutube assembles a chaptered brief when the content carries a Chapters block", async () => {
@@ -186,14 +244,13 @@ test("summarizeYoutube stops issuing new model calls once the signal is aborted 
 });
 
 test("summarizeYoutube truncates to the chunk cap instead of growing chunks past the context budget", async () => {
-  // A cleanedContent long enough that chunkTextFn (called with the default
-  // model's ~24576-char budget) returns >12 chunks. The old behavior
-  // re-chunked at content/12 and doubled from there, growing chunks without
-  // bound past the model's context budget; now the tail is dropped instead:
-  // exactly one chunkTextFn call (never with a bigger size), the map phase
-  // capped at 12 chunks, and a one-shot truncated progress event.
-  // (undefined model -> getMaxChunkChars falls back to the default Ollama
-  // budget, ~24576 chars; 300000 chars / 24576 > 12.)
+  // A cleanedContent long enough that chunkTextFn returns >12 chunks. The old
+  // behavior re-chunked at content/12 and doubled from there, growing chunks
+  // without bound past the model's context budget; now the tail is dropped
+  // instead: exactly one chunkTextFn call (never with a bigger size), the map
+  // phase capped at 12 chunks, and a one-shot truncated progress event.
+  // (The YouTube path caps the requested chunk size at YOUTUBE_MAP_CHUNK_CHARS
+  // = 8192; 300000 chars / 8192 > 12.)
   const longText = "x".repeat(300000);
   const chunkCalls = [];
   const chunkTextFn = (text, maxChars) => {

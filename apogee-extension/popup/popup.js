@@ -809,6 +809,28 @@ function renderStoredSummaryMarkdown(text) {
   }
 }
 
+// Timestamp / jump links inside a rendered summary or answer open in the SAME
+// tab the popup is bound to (activeTabId), never a new tab. A video summary's
+// key moments are meant to seek the very video you're watching — clicking
+// through 15 of them should move that one tab along the timeline (YouTube seeks
+// to the &t=SECONDS the link carries), not pile up 15 tabs. Delegated on
+// document but gated to the markdown-rendering containers, so the popup's own
+// chrome (settings/contact links, past-summary card toggles) is untouched. The
+// anchors keep target="_blank" as a safety net: if this handler is ever missed,
+// a new tab still beats navigating the popup's own document away.
+document.addEventListener("click", (e) => {
+  const anchor = e.target.closest?.("a[href^='http']");
+  if (!anchor) return;
+  if (!anchor.closest("#summaryText, #answerBox, #pastSummariesList")) return;
+  e.preventDefault();
+  const url = anchor.getAttribute("href");
+  if (activeTabId != null) {
+    chrome.tabs.update(activeTabId, { url, active: true });
+  } else {
+    chrome.tabs.create({ url });
+  }
+});
+
 function resetQuestionCards() {
   setSuggestedQuestions([]);
 }

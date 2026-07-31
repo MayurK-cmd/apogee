@@ -153,7 +153,7 @@ test("summarizeText (multi-chunk article) uses extract-then-abstract: extract no
   assert.match(prompts[2], /EXTRACTED NOTES/);
 });
 
-test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', still honoring mode", async () => {
+test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', using the fixed brief + key-moments format", async () => {
   const prompts = [];
   async function* chatStreamFn(_host, _model, prompt) {
     prompts.push(prompt);
@@ -166,6 +166,8 @@ test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', s
         text: "[0:00] hello world",
         title: "A Video",
         url: "https://youtube.com/watch?v=abc",
+        // mode is intentionally ignored by the video pipeline (it has its own
+        // fixed shape); passing one must not change the prompt's structure.
         mode: "sentences",
         type: "youtube",
       },
@@ -177,12 +179,13 @@ test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', s
   );
 
   assert.deepStrictEqual(result, ["brief"]);
-  // Should hit the YouTube assembly prompt (mentions the video title/URL
-  // and timestamp-link rules), carrying the requested sentences style
-  // rather than always falling back to the bullets style.
+  // Should hit the YouTube assembly prompt: video title/URL plus the fixed
+  // brief + key-moments structure, not the reader's flat sentences style.
   assert.match(prompts[0], /A Video/);
   assert.match(prompts[0], /youtube\.com\/watch\?v=abc/);
-  assert.match(prompts[0], /Output exactly 10-15 concise sentences/);
+  assert.match(prompts[0], /## Key moments/);
+  assert.match(prompts[0], /key moments, matching this video's length/);
+  assert.doesNotMatch(prompts[0], /Output exactly 10-15 concise sentences/);
 });
 
 test("summarizeText dispatches to the video pipeline for type 'bilibili', with Bilibili-style jump links", async () => {
