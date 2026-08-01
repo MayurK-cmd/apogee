@@ -534,8 +534,8 @@ async function getPageData(tab) {
 
 // Pending "hide the progress bar 1.5s after it hit 100%" timer. Tracked (not
 // fire-and-forget) so a *new* download starting right after a previous one
-// finished — e.g. the Opus translator loading just after the summarization
-// model — cancels the stale hide instead of having it blank out the bar
+// finished, e.g. the Opus translator loading just after the summarization
+// model, cancels the stale hide instead of having it blank out the bar
 // mid-download. Every incoming progress message clears it first.
 let modelProgressHideTimer = null;
 
@@ -809,22 +809,28 @@ function renderStoredSummaryMarkdown(text) {
   }
 }
 
-// Timestamp / jump links inside a rendered summary or answer open in the SAME
-// tab the popup is bound to (activeTabId), never a new tab. A video summary's
-// key moments are meant to seek the very video you're watching — clicking
-// through 15 of them should move that one tab along the timeline (YouTube seeks
-// to the &t=SECONDS the link carries), not pile up 15 tabs. Delegated on
-// document but gated to the markdown-rendering containers, so the popup's own
-// chrome (settings/contact links, past-summary card toggles) is untouched. The
-// anchors keep target="_blank" as a safety net: if this handler is ever missed,
-// a new tab still beats navigating the popup's own document away.
+// Timestamp / jump links inside the CURRENT page's summary or answer open in
+// the SAME tab the popup is bound to (activeTabId), never a new tab. A video
+// summary's key moments are meant to seek the very video you're watching.
+// Clicking through 15 of them should move that one tab along the timeline
+// (YouTube seeks to the &t=SECONDS the link carries), not pile up 15 tabs.
+// Past-summary links (#pastSummariesList) are the exception: a past summary is
+// for some OTHER page entirely, not the active tab, so routing its links to
+// activeTabId would hijack whatever unrelated page the user currently has open.
+// Those open a fresh tab instead. Delegated on document but gated to the
+// markdown-rendering containers, so the popup's own chrome (settings/contact
+// links) is untouched. The anchors keep target="_blank" as a safety net: if
+// this handler is ever missed, a new tab still beats navigating the popup's own
+// document away.
 document.addEventListener("click", (e) => {
   const anchor = e.target.closest?.("a[href^='http']");
   if (!anchor) return;
-  if (!anchor.closest("#summaryText, #answerBox, #pastSummariesList")) return;
+  const inCurrentPageView = anchor.closest("#summaryText, #answerBox");
+  const inPastSummary = anchor.closest("#pastSummariesList");
+  if (!inCurrentPageView && !inPastSummary) return;
   e.preventDefault();
   const url = anchor.getAttribute("href");
-  if (activeTabId != null) {
+  if (inCurrentPageView && activeTabId != null) {
     chrome.tabs.update(activeTabId, { url, active: true });
   } else {
     chrome.tabs.create({ url });
@@ -867,7 +873,14 @@ const PAST_SUMMARIES_SHOWN = 8;
 // non-empty line so the preview reads as plain text instead of literally
 // showing "# " or "- ".
 function firstLineOf(text) {
-  const line = (text || "").split(/\r?\n/).find((l) => l.trim() !== "") || "";
+  const lines = (text || "").split(/\r?\n/).filter((l) => l.trim() !== "");
+  // A video / chaptered-brief summary opens with a "## Summary" / "## Overview"
+  // heading (see buildYoutubeAssemblyPrompt / buildYoutubeBriefPrompt); using
+  // that heading as the card preview would label every video the same word.
+  // Prefer the first line of actual content, falling back to the heading only
+  // if the summary is nothing but headings.
+  const line =
+    lines.find((l) => !/^#{1,6}\s+/.test(l.trim())) || lines[0] || "";
   return line
     .trim()
     .replace(/^#{1,6}\s+/, "")
@@ -988,7 +1001,7 @@ function setTimeSavedBadgeLabel(label) {
 }
 
 // Live path: compute + show the badge from the in-memory page data right after
-// a summarize job finishes. Video pages (YouTube, Bilibili — see isVideoType)
+// a summarize job finishes. Video pages (YouTube, Bilibili, see isVideoType)
 // measure against the video's actual runtime (durationSeconds); everything else
 // against the original text's word count. On reopen, showTimeSavedFromInputs
 // takes over from persisted inputs.
@@ -1832,8 +1845,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       setSummaryCopyButtonsVisible(!!cached[cacheKey].trim());
       updateResummarizeHint(settings);
       // Restore the "time saved" badge from the inputs persisted alongside this
-      // tab's view state, so it survives the popup closing and reopening.
-      showTimeSavedFromInputs(state?.timeSaved, cached[cacheKey]);
+      // tab's view state, so it survives the popup closing and reopening. Only
+      // trust those inputs when the stored state is for THIS url: the cache
+      // lookup here runs unconditionally (outside the urlHash gate above), so a
+      // stale state left by a different page previously open in the same tab
+      // would otherwise size the badge against the wrong original (e.g. a past
+      // video's runtime applied to an article's cached summary).
+      const badgeInputs =
+        state && state.urlHash === hashUrl(tab.url) ? state.timeSaved : null;
+      showTimeSavedFromInputs(badgeInputs, cached[cacheKey]);
       showOnlyView("summaryView");
       // A present key (even []) means prompts finished; a missing key means
       // they were still generating when the popup closed, show loading and
