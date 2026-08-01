@@ -46,6 +46,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Past Summaries linkify their content deterministically instead of depending on
   whichever tab happens to be active (a stored summary carries no origin of its
   own, so only always-trusted YouTube timestamp links stay clickable).
+- **A jump-link inside a Past Summary no longer hijacks the current tab.** Past
+  summaries are for other pages, not the tab you're on, so their timestamp
+  links now open a new tab instead of navigating whatever page you currently
+  have open (only current-page summary/answer links seek the active tab).
+- **Video summary cards show real content in their preview again.** A video
+  summary opens with a "## Summary" (or "## Overview") heading, which the Past
+  Summaries list rendered as the literal word "Summary" for every video; the
+  preview now skips a leading heading and shows the first line of actual
+  content.
+- **The "time saved" badge no longer shows a wrong value on a restored
+  summary.** When a tab carried a stale view state from a previously-visited
+  URL, the badge could size itself against the wrong original (e.g. a past
+  video's runtime applied to an article's cached summary); it is now shown only
+  when the saved inputs belong to the page being displayed.
 - Settings radio buttons keep their circular shape when a long label wraps, and
   the summary footer no longer leaves an empty gap when it has nothing to show
   (e.g. after a summarize error).
@@ -60,10 +74,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Chrome Web Store "no remotely hosted code" policy risk; only model weights
   (data) are fetched at runtime. `@mlc-ai/web-llm` is now pinned exactly so
   the bundled kernels can't drift from the engine version.
-- **SponsorBlock lookup can now be disabled** under Settings, then "YouTube
-  Sponsor Removal". Even k-anonymized, it was the extension's only
-  third-party request; turning it off uses the local phrase heuristic with no
-  network call at all.
+- **SponsorBlock sponsor stripping now always runs** (the earlier on/off
+  toggle was removed). The k-anonymity lookup is still best-effort: when a
+  video has no crowd data or the request fails, the local, network-free phrase
+  heuristic runs instead, so sponsor reads are stripped either way. The
+  Settings slot that toggle occupied now holds Custom Instructions (see Added).
 - The two in-browser AI provider options are now labeled **In-Browser AI (GPU)**
   (WebGPU) and **In-Browser AI (CPU)** (Transformers.js), instead of two
   identical "In-Browser AI" rows told apart only by a small badge.
@@ -77,9 +92,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   reorganized into domain subfolders, `engines/`, `summarize/`, `language/`,
   `extract/`, `retrieval/`, `storage/`, and `util/`, with `constants.js` kept at
   the root. A pure move plus import-path rewrite; no behavior change.
+- **Video summaries are now a length-scaled brief.** A YouTube or Bilibili
+  summary is a short written gist plus a "Key moments" timeline of
+  jump-to-timestamp links, sized to the video's length (a short clip gets a few
+  moments, a long talk gets a denser timeline). When the video's description
+  defines real chapters, the summary follows those chapters instead, with a
+  section per chapter. Every timestamp stays a clickable link back to that
+  moment in the video.
+- **The "~X min saved" badge now persists across popup reopen.** The inputs it
+  needs (a video's runtime, or the original page's word count) are saved
+  alongside the summary, so the badge is recomputed and shown again when a
+  cached summary is restored, instead of vanishing the first time the popup was
+  closed and reopened.
 
 ### Added
 
+- **Bilibili video support.** Bilibili videos are now summarized the same way
+  YouTube videos are: the extractor pulls the video's timestamped subtitle
+  track (fetched through the service worker, using your existing Bilibili
+  login, since Bilibili only exposes subtitles to a signed-in session) and the
+  summary carries jump-to-moment links back into the video (`?t=<seconds>`).
+  Multi-part videos honor the `?p=N` selector, and a video with no subtitles
+  falls back to a description-only summary. See the privacy policy for the one
+  new network request this adds.
+- **Custom instructions.** A free-text box under Settings lets you add standing
+  instructions (e.g. "Explain like I'm five", "Focus on the technical details",
+  "Answer in a formal tone") that are appended to every summary and Ask answer
+  on top of Apogee's built-in prompt. They are layered under the grounding
+  rules, so a page cannot smuggle instructions through this channel, and capped
+  at 2000 characters. Leave it blank to use the defaults unchanged.
 - **Translations: summaries, Q&A answers, and suggested questions can now be
   produced in a chosen output language** (Settings, then Summary language; 29
   languages, English by default, "Same as article" to keep the source

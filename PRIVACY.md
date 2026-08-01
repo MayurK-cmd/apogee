@@ -1,6 +1,6 @@
 # Apogee Privacy Policy
 
-_Last updated: 2026-07-30_
+_Last updated: 2026-08-01_
 
 Apogee is a private, in-browser AI assistant. It is designed so that the
 content you summarize or ask questions about is processed **entirely on your
@@ -13,19 +13,19 @@ collect no analytics or telemetry of any kind.
 **Nothing.** Apogee has no account system, no sign-in, and no server. We do
 not collect, transmit, sell, or share any user data.
 
-- **Page content** (article text, YouTube transcripts, PDF text) that you ask
+- **Page content** (article text, YouTube and Bilibili transcripts, PDF text) that you ask
   Apogee to summarize or answer questions about is read from the tab you are
   actively viewing, processed locally by an AI model running on your device,
   and then discarded. It is never uploaded.
 - **Local summary cache.** So that reopening a summary is instant and the same
-  page is not re-processed needlessly, the summaries you generate — and, for
-  plain articles and web pages only, the extracted page text — are cached in
+  page is not re-processed needlessly, the summaries you generate (and, for
+  plain articles and web pages only, the extracted page text) are cached in
   your browser's local extension storage. This data **stays on your device**,
   is keyed by a one-way hash of the page URL (the raw URL, which can contain
   session tokens, is not stored), and is evicted automatically over time.
-  Content from YouTube, Gmail, Reddit, Hacker News, and GitHub pages is **not**
-  cached. Clearing the extension's data (or the browser's site data for the
-  extension) removes it.
+  Content from YouTube, Bilibili, Gmail, Reddit, Hacker News, and GitHub pages
+  is **not** cached. Clearing the extension's data (or the browser's site data
+  for the extension) removes it.
 - **Your settings** (chosen AI provider and model, summary format, and other
   preferences) are stored locally in your browser via the extension storage
   API. They stay on your device.
@@ -44,7 +44,7 @@ third party.
    your IP address and which model you fetched, and nothing more. After
    caching, in-browser AI runs fully offline. Model weight files are not
    cryptographically pinned, but they are loaded only as data inside the
-   browser's sandboxed WebAssembly/WebGPU runtime — a model cannot execute code
+   browser's sandboxed WebAssembly/WebGPU runtime: a model cannot execute code
    on your machine or read your data; at worst a tampered model could produce a
    lower-quality summary.
 
@@ -76,8 +76,18 @@ third party.
    about your other browsing. The fetched content is summarized on your device
    and never uploaded anywhere else.
 
-We do not control Hugging Face, SponsorBlock, YouTube, Reddit, or GitHub; their
-own privacy policies govern the requests described above.
+5. **Bilibili subtitles.** On a Bilibili video, Apogee fetches that video's
+   subtitle track from Bilibili's own endpoints (`api.bilibili.com` and the
+   `hdslb.com` subtitle CDN, the same service whose page you are viewing).
+   Unlike the cookie-less fetches above, this one **is sent with your Bilibili
+   cookies**, because Bilibili only exposes subtitle URLs to a logged-in
+   session; the request carries only the video's own IDs, no information about
+   your other browsing. The subtitles are summarized on your device and never
+   uploaded anywhere else. When a video has no subtitles (or the request
+   fails), Apogee falls back to summarizing the video's description alone.
+
+We do not control Hugging Face, SponsorBlock, YouTube, Bilibili, Reddit, or
+GitHub; their own privacy policies govern the requests described above.
 
 ## Data sharing
 

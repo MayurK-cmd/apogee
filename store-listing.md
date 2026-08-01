@@ -32,11 +32,12 @@ Apogee was inspired by Mozilla's discontinued Orbit project, which offered brows
 WHAT IT DOES
 
 • Summarize any page: articles, blog posts, documentation, long threads
-• Summarize YouTube videos from their transcript
+• Summarize YouTube and Bilibili videos from their transcript, with a "Key moments" timeline of links that seek the video to each moment
 • Summarize PDFs opened in the browser
 • Ask questions about the page. Apogee reads the whole page (not just the first few thousand characters) using on-device retrieval, so answers can come from deep inside a long article, PDF, or transcript
 • Highlight-in-page: click any bullet in a summary and Apogee scrolls to and highlights the passage of the original page it came from, so you can spot-check a claim without re-reading everything
 • Multiple summary formats: bullets, sentences, or paragraphs
+• Custom instructions: add your own standing guidance ("Explain like I'm five", "Focus on the technical details") that applies to every summary and answer
 
 Fast ways to summarize without opening the popup:
 • Right-click a page, then "Summarize this page"
@@ -56,7 +57,7 @@ PRIVACY
 • No cloud inference. Models run on your device
 • No API keys, no sign-in, no account
 • No analytics or tracking
-• Network access is limited to: downloading model weights (from Hugging Face) on first run, your own local Ollama at 127.0.0.1, and, for YouTube videos, the community SponsorBlock API to skip sponsor segments
+• Network access is limited to: downloading model weights (from Hugging Face) on first run, your own local Ollama at 127.0.0.1, for YouTube videos the community SponsorBlock API to skip sponsor segments, and for Bilibili videos that site's own subtitle endpoints (api.bilibili.com, hdslb.com)
 • Page content is processed locally and never uploaded
 
 REQUIREMENTS
@@ -108,7 +109,10 @@ Adds a right-click "Summarize this page" menu item so users can trigger summariz
 Displays a system notification when a summary requested via keyboard shortcut or context menu is ready, since the popup is typically closed while the model generates.
 
 **Host permission justification** (`http://127.0.0.1/*`, `http://localhost/*`)
-These loopback host permissions let Apogee connect to the user's own local Ollama server for users who opt into Local Ollama mode, sending requests directly to the model running on their own machine. Only loopback addresses on the user's device are used; Apogee requests no website or third-party host permissions and connects to no remote servers through these.
+These loopback host permissions let Apogee connect to the user's own local Ollama server for users who opt into Local Ollama mode, sending requests directly to the model running on their own machine. Only loopback addresses on the user's device are used.
+
+**Host permission justification** (`*://*.bilibili.com/*`, `*://*.hdslb.com/*`)
+When the user summarizes a Bilibili video, Apogee fetches that video's subtitle track from Bilibili's own API (`api.bilibili.com`) and subtitle CDN (`hdslb.com`) so it can summarize the transcript. Bilibili only serves subtitle URLs to a signed-in session, so this request must carry the user's existing Bilibili cookies; it sends only the video's own IDs and no other browsing information, and the fetched subtitles are summarized on-device and never uploaded. These permissions are used only on Bilibili video pages. Apart from these and the loopback addresses above, Apogee requests no website or third-party host permissions.
 
 ---
 

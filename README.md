@@ -35,7 +35,7 @@ keys, no cloud. Just install the extension and go.
 
 For power users, Apogee also connects directly to a local Ollama instance over `127.0.0.1` to run larger models.
 
-**TL;DR**: Apogee is an offline-first, private AI assistant that runs entirely in your browser, on WebGPU by default in Chromium browsers and on WebAssembly by default in Firefox (also available as an opt-in on Chromium), with zero cloud dependencies or API keys. It summarizes articles, YouTube videos, and PDFs, and answers questions about them using local retrieval, all with complete privacy. Power users can switch to Local Ollama mode to run larger models on their own machine, still with nothing leaving it. Apogee is designed as a fully local, privacy-respecting alternative to cloud-dependent tools like Mozilla's discontinued Orbit.
+**TL;DR**: Apogee is an offline-first, private AI assistant that runs entirely in your browser, on WebGPU by default in Chromium browsers and on WebAssembly by default in Firefox (also available as an opt-in on Chromium), with zero cloud dependencies or API keys. It summarizes articles, YouTube and Bilibili videos, and PDFs, and answers questions about them using local retrieval, all with complete privacy. Power users can switch to Local Ollama mode to run larger models on their own machine, still with nothing leaving it. Apogee is designed as a fully local, privacy-respecting alternative to cloud-dependent tools like Mozilla's discontinued Orbit.
 
 ## Inspiration: Orbit (Killed by Mozilla)
 
@@ -80,6 +80,21 @@ passage of the original page it's most likely grounded in using the same
 on-device retrieval Ask uses, then scrolls to and highlights it in the live
 page. Useful for spot-checking a claim without re-reading the whole article.
 Chromium-only for now, same constraint as Ask's retrieval above.
+
+**Videos** (YouTube and Bilibili) get their own treatment: Apogee pulls the
+video's timestamped transcript and produces a short written gist plus a "Key
+moments" timeline, sized to the video's length, where every entry is a
+clickable link that seeks the video to that moment. When a video's description
+defines real chapters, the summary follows those chapters instead. Sponsor
+reads and self-promotion are stripped from YouTube transcripts first (see the
+SponsorBlock note under Privacy).
+
+**Custom instructions** (Settings) let you add your own standing guidance, for
+example "Explain like I'm five", "Focus on the technical details", or "Answer
+in a formal tone", applied on top of Apogee's built-in prompt for every summary
+and answer. They sit under the grounding rules (a page can't use them to make
+the model invent things), and are capped at 2000 characters. Leave the box
+blank to use the defaults unchanged.
 
 ## Quick Start
 
@@ -448,6 +463,7 @@ Privacy is the core pillar of Apogee. The key guarantee is simple: **your page c
 - **The only outbound network requests Apogee makes**:
   - **Model weights** are downloaded once from **Hugging Face** (in-browser mode) or pulled by **Ollama** (local mode), then cached and reused offline. This transfers no page content, only the model files themselves.
   - **YouTube transcripts**: on a YouTube page, the extractor fetches that video's caption track from YouTube/Google (the site you're already on) to feed the transcript to the model. It is restricted to genuine `youtube.com`/`google.com`/`googlevideo.com` hosts.
+  - **Bilibili subtitles**: on a Bilibili page, the extractor fetches that video's subtitle track from Bilibili's own endpoints (`api.bilibili.com` and the `hdslb.com` subtitle CDN, the site you're already on). Unlike the YouTube caption fetch, this request is sent with your Bilibili cookies, because Bilibili only exposes subtitle URLs to a signed-in session; it carries only the video's own IDs. A video with no subtitles falls back to a description-only summary.
   - **YouTube sponsor-segment lookup (SponsorBlock)**: when summarizing a YouTube video, Apogee asks the crowdsourced [SponsorBlock](https://sponsor.ajay.app) API which parts of the video are sponsor reads/self-promo, so they can be stripped from the transcript. This uses SponsorBlock's privacy-preserving k-anonymity endpoint: only the first 4 hex characters of the SHA-256 hash of the video ID are sent (never the video ID, URL, or any page content), and the matching entry is picked out locally. If the lookup fails or the video has no SponsorBlock data, a local phrase heuristic runs instead, with no network call at all. The lookup runs automatically for YouTube videos.
   - That's it, there are no other external calls. (See the extension's `content_security_policy.connect-src` in `manifest.json` for the exact allow-list this is enforced against, and `ALLOWED_OLLAMA_HOSTS` in `background/service-worker.js`, which rejects any Local Ollama host setting that isn't plain `http://127.0.0.1` or `http://localhost`.)
 - **No remotely loaded code**: every piece of executable code, JavaScript and WebAssembly alike, ships inside the extension package. That includes onnxruntime-web's WASM runtime (Ask's local embedding model and the Transformers.js engine) and WebLLM's per-model WASM kernels, which are downloaded and SHA-256-verified at **build** time (see `apogee-extension/scripts/model-libs.mjs`) rather than fetched from a CDN or GitHub at runtime. Only model _weights_ (data, not code) are fetched at runtime, from Hugging Face, as described above.
