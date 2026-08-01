@@ -3,13 +3,13 @@
 // comments on scroll, so scraping it is brittle and incomplete. Every thread,
 // though, exposes a clean structured JSON at the same URL + ".json". Because
 // this extractor runs inside the page's tab (via activeTab), that fetch is
-// SAME-ORIGIN on reddit.com — no CORS, no host_permissions, no CSP changes
+// SAME-ORIGIN on reddit.com, no CORS, no host_permissions, no CSP changes
 // (same pattern as the same-origin PDF fetch in lib/extract/pageExtraction.js).
 // Falls back to the generic Readability extractor if the fetch fails.
 //
 // The comment tree is handed to the shared thread representation (thread.js) as
 // a flat pre-order list, so Reddit gets the same path notation, reply counts,
-// and branch-weighted selection as Hacker News — plus real per-comment scores,
+// and branch-weighted selection as Hacker News, plus real per-comment scores,
 // which HN can't provide.
 
 const REDDIT_MAX_COMMENTS = 60;

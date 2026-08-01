@@ -4,8 +4,8 @@
 // and its full comment tree are already present.
 //
 // The comment tree is handed to the shared thread representation (thread.js) as
-// a flat pre-order list — the DOM order of comment rows already IS depth-first
-// pre-order — which turns it into the path notation, reply/branch metadata, and
+// a flat pre-order list, the DOM order of comment rows already IS depth-first
+// pre-order, which turns it into the path notation, reply/branch metadata, and
 // branch-weighted selection described there. HN's only source-specific quirks
 // live here: reading indent depth out of the table markup, and deriving a
 // downvote level from HN's comment-fade CSS classes (it never exposes numeric

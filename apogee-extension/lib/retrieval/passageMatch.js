@@ -12,8 +12,8 @@ function escapeRegExp(str) {
 
 // Upper bound on the length of text turned into a matcher. The needle comes
 // from page-derived content (a retrieved passage), so cap it defensively:
-// building a regex from an unbounded string — and running it over the whole
-// page text — is wasted work at best, and a long alternation of `\s+`-joined
+// building a regex from an unbounded string, and running it over the whole
+// page text, is wasted work at best, and a long alternation of `\s+`-joined
 // tokens is the kind of pattern that can pin the regex engine at worst. A
 // too-long needle returns no matcher here; findMatchingRange then falls through
 // to its shorter sentence/prefix tiers, which are well within this bound.

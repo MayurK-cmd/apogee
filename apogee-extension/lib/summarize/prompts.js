@@ -57,8 +57,8 @@ export function buildTranslatePrompt(text, language) {
 
 // Appends the user's free-text "custom instructions" (the customInstructions
 // setting, see lib/constants.js) to a finished prompt. Applied only to the
-// prompts that produce the FINAL response a user reads — the single-chunk /
-// reduce / assembly / answer prompts — never to the internal map/extract-notes
+// prompts that produce the FINAL response a user reads, the single-chunk /
+// reduce / assembly / answer prompts, never to the internal map/extract-notes
 // passes, whose output is machinery the user never sees. Layered UNDER the
 // grounding rules and explicitly subordinate to them: the block reminds the
 // model these are the user's own instructions and must not override the
@@ -199,8 +199,8 @@ export function buildSummaryPrompt(title, url, content, mode, styleOverride) {
 
 // Map stage of a multi-chunk article summary: extract the substantive points
 // from ONE part of a long document as dense, grounded notes for a later
-// synthesis pass (buildSynthesisPrompt). Extract-then-abstract — pull the
-// atomic facts first, then compose the summary from all of them at once —
+// synthesis pass (buildSynthesisPrompt). Extract-then-abstract (pull the
+// atomic facts first, then compose the summary from all of them at once)
 // keeps far more specifics than summarizing each part into prose and then
 // re-summarizing that prose (which compounds compression loss and drops
 // details). Chunk boundaries are plain slices, so this only ever sees PART of
@@ -230,8 +230,8 @@ export function buildExtractNotesPrompt(title, chunk, chunkIndex, chunkTotal) {
 
 // Reduce stage: compose the final summary, in the requested style, from the
 // notes buildExtractNotesPrompt pulled out of every part. Chain-of-density in
-// spirit — cover all the important points, stay concrete and information-dense,
-// and merge duplicates — rather than a loose re-summary of already-compressed
+// spirit, cover all the important points, stay concrete and information-dense,
+// and merge duplicates, rather than a loose re-summary of already-compressed
 // text.
 export function buildSynthesisPrompt(title, url, notes, mode, styleOverride) {
   const style = styleOverride || SUMMARY_STYLES[mode] || SUMMARY_STYLES.bullets;
@@ -269,7 +269,7 @@ export function buildSynthesisPrompt(title, url, notes, mode, styleOverride) {
 // themes, the range of opinion, and where people actually disagree, rather than
 // flattening a many-voice thread into one neutral article summary. The thread
 // arrives in the path notation the discussion extractors emit (see
-// content/extractors/hackernews.js) — this explains that notation to the model
+// content/extractors/hackernews.js), this explains that notation to the model
 // so it can weight and, where useful, attribute what was said.
 export function buildDiscussionPrompt(
   title,
@@ -426,7 +426,7 @@ export function youtubeSummaryScale(lastAvailableSeconds) {
     MAX_KEY_MOMENTS,
   );
 
-  // The written gist grows a little with length too, but stays short — the
+  // The written gist grows a little with length too, but stays short, the
   // key-moments timeline carries the detail.
   const summaryMin = minutes < 8 ? 2 : minutes < 25 ? 3 : 4;
   const summaryMax = summaryMin + 2;
@@ -445,8 +445,8 @@ export function buildYoutubeAssemblyPrompt(
   notes,
   lastAvailableSeconds,
   // `mode` (bullets/sentences/paragraphs) is intentionally ignored here. A
-  // video summary has its own fixed shape — a brief written summary plus a
-  // timeline of key moments — the same way the chaptered brief
+  // video summary has its own fixed shape, a brief written summary plus a
+  // timeline of key moments, the same way the chaptered brief
   // (buildYoutubeBriefPrompt) overrides the plain-page mode. The reader gets a
   // scannable, jump-anywhere result regardless of their global style
   // preference, which is what makes a long video actually navigable.
@@ -500,7 +500,7 @@ export function buildYoutubeAssemblyPrompt(
 // defines real chapter markers (parsed by lib/youtubeChapters.js). Instead of
 // a flat bullets/sentences/paragraphs list, it produces an overview + one
 // section per chapter + key takeaways. `chapters` is `[{ start, title }]`
-// (seconds). Each chapter's section heading — its jump-link and label — is
+// (seconds). Each chapter's section heading, its jump-link and label, is
 // built here, deterministically, from the chapter's own start time, so the
 // model never has to fabricate a section timestamp or link; it only buckets
 // the notes' [MM:SS] points into the chapter ranges. `mode` is intentionally

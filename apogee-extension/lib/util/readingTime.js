@@ -58,7 +58,7 @@ export function formatVideoTimeSaved(durationSeconds, summaryText) {
 // summary is restored from cache on popup reopen (when the full page data is
 // gone). Videos measure against runtime (durationSeconds); everything else
 // against the original text's word count. `content` is the resolved text used
-// for the summary (for a PDF, its extracted body — not the empty pre-extract
+// for the summary (for a PDF, its extracted body, not the empty pre-extract
 // value). Returns null when there's nothing measurable.
 export function timeSavedInputsFor({ type, durationSeconds, content } = {}) {
   if (isVideoType(type)) {

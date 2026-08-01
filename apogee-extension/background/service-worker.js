@@ -832,7 +832,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       notifyJobFailed(err, tab),
     );
   } else if (info.menuItemId === SUMMARIZE_SELECTION_CONTEXT_MENU_ID) {
-    // The highlighted text is the whole job — pass it through so
+    // The highlighted text is the whole job, pass it through so
     // runBackgroundSummarize skips page extraction entirely.
     runBackgroundSummarize(tab, {
       notifyOnFinish: true,
@@ -869,7 +869,7 @@ const SPONSORBLOCK_CATEGORIES = ["sponsor", "selfpromo", "interaction"];
 // locally). Returns [[startSec, endSec], ...]; [] on any failure, which makes
 // the caller fall back to its local phrase heuristic.
 //
-// The lookup always runs — it's no longer user-toggleable. Even k-anonymized,
+// The lookup always runs, it's no longer user-toggleable. Even k-anonymized,
 // it's the extension's only third-party request (it reveals the user's IP and
 // "a YouTube summary is happening now" to sponsor.ajay.app); when a video has
 // no crowd data the caller still falls back to the network-free phrase

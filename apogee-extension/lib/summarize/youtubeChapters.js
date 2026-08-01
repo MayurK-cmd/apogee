@@ -7,8 +7,8 @@
 // the transcript text before the map/assembly passes so it isn't re-summarized
 // as though it were transcript content.
 //
-// The extractor can't import this module — content scripts are plain,
-// non-ESM scripts injected via chrome.scripting — so it mirrors this emit
+// The extractor can't import this module, content scripts are plain,
+// non-ESM scripts injected via chrome.scripting, so it mirrors this emit
 // format inline; keep the two in sync.
 
 import { timestampToSeconds } from "./timestamps.js";

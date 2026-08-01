@@ -68,12 +68,12 @@ export async function* summarizeText(
     selectChunksFn,
   } = {},
 ) {
-  // Videos (YouTube, Bilibili — see isVideoType) still honor `mode`, but
+  // Videos (YouTube, Bilibili, see isVideoType) still honor `mode`, but
   // always run a map+assemble pass with timestamp links woven through. See
   // youtubeSummarize.js's own module comment for why that's a separate pipeline
   // rather than another branch here. (No selectChunksFn: a video's chunks are
-  // chronological, so mapReduceStream's stratified sampling — even coverage
-  // across the runtime —
+  // chronological, so mapReduceStream's stratified sampling, even coverage
+  // across the runtime,
   // fits better than reordering by salience.)
   if (isVideoType(type)) {
     yield* summarizeYoutube(
@@ -104,7 +104,7 @@ export async function* summarizeText(
   // Carry the post itself into every later chunk of a discussion. When a big
   // thread splits across chunks, only the first chunk holds the "Post:" body;
   // later chunks would otherwise summarize comments blind to what the thread is
-  // even about. Prepend a short post excerpt to those chunks — the idea
+  // even about. Prepend a short post excerpt to those chunks, the idea
   // reddit-gpt-summarizer uses when it frames each comment group with the
   // (condensed) title + selftext. Extractive (first N chars), so no extra pass.
   const postExcerpt = isDiscussion ? discussionPostExcerpt(text) : "";
@@ -117,11 +117,11 @@ export async function* summarizeText(
     mode === "bullets" ? buildScaledBulletsStyle(partials.length) : undefined;
 
   // The clean/chunk/cap + map/reduce + target-language machinery lives in
-  // mapReduceStream (including chunk selection when a doc is too long — see
+  // mapReduceStream (including chunk selection when a doc is too long, see
   // selectChunksFn). This only supplies the per-stage prompts.
   //
   // A single chunk always summarizes directly in the requested mode (highest
-  // fidelity — no intermediate compression). Multi-chunk splits by content:
+  // fidelity, no intermediate compression). Multi-chunk splits by content:
   //   - Discussions keep the conversation-synthesis prompt for map and reduce,
   //     with the post carried into later chunks (see withPostContext).
   //   - Articles use extract-then-abstract: each chunk's map pass EXTRACTS dense

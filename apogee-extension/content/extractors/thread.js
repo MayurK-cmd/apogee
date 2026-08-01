@@ -1,14 +1,14 @@
 // Shared discussion-thread representation, used by the Hacker News and Reddit
 // extractors (github.js reuses only threadTruncate). Injected BEFORE them (see
-// lib/extract/pageExtraction.js), so its helpers are in scope as globals — the
+// lib/extract/pageExtraction.js), so its helpers are in scope as globals, the
 // same load-order pattern Readability.js/generic.js already rely on.
 //
 // The "algo" (mirroring hncompanion.com/how-it-works, generalized so any source
 // can feed it): take a comment thread as a flat, pre-order (depth-first) list of
 //   { depth, author, text, score?, downvotes? }
 // items, rebuild the reply hierarchy, tag each comment with a path ([1], [1.1],
-// …), its direct-reply count and subtree size, drop dead/over-limit noise, and —
-// when the thread is larger than the cap — keep the most active branches
+// …), its direct-reply count and subtree size, drop dead/over-limit noise, and,
+// when the thread is larger than the cap, keep the most active branches
 // (largest subtree) plus their ancestors so the numbering stays coherent. The
 // path notation hands the model structure, and <replies>/{downvotes}/(score)
 // give it the engagement signals to weight and attribute what was said.
@@ -61,7 +61,7 @@ function buildThreadNodes(items) {
 // limits), branch-weighted down to maxComments when the thread is too big:
 // largest subtree first, then every *eligible* ancestor of a kept node
 // re-added so a kept deep reply keeps its parent context. Ineligible (dead/
-// removed) ancestors stay dropped — paths are absolute, so the numbering reads
+// removed) ancestors stay dropped, paths are absolute, so the numbering reads
 // coherently regardless. Returns survivors in original pre-order sequence.
 function selectThreadComments(nodes, eligible, maxComments) {
   const survivors = nodes.filter(eligible);

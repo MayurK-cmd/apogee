@@ -3,8 +3,8 @@
 // prompts.js (formatting chapter headings / jump links), youtubeChapters.js
 // (parsing the description's chapter markers), and youtubeSummarize.js (finding
 // the last transcript timestamp). The extractor (content/extractors/youtube.js)
-// still mirrors these inline — content scripts are plain injected scripts and
-// can't import ES modules — so keep that copy in sync with these.
+// still mirrors these inline, content scripts are plain injected scripts and
+// can't import ES modules, so keep that copy in sync with these.
 
 // "0:45" -> 45, "3:12" -> 192, "1:02:03" -> 3723. Accepts "MM:SS" or "H:MM:SS".
 export function timestampToSeconds(ts) {

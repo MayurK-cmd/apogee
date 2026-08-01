@@ -35,10 +35,10 @@ const TIMESTAMP_MARKER = /\[(\d{1,2}(?::\d{2}){1,2})\]/g;
 
 // Upper bound on the map-stage chunk size for a transcript, independent of the
 // model's context budget. getMaxChunkChars (lib/engines/modelLimits.js) hands a
-// big-context model — Ollama's practical budget reaches ~88k chars/chunk — a
+// big-context model, Ollama's practical budget reaches ~88k chars/chunk, a
 // window large enough to fit an ENTIRE long transcript in a single chunk. That
 // chunk then takes mapReduceStream's single-chunk fast path, which feeds the raw
-// transcript straight into buildYoutubeAssemblyPrompt — a prompt written to
+// transcript straight into buildYoutubeAssemblyPrompt, a prompt written to
 // consume already-extracted timestamped NOTES, not a 20k-char transcript. A
 // small local model handed the whole raw transcript front-loads: it paraphrases
 // the opening and stops (echoing the transcript's own inline [MM:SS] markers
@@ -99,7 +99,7 @@ export async function* summarizeYoutube(
 
   // buildAssembly produces the FINAL summary prompt (flat or chaptered), so
   // the user's custom instructions ride along here; the per-chunk map prompt
-  // (buildYoutubeMapPrompt) stays untouched — its notes feed this step, not the
+  // (buildYoutubeMapPrompt) stays untouched, its notes feed this step, not the
   // reader.
   const buildAssembly = (noteText) =>
     withCustomInstructions(
@@ -123,7 +123,7 @@ export async function* summarizeYoutube(
 
   // Shared clean/chunk/cap + map/reduce + target-language machinery (see
   // mapReduceStream). YouTube's only departures from the article path are the
-  // prompts: the single-chunk and reduce passes both ASSEMBLE (buildAssembly —
+  // prompts: the single-chunk and reduce passes both ASSEMBLE (buildAssembly,
   // a flat brief, or a chaptered one when the description defined chapters),
   // while each chunk's map pass emits timestamped notes. The system directive /
   // buildTranslatePrompt keep the [MM:SS](url) deep-links intact across the

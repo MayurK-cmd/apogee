@@ -189,7 +189,7 @@ export default defineConfig(() => {
       // chrome.runtime bridge, dormant but needless in a real extension, and a
       // CWS/AMO review flag) is never emitted. Kept for `npm run dev`
       // (vite build --watch), the file:// popup.html UI-iteration workflow the
-      // shim exists for — that's the only build where build.watch is non-null.
+      // shim exists for, that's the only build where build.watch is non-null.
       // Removing the dynamic import in `transform` (before Rollup resolves the
       // module graph) keeps mock.js out of the chunk graph entirely.
       {

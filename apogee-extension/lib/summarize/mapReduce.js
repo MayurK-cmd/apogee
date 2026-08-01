@@ -1,14 +1,14 @@
 // The map/reduce-over-chunks skeleton shared by ollamaSummarize.js's
 // summarizeText and youtubeSummarize.js's summarizeYoutube. Both used to carry
-// their own copy of the identical dance — clean, chunk, cap to the model's
+// their own copy of the identical dance, clean, chunk, cap to the model's
 // fan-out budget, a single-chunk fast path, a map pass per chunk, then a reduce
-// pass — differing ONLY in which prompts they build at each stage and how they
+// pass, differing ONLY in which prompts they build at each stage and how they
 // chunk. That shared machinery (including the target-language streaming wrapper
 // and the abort checks the tests pin down) lives here once; the two callers now
 // supply just the three prompt builders.
 //
 // The chunker, chat stream, progress hook, and language seams stay caller-
-// injected (they carry per-caller defaults and the tests' fakes) — this only
+// injected (they carry per-caller defaults and the tests' fakes), this only
 // owns the control flow between them.
 
 import { cleanText } from "./cleaner.js";

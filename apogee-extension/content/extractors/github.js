@@ -4,7 +4,7 @@
 //   - pull req  (.../pull/<n>)                   → title + body + comments + diff
 // README and conversation text come straight from the rendered DOM. For a PR
 // we additionally pull the unified diff from api.github.com (see ghFetchDiff
-// for why that endpoint rather than the "<pull-url>.diff" one) — the diff is
+// for why that endpoint rather than the "<pull-url>.diff" one), the diff is
 // what makes "summarize this PR" genuinely useful rather than just restating
 // the title, and it needs no host_permissions. Any unrecognized path (code
 // browsing, search, ...) returns null so content.js falls back to generic.
@@ -15,7 +15,7 @@ const GH_MAX_README_CHARS = 12000;
 const GH_MAX_DIFF_CHARS = 30000;
 
 // GitHub's issue/PR conversation is a linear list, not a voted reply tree, so
-// it doesn't use the path-notation algo — only the shared truncation helper
+// it doesn't use the path-notation algo, only the shared truncation helper
 // (thread.js), keeping line breaks in the multi-line bodies and diffs.
 function ghTruncate(text, max) {
   return threadTruncate(text, max, { preserveLines: true });
@@ -73,8 +73,8 @@ function ghConversation() {
 // `Access-Control-Allow-Origin: *`, so a plain cross-origin fetch can read it
 // with no host_permissions (content-script fetches are exempt from the host
 // page's CSP). Best-effort: unauthenticated API calls are rate-limited (60/hr
-// per IP) and private PRs 404 without a token, so any non-OK response — or a
-// body that isn't actually a diff — just yields "" and the summary proceeds on
+// per IP) and private PRs 404 without a token, so any non-OK response, or a
+// body that isn't actually a diff, just yields "" and the summary proceeds on
 // the conversation alone.
 async function ghFetchDiff(owner, repo, number) {
   const api = `https://api.github.com/repos/${owner}/${repo}/pulls/${number}`;
@@ -149,8 +149,8 @@ async function extractGitHub() {
     };
   }
 
-  // Repo root: README + description. (Deeper code-browsing paths — /tree, /blob,
-  // /commits, gists — have no README here and fall through to generic.)
+  // Repo root: README + description. (Deeper code-browsing paths, /tree, /blob,
+  // /commits, gists, have no README here and fall through to generic.)
   if (parts.length === 2) {
     const readme = ghReadme();
     if (!readme) return null;

@@ -357,8 +357,8 @@ const CHAPTER_LINE =
 
 // Parses YouTube chapters out of a raw video description. Returns
 // `[{ start, title }]` (start in seconds) only when the lines form a real
-// chapter list by YouTube's own activation rules — at least three chapters,
-// the first at 0:00, strictly increasing — otherwise `[]`. lib/summarize/youtubeChapters.js
+// chapter list by YouTube's own activation rules, at least three chapters,
+// the first at 0:00, strictly increasing, otherwise `[]`. lib/summarize/youtubeChapters.js
 // parses the block this feeds into; keep the emitted format below in sync.
 function parseDescriptionChapters(description, durationSeconds) {
   if (!description) return [];

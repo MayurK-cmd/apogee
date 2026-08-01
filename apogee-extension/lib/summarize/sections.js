@@ -43,7 +43,7 @@ const TITLE_STOPWORDS = new Set([
 ]);
 
 // A short phrase where every significant word is capitalized (or ALL CAPS),
-// as headings are — the signal that separates "Related Work" (a heading) from
+// as headings are, the signal that separates "Related Work" (a heading) from
 // "Prior work was limited." (a sentence that merely opens with a keyword).
 function isTitleCased(s) {
   return s.split(/\s+/).every((word, i) => {
@@ -78,7 +78,7 @@ function isHeadingLine(line) {
   // Named section: "Abstract", "3.1 Related Work", "METHODS:", ...
   const kw = rest.match(SECTION_KEYWORD);
   if (kw) {
-    // Accept only when the keyword IS the heading — either the whole line
+    // Accept only when the keyword IS the heading, either the whole line
     // (bar trailing ":"/"."), or a short title-cased phrase like "Related
     // Work". A sentence that just opens with a keyword ("Prior work was
     // limited.", "Results showed improvements") is title-cased-false and
@@ -136,7 +136,7 @@ export function splitIntoSections(text) {
   let headingCount = 0;
 
   const commit = () => {
-    // Keep a section only if it has a heading or some body — this drops the
+    // Keep a section only if it has a heading or some body, this drops the
     // empty preamble that precedes a document opening straight into a heading.
     if (current.heading !== null || current.lines.some((l) => l.trim())) {
       sections.push(current);

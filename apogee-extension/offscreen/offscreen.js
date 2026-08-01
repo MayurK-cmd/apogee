@@ -393,7 +393,7 @@ function reportProgress(text, progress = 0) {
 
 // Builds the Opus-MT translateFn for a job when its translationEngine is
 // "opus", else undefined (LLM path). Download progress surfaces on the same
-// model-progress line as everything else — forward the numeric fraction the
+// model-progress line as everything else, forward the numeric fraction the
 // engine reports (see ensureTranslator in transformersEngine.js) so the
 // download bar actually fills instead of sitting at 0% behind a text label.
 function opusTranslateFor(translationEngine) {
@@ -455,7 +455,7 @@ async function runSummarize(eng, pending, emit, signal) {
     pending.language,
   );
   // The offscreen document has no chrome.storage API (only chrome.runtime), so
-  // the custom-instructions setting can't be read here — the service worker
+  // the custom-instructions setting can't be read here, the service worker
   // injects it into the job payload before forwarding (see the offscreen sends
   // in background/service-worker.js). Same for runTransformersJob / the Ask
   // path below.
@@ -704,7 +704,7 @@ async function runStream(streamId, pending, stream) {
       // No inline language directive on the prompt (small models ignore it);
       // the answer's language is enforced by streamInTargetLanguage instead.
       // Custom instructions apply to answers too (injected into the payload by
-      // the service worker — offscreen has no chrome.storage, see runSummarize).
+      // the service worker, offscreen has no chrome.storage, see runSummarize).
       askPrompt = prompts.withCustomInstructions(
         prompts.buildAnswerPrompt(
           pending.title,

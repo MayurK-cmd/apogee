@@ -54,12 +54,12 @@ async function getOrBuildIndex(content, embedTextsFn) {
  * summarization: each representative of the whole (close to the document's
  * embedding centroid) yet diverse from the others, via greedy MMR. This
  * replaces blind head-truncation (keeping only the first N chunks), so a long
- * document's summary reflects all of it — middle and end included — not just
+ * document's summary reflects all of it, middle and end included, not just
  * its opening. Returns the picks in original document order for a coherent
  * read; returns `chunks` unchanged when already within budget, or `null` if
  * embedding fails (the caller then falls back to a cheaper selection).
  *
- * Unlike findBestPassage/retrieveRelevantContent there's no query — the
+ * Unlike findBestPassage/retrieveRelevantContent there's no query, the
  * document's own centroid stands in for "what this document is about", so
  * salient = typical-of-the-document, and MMR spreads the picks across its
  * distinct topics instead of clustering on the single densest one.
@@ -168,7 +168,7 @@ export async function retrieveRelevantContent(
 
 // Re-ranks a chunk's own sentences by similarity to the query and returns the
 // best one. The retrieval index is built at RETRIEVAL_CHUNK_CHARS (~1000)
-// granularity — good for locating the right neighborhood, but far too coarse to
+// granularity, good for locating the right neighborhood, but far too coarse to
 // highlight: handed a 1000-char chunk, the in-page matcher (content/highlight.js
 // findMatchingRange) can rarely match the whole blob verbatim across the DOM's
 // block boundaries and falls back to the chunk's LONGEST sentence, which need
@@ -208,7 +208,7 @@ async function refineToBestSentence(chunk, queryEmbedding, embedTextsFn) {
  *
  * Two stages: pick the most-similar ~1000-char chunk (robust localization),
  * then refine to the single most-similar sentence within it (precise, reliably
- * locatable highlight — see refineToBestSentence). The returned `score` is the
+ * locatable highlight, see refineToBestSentence). The returned `score` is the
  * coarse chunk score, which is more stable than a short sentence's own score,
  * so the caller's confidence gate behaves consistently.
  *
