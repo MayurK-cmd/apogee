@@ -60,6 +60,14 @@ const hasOffscreenAPI =
 let offscreenReady = false;
 const offscreenLogs = [];
 
+// Whether a popup is currently connected (popup-lifecycle port, see the
+// onConnect handler below). While a popup is open it keeps the offscreen
+// model warm (the idle-close timer is cancelled); when it isn't, a
+// background-created offscreen document must arm the idle-close timer itself,
+// or a right-click/shortcut summarize (which never opens a popup) would leave
+// the document and its loaded model resident until the browser restarts.
+let popupConnected = false;
+
 // Resolve when the offscreen document's script signals it has loaded.
 let _offscreenScriptReadyResolve = null;
 let offscreenScriptReadyPromise = new Promise((resolve) => {
@@ -113,6 +121,10 @@ async function ensureOffscreenDocumentOnce() {
 
   if (await offscreenDocumentExists()) {
     offscreenReady = true;
+    // Reusing a still-warm document (e.g. a second background summarize): with
+    // no popup around, refresh the idle-close timer so its window restarts from
+    // this use rather than from the original creation.
+    if (!popupConnected) scheduleOffscreenIdleClose();
     return;
   }
 
@@ -150,6 +162,13 @@ async function ensureOffscreenDocumentOnce() {
     offscreenScriptReadyPromise,
     new Promise((resolve) => setTimeout(resolve, 8000)),
   ]);
+
+  // Arm the idle-close timer for a document created without a popup around to
+  // do it (a background right-click/shortcut summarize). With a popup open the
+  // timer stays cancelled, its lifecycle owns the close instead. The
+  // has-active-streams check in closeOffscreenIfIdle keeps this from closing a
+  // still-running background job when the alarm eventually fires.
+  if (!popupConnected) scheduleOffscreenIdleClose();
 }
 
 // Unique stream IDs. A plain counter resets whenever the MV3 service worker is
@@ -1306,7 +1325,15 @@ async function closeOffscreenIfIdle() {
   // Don't close while a suggested-question job or a WebLLM stream (tracked
   // in the offscreen document itself, not here) is still running.
   let hasActiveJob = pendingSuggestKeys.size > 0;
-  if (!hasActiveJob && offscreenReady) {
+  // Ask the offscreen document itself whether a stream is still running, gated
+  // on whether the document actually exists (getContexts), NOT the in-memory
+  // offscreenReady flag: this alarm routinely fires on a freshly restarted
+  // worker (a background summarize arms the alarm, then the worker is evicted
+  // while the job keeps running in the offscreen document), where offscreenReady
+  // has reset to false even though the document is alive and mid-generation.
+  // Trusting the stale flag here would skip the check and tear the document down
+  // under a running job.
+  if (!hasActiveJob && (await offscreenDocumentExists())) {
     try {
       const resp = await chrome.runtime.sendMessage({
         target: "offscreen",
@@ -1317,7 +1344,9 @@ async function closeOffscreenIfIdle() {
       // Offscreen document unreachable; nothing there to keep alive for.
     }
   }
-  if (hasActiveJob) {
+  // A popup opened while the alarm was pending keeps the model warm; reschedule
+  // instead of closing under it (its disconnect will re-arm the timer).
+  if (hasActiveJob || popupConnected) {
     scheduleOffscreenIdleClose();
     return;
   }
@@ -1344,9 +1373,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === "popup-lifecycle") {
     // A popup is open, keep the model warm.
+    popupConnected = true;
     cancelOffscreenIdleClose();
     port.onDisconnect.addListener(() => {
       // Defer teardown; a new popup may reopen almost immediately.
+      popupConnected = false;
       scheduleOffscreenIdleClose();
     });
     return;

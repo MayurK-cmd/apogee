@@ -70,6 +70,36 @@ test("splitTranslatablePrefix peels off bullets and timestamp-link prefixes", ()
   });
 });
 
+test("splitTranslatablePrefix peels heading markers and space-separated chapter links", () => {
+  // Plain section heading: marker preserved, label translated.
+  assert.deepStrictEqual(splitTranslatablePrefix("## Summary"), {
+    prefix: "## ",
+    rest: "Summary",
+  });
+  // Chaptered-brief heading: the jump-link (no trailing colon, space-separated)
+  // must be peeled off so the translator never touches its URL.
+  assert.deepStrictEqual(
+    splitTranslatablePrefix(
+      "### [0:00](https://www.youtube.com/watch?v=x&t=0s) Intro",
+    ),
+    {
+      prefix: "### [0:00](https://www.youtube.com/watch?v=x&t=0s) ",
+      rest: "Intro",
+    },
+  );
+});
+
+test("translatePreservingStructure preserves a chapter heading's link across MT", async () => {
+  const upper = async (lines) => lines.map((s) => s.toUpperCase());
+  const input =
+    "## Overview\nsome prose\n\n### [1:30](https://y.tube?t=90s) Setup\n- point";
+  const out = await translatePreservingStructure(input, upper);
+  assert.strictEqual(
+    out,
+    "## OVERVIEW\nSOME PROSE\n\n### [1:30](https://y.tube?t=90s) SETUP\n- POINT",
+  );
+});
+
 test("translatePreservingStructure keeps prefixes/blank lines and only translates prose", async () => {
   // stand-in batched translateFn: array in, array out, in order.
   const upper = async (lines) => lines.map((s) => s.toUpperCase());

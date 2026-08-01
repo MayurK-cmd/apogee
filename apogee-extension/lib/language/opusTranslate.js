@@ -131,14 +131,19 @@ export function resolveOpusModel(src, tgt) {
   return null;
 }
 
-// Splits a summary/answer line into a leading non-translatable prefix (bullet
-// marker and/or a "[MM:SS](url):" timestamp-link prefix) and the translatable
-// remainder, so line-by-line MT never rewrites list structure or deep-links.
+// Splits a summary/answer line into a leading non-translatable prefix (a
+// markdown heading marker and/or a bullet/number marker, then an optional
+// "[label](url)" jump-link) and the translatable remainder, so line-by-line MT
+// never rewrites list/heading structure or deep-links. This covers all the
+// shapes Apogee emits: the key-moments bullet "- [MM:SS](url): text", the
+// chaptered-brief heading "### [MM:SS](url) Title", and plain "## Section"
+// headings. The link's trailing ":" is optional, so the space-separated heading
+// form (no colon) is peeled the same as the colon-terminated bullet form;
+// without this a chapter heading's URL was fed to the translator and mangled.
 // A bare "[label](url)" mid-line is left in place (Opus keeps most tokens it
-// doesn't recognize); only the structural leading prefix is peeled off, which
-// covers the YouTube timestamp format Apogee emits.
+// doesn't recognize); only the structural leading prefix is peeled off.
 const LEADING_PREFIX =
-  /^(\s*(?:[-*]\s+|\d+\.\s+)?(?:\[[^\]]*\]\([^)]*\):\s*)?)/;
+  /^(\s*(?:#{1,6}\s+|[-*]\s+|\d+\.\s+)?(?:\[[^\]]*\]\([^)]*\):?\s*)?)/;
 
 export function splitTranslatablePrefix(line) {
   const match = line.match(LEADING_PREFIX);
