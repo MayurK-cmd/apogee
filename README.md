@@ -3,7 +3,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/dark_main_logo.png">
   <source media="(prefers-color-scheme: light)" srcset=".github/assets/light_main_logo.png">
-  <img alt="Apogee" src=".github/assets/light_main_logo.png" width="391">
+  <img alt="Apogee" src=".github/assets/light_main_logo.png">
 </picture>
 
 <br>
@@ -16,10 +16,6 @@ A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Run
 [![Get it on Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
 
 <a href="#how-it-works">How It Works</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
-
-<br>
-
-<br>
 
 <sub>An offline-first, privacy-respecting browser extension built with ❤︎ by <a href="https://github.com/darshi1337">darshi1337</a> and <a href="https://github.com/darshi1337/apogee/graphs/contributors">contributors</a></sub>
 
