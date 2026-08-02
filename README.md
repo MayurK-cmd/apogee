@@ -1,10 +1,6 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/dark_main_logo.png">
-  <source media="(prefers-color-scheme: light)" srcset=".github/assets/light_main_logo.png">
-  <img alt="Apogee" src=".github/assets/light_main_logo.png">
-</picture>
+<img alt="Apogee" src=".github/assets/apogee-title.svg" width="480">
 
 A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Runs on WebGPU, WebAssembly, or your own local Ollama.
 
