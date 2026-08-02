@@ -119,15 +119,6 @@ export async function* chatStream(
   }
 }
 
-/** Buffers chatStream into a single string. */
-export async function chatOnce(host, model, prompt, options = {}) {
-  let text = "";
-  for await (const token of chatStream(host, model, prompt, options)) {
-    text += token;
-  }
-  return text;
-}
-
 /** Mirrors apogee-backend/src/routes/health.js's GET /health. */
 export async function checkHealth(host, timeoutMs = 3000) {
   try {

@@ -61,9 +61,13 @@ third party.
    by many videos, and filters the returned segments locally (the same
    k-anonymity scheme the official SponsorBlock clients use). SponsorBlock
    therefore sees your IP address and that a YouTube summary is happening, but
-   not which video. This lookup runs automatically for YouTube videos; when a
-   video has no SponsorBlock data (or the request fails), Apogee falls back to
-   a local, network-free phrase heuristic instead.
+   not which video. This is Apogee's only non-model third-party request, and
+   you can turn it off under **Settings**, in the **Privacy** section, via
+   **"Stay fully local (don't contact SponsorBlock)"**. When it's disabled,
+   Apogee makes no request to
+   SponsorBlock at all. Whether it's off, a video has no SponsorBlock data, or
+   the request fails, Apogee falls back to a local, network-free phrase
+   heuristic instead.
 
 4. **Fetching the content of the page you are summarizing.** For a few sites,
    Apogee reads the material to summarize from that site's own public endpoint

@@ -222,4 +222,11 @@ export const DEFAULT_SETTINGS = {
   // isSensitiveUrl in popup.js) are always treated as non-persistable
   // regardless of this setting.
   saveHistory: true,
+  // When true (default), YouTube summaries query the community SponsorBlock
+  // API (sponsor.ajay.app) for sponsor-segment timings so those reads can be
+  // skipped. It's the extension's only non-model third-party request; users
+  // who want a fully local footprint can turn it off, in which case Apogee
+  // falls back to its network-free phrase heuristic. See
+  // fetchSponsorBlockSegments in background/service-worker.js and PRIVACY.md.
+  useSponsorBlock: true,
 };

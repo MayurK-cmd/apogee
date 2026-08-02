@@ -133,6 +133,9 @@ const clearDebugLogsBtn = document.getElementById("clearDebugLogsBtn");
 const saveHistoryRadios = document.querySelectorAll(
   'input[name="saveHistory"]',
 );
+const sponsorBlockRadios = document.querySelectorAll(
+  'input[name="useSponsorBlock"]',
+);
 const clearDataBtn = document.getElementById("clearDataBtn");
 const clearDataStatus = document.getElementById("clearDataStatus");
 const versionText = document.getElementById("versionText");
@@ -463,6 +466,11 @@ async function applySettingsToUI(settings) {
     `input[name="saveHistory"][value="${settings.saveHistory === false ? "off" : "on"}"]`,
   );
   if (historyRadio) historyRadio.checked = true;
+
+  const sponsorBlockRadio = document.querySelector(
+    `input[name="useSponsorBlock"][value="${settings.useSponsorBlock === false ? "off" : "on"}"]`,
+  );
+  if (sponsorBlockRadio) sponsorBlockRadio.checked = true;
 
   // Fire-and-forget: checkWebGPUSupport() can create the offscreen document
   // on a cold start (a few seconds on Chrome), which used to make every
@@ -1995,6 +2003,12 @@ themeRadios.forEach((radio) => {
 saveHistoryRadios.forEach((radio) => {
   radio.addEventListener("change", async () => {
     await saveSettings({ saveHistory: radio.value === "on" });
+  });
+});
+
+sponsorBlockRadios.forEach((radio) => {
+  radio.addEventListener("change", async () => {
+    await saveSettings({ useSponsorBlock: radio.value === "on" });
   });
 });
 

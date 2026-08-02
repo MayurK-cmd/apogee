@@ -888,10 +888,12 @@ const SPONSORBLOCK_CATEGORIES = ["sponsor", "selfpromo", "interaction"];
 // locally). Returns [[startSec, endSec], ...]; [] on any failure, which makes
 // the caller fall back to its local phrase heuristic.
 //
-// The lookup always runs, it's no longer user-toggleable. Even k-anonymized,
-// it's the extension's only third-party request (it reveals the user's IP and
-// "a YouTube summary is happening now" to sponsor.ajay.app); when a video has
-// no crowd data the caller still falls back to the network-free phrase
+// Gated on the useSponsorBlock setting (default on), checked by the
+// "sponsorblock-segments" handler before this runs. Even k-anonymized, it's
+// the extension's only non-model third-party request (it reveals the user's IP
+// and "a YouTube summary is happening now" to sponsor.ajay.app), so a
+// privacy-conscious user can turn it off; when a video has no crowd data (or
+// the feature is off) the caller falls back to the network-free phrase
 // heuristic, so this only ever adds the crowd-sourced segments on top.
 async function fetchSponsorBlockSegments(videoId) {
   if (!/^[A-Za-z0-9_-]{11}$/.test(videoId || "")) return [];
@@ -1655,9 +1657,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "sponsorblock-segments": {
-          const segments = await fetchSponsorBlockSegments(
-            message.payload.videoId,
-          );
+          // Gated on the user setting: when SponsorBlock is disabled we make
+          // no third-party request at all and return no segments, so the
+          // YouTube extractor falls back to its network-free phrase heuristic.
+          const { useSponsorBlock } = await getSettings();
+          const segments = useSponsorBlock
+            ? await fetchSponsorBlockSegments(message.payload.videoId)
+            : [];
           sendResponse({ segments });
           break;
         }

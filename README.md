@@ -1,28 +1,27 @@
-# Apogee
-
-<picture>
-  <source
-    media="(prefers-color-scheme: dark)"
-    srcset=".github/assets/dark_main_logo.png">
-  <source
-    media="(prefers-color-scheme: light)"
-    srcset=".github/assets/light_main_logo.png">
-  <img
-    alt="Apogee Demo"
-    src=".github/assets/light_main_logo.png">
-</picture>
-
 <div align="center">
 
-Private, in-browser AI summarizer powered by WebGPU, WebAssembly, or your own local Ollama.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/dark_main_logo.png">
+  <source media="(prefers-color-scheme: light)" srcset=".github/assets/light_main_logo.png">
+  <img alt="Apogee" src=".github/assets/light_main_logo.png" width="391">
+</picture>
 
-[![Get it on Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
+<br>
+
+A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Runs on WebGPU, WebAssembly, or your own local Ollama.
+
+<br>
+
 [![Get it on the Chrome Web Store](https://img.shields.io/badge/Chrome_%2F_Edge-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog)
+[![Get it on Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
 
-[![CI](https://github.com/darshi1337/apogee/actions/workflows/ci.yml/badge.svg)](https://github.com/darshi1337/apogee/actions/workflows/ci.yml)
-[![Mozilla Add-on](https://img.shields.io/amo/v/apogeeext?label=AMO&color=orange)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
-[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/pgemlpomhkdcjjjcpnjlebalnfglomog?label=Chrome%20Web%20Store&color=4285F4)](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+<a href="#how-it-works">How It Works</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
+
+<br>
+
+<br>
+
+<sub>An offline-first, privacy-respecting browser extension built with ❤︎ by <a href="https://github.com/darshi1337">darshi1337</a> and <a href="https://github.com/darshi1337/apogee/graphs/contributors">contributors</a></sub>
 
 </div>
 
