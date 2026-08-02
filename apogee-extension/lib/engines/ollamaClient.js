@@ -7,9 +7,13 @@
 class OllamaError extends Error {}
 
 function connectError(host, err) {
+  // The extension strips the Origin header on localhost requests via a
+  // declarativeNetRequest rule (see rules/ollama-cors.json), so Ollama's CORS
+  // check passes without OLLAMA_ORIGINS; a failure here is almost always that
+  // Ollama isn't running or is listening on a different host/port.
   return new OllamaError(
-    `Could not connect to Ollama at ${host}. Is it running, and is OLLAMA_ORIGINS ` +
-      `set to allow this extension? Error: ${err?.message ?? err}`,
+    `Could not connect to Ollama at ${host}. Is it running and listening on ` +
+      `that address? Error: ${err?.message ?? err}`,
   );
 }
 

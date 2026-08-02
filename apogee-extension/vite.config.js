@@ -67,6 +67,14 @@ function copyStaticPlugin(targetBrowser) {
       cpSync(resolve(__dirname, "content"), resolve(dist, "content"), {
         recursive: true,
       });
+
+      // declarativeNetRequest static ruleset (strips the Origin header on
+      // localhost requests so Ollama's CORS check passes without the user
+      // configuring OLLAMA_ORIGINS). Referenced by manifest.json's
+      // declarative_net_request.rule_resources; must ship in the package.
+      cpSync(resolve(__dirname, "rules"), resolve(dist, "rules"), {
+        recursive: true,
+      });
     },
   };
 }

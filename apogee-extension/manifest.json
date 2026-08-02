@@ -12,7 +12,8 @@
     "unlimitedStorage",
     "alarms",
     "contextMenus",
-    "notifications"
+    "notifications",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "http://127.0.0.1/*",
@@ -20,6 +21,15 @@
     "*://*.bilibili.com/*",
     "*://*.hdslb.com/*"
   ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ollama_cors",
+        "enabled": true,
+        "path": "rules/ollama-cors.json"
+      }
+    ]
+  },
   "commands": {
     "summarize-page": {
       "suggested_key": {

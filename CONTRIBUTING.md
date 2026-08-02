@@ -16,8 +16,8 @@ extension in your browser. See the main [README](README.md#install-the-extension
 for the exact steps per browser.
 
 If you're working on the **Local Ollama** provider, you'll also need Ollama
-installed and `OLLAMA_ORIGINS` configured so the extension can reach it, see
-[README's Advanced: Local Ollama Mode](README.md#advanced-local-ollama-mode).
+installed and running; the extension reaches it directly with no `OLLAMA_ORIGINS`
+setup (see [README's Advanced: Local Ollama Mode](README.md#advanced-local-ollama-mode)).
 
 ## Before opening a PR
 

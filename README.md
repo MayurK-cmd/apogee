@@ -338,84 +338,17 @@ Install Ollama for your OS, then pull the models you want:
 ollama pull gemma3:4b   # and qwen3:8b, mistral:latest, llama3.1:8b
 ```
 
-### 2. Allow the extension to reach Ollama (CORS)
-
-Ollama only accepts browser-originated requests from an allow-listed set of
-origins, and an extension origin isn't in that default list. So you set
-`OLLAMA_ORIGINS` to **your extension's origin** and restart Ollama. Two things
-vary independently: **what the origin looks like** (depends on your browser) and
-**how you set the variable** (depends on your OS).
-
-#### a. Find your extension's origin (by browser)
-
-- **Chromium browsers** (Chrome, Edge, Brave, Opera, Vivaldi, Arc, Dia): the
-  origin is `chrome-extension://<id>`. Find `<id>` on the extensions page with
-  Developer mode on: `chrome://extensions`, `edge://extensions`,
-  `brave://extensions`, `dia://extensions/`, etc. (Chromium browsers all use the
-  `chrome-extension://` scheme, including Edge.)
-- **Firefox**: the origin is `moz-extension://<uuid>`. Open
-  `about:debugging#/runtime/this-firefox`, find **Apogee**, and read its
-  **Internal UUID** (or the `moz-extension://…` Manifest URL just below it). This
-  UUID is generated per Firefox profile, so it's unique to your install and is
-  _not_ the same as the AMO add-on ID.
-
-If you use more than one browser, list every origin, comma-separated, in a
-single `OLLAMA_ORIGINS` value, e.g.
-`chrome-extension://abc…,moz-extension://123…`.
-
-#### b. Set `OLLAMA_ORIGINS` (by OS)
-
-Substitute `<your-extension-origin>` below with the value(s) from step (a).
-
-**macOS** (Ollama runs as a menu-bar app):
-
-```bash
-launchctl setenv OLLAMA_ORIGINS "<your-extension-origin>"
-```
-
-Then quit Ollama from the menu bar and reopen it so it picks up the variable.
-
-**Windows** (Ollama runs from the system tray):
-
-Quit Ollama from the tray, set a persistent user environment variable, then
-relaunch Ollama:
-
-```cmd
-setx OLLAMA_ORIGINS "<your-extension-origin>"
-```
-
-(Equivalently, add `OLLAMA_ORIGINS` via Settings, then "Edit environment variables
-for your account". `setx` only affects processes started _after_ it runs, so
-the relaunch matters.)
-
-**Linux**: if you start Ollama yourself from a terminal:
-
-```bash
-OLLAMA_ORIGINS="<your-extension-origin>" ollama serve
-```
-
-**Linux**: if Ollama runs as a systemd service (the default for the install
-script above), set a persistent override instead:
-
-```bash
-sudo mkdir -p /etc/systemd/system/ollama.service.d
-printf '[Service]\nEnvironment="OLLAMA_ORIGINS=<your-extension-origin>"\n' \
-  | sudo tee /etc/systemd/system/ollama.service.d/override.conf
-sudo systemctl daemon-reload
-sudo systemctl restart ollama
-```
-
-> **Security note**: `OLLAMA_ORIGINS=chrome-extension://*` (or `moz-extension://*`,
-> allowing _every_ extension) is convenient while developing, but it means any
-> other extension installed in your browser could also reach your local Ollama
-> instance's API. Scope it to your specific extension origin for anything beyond
-> quick local testing.
-
-### 3. Point the extension at Ollama
+### 2. Point the extension at Ollama
 
 Open the extension, go to Settings, and select **Local Ollama**. The host
 field defaults to `http://127.0.0.1:11434` (Ollama's own default port),
 only change it if you've configured Ollama to listen elsewhere.
+
+**No CORS or `OLLAMA_ORIGINS` setup is needed.** Apogee connects to Ollama
+directly: a bundled [declarativeNetRequest](apogee-extension/rules/ollama-cors.json)
+rule strips the `Origin` header from its `localhost` / `127.0.0.1` requests, so
+Ollama treats them as same-origin and serves them out of the box. Just start
+Ollama and go.
 
 Once connected, the model list is populated live from whatever you've
 actually pulled (via Ollama's own `/api/tags`), not a fixed list, so any
@@ -459,7 +392,7 @@ Privacy is the core pillar of Apogee. The key guarantee is simple: **your page c
   - That's it, there are no other external calls. (See the extension's `content_security_policy.connect-src` in `manifest.json` for the exact allow-list this is enforced against, and `ALLOWED_OLLAMA_HOSTS` in `background/service-worker.js`, which rejects any Local Ollama host setting that isn't plain `http://127.0.0.1` or `http://localhost`.)
 - **No remotely loaded code**: every piece of executable code, JavaScript and WebAssembly alike, ships inside the extension package. That includes onnxruntime-web's WASM runtime (Ask's local embedding model and the Transformers.js engine) and WebLLM's per-model WASM kernels, which are downloaded and SHA-256-verified at **build** time (see `apogee-extension/scripts/model-libs.mjs`) rather than fetched from a CDN or GitHub at runtime. Only model _weights_ (data, not code) are fetched at runtime, from Hugging Face, as described above.
 - **PDFs**: PDF text extraction runs fully client-side using `pdf.js` bundled into the extension, the PDF is downloaded straight into the browser tab (using that tab's own network context) and parsed there. Only the extracted text is ever handed to the model; the file itself never passes through any other process.
-- **Local Ollama's CORS setting (`OLLAMA_ORIGINS`)**: for the extension to reach Ollama at all, Ollama must be told to accept requests from the extension's origin, see [Advanced: Local Ollama Mode](#advanced-local-ollama-mode). This is a browser-enforced allow-list, not a data-transmission path, but be aware that setting it to a wildcard (`chrome-extension://*`) rather than your specific extension ID lets _any_ installed extension talk to your local Ollama API, not just Apogee. Ollama itself still only binds to `127.0.0.1` by default regardless of this setting, so it's never reachable from your network either way, this only affects which browser extensions can call it.
+- **Local Ollama connection**: to reach Ollama, Apogee strips the `Origin` header from its `localhost` / `127.0.0.1` requests via a bundled [declarativeNetRequest](apogee-extension/rules/ollama-cors.json) rule (scoped to those loopback hosts only), so Ollama accepts them without any `OLLAMA_ORIGINS` configuration. This is a local, on-device request path, not a data-transmission path to any third party. Ollama itself only binds to `127.0.0.1` by default, so it's never reachable from your network regardless.
 - **No Telemetry, Tracking, or Analytics**: Apogee includes no Google Analytics, Mixpanel, crash-reporting SDKs, or telemetry of any kind. No usage data is collected.
 - **What's stored on your device (and how to control it)**:
   - To make reopening the popup instant, Apogee caches **summaries, suggested prompts, extracted page text (for articles), and your recent questions/answers** in local extension storage (`chrome.storage.local`), never transmitted, capped in size, and keyed by a hash of the URL (so URLs with tokens aren't stored in plaintext keys).
