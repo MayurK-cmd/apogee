@@ -41,7 +41,8 @@
   --tag-border: rgba(136, 134, 255, 0.28);
   --scrollbar-thumb: rgba(255, 255, 255, 0.2);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.35);
-  --icon-filter: invert(56%) sepia(87%) saturate(1088%) hue-rotate(207deg) brightness(101%) contrast(101%);
+  --icon-filter: invert(56%) sepia(87%) saturate(1088%) hue-rotate(207deg)
+    brightness(101%) contrast(101%);
   --warning-bg: rgba(245, 158, 11, 0.1);
   --warning-border: rgba(245, 158, 11, 0.25);
   --warning-text: #f59e0b;
@@ -86,7 +87,8 @@
   --tag-border: #e6e6e6;
   --scrollbar-thumb: rgba(0, 0, 0, 0.15);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
-  --icon-filter: invert(30%) sepia(90%) saturate(1800%) hue-rotate(230deg) brightness(90%) contrast(105%);
+  --icon-filter: invert(30%) sepia(90%) saturate(1800%) hue-rotate(230deg)
+    brightness(90%) contrast(105%);
   --warning-bg: rgba(245, 158, 11, 0.08);
   --warning-border: rgba(245, 158, 11, 0.3);
   --warning-text: #d97706;
