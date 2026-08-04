@@ -41,19 +41,17 @@
   --tag-border: rgba(136, 134, 255, 0.28);
   --scrollbar-thumb: rgba(255, 255, 255, 0.2);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.35);
-  --icon-filter: invert(56%) sepia(87%) saturate(1088%) hue-rotate(207deg)
-    brightness(101%) contrast(101%);
   --warning-bg: rgba(245, 158, 11, 0.1);
   --warning-border: rgba(245, 158, 11, 0.25);
   --warning-text: #f59e0b;
   --error-text: #ef4444;
   --radio-border: rgba(255, 255, 255, 0.3);
   --radio-checked-color: #8886ff;
+  --accent: #8886ff;
   --progress-track: rgba(255, 255, 255, 0.1);
   --send-btn-bg: linear-gradient(135deg, #a7b5ff 0%, #827fff 100%);
   --send-btn-hover-bg: linear-gradient(135deg, #c0caff 0%, #5855ff 100%);
   --send-btn-text: #ffffff;
-  --send-btn-icon-filter: brightness(0) invert(1);
 }
 
 .theme-light {
@@ -87,19 +85,17 @@
   --tag-border: #e6e6e6;
   --scrollbar-thumb: rgba(0, 0, 0, 0.15);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
-  --icon-filter: invert(30%) sepia(90%) saturate(1800%) hue-rotate(230deg)
-    brightness(90%) contrast(105%);
   --warning-bg: rgba(245, 158, 11, 0.08);
   --warning-border: rgba(245, 158, 11, 0.3);
   --warning-text: #d97706;
   --error-text: #dc2626;
   --radio-border: rgba(0, 0, 0, 0.2);
   --radio-checked-color: #5855ff;
+  --accent: #5855ff;
   --progress-track: rgba(0, 0, 0, 0.06);
   --send-btn-bg: linear-gradient(135deg, #827fff 0%, #5855ff 100%);
   --send-btn-hover-bg: linear-gradient(135deg, #5855ff 0%, #302dcd 100%);
   --send-btn-text: #ffffff;
-  --send-btn-icon-filter: brightness(0) invert(1);
 }
 
 * {
@@ -133,7 +129,6 @@ button {
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 99px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -161,8 +156,6 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
-  border-top-left-radius: 14px;
-  border-top-right-radius: 14px;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -216,7 +209,6 @@ body {
   border: none;
   background: var(--btn-bg);
   border: 1px solid var(--card-border);
-  border-radius: 8px;
   cursor: pointer;
   width: 30px;
   height: 30px;
@@ -236,27 +228,62 @@ body {
   transform: translateY(0) scale(0.95);
 }
 
-.icon-btn img,
-.action-btn img,
-.card-title img,
-.settings-contact-left img,
-.contact-card-left img,
-.contact-arrow,
-.arrow-icon,
-.prompts-toggle img,
-.send-btn img,
-.section-title-group img {
-  filter: var(--icon-filter);
-  width: 16px;
-  height: 16px;
-  transition: filter 0.2s ease;
+/* Duotone icons (popup/icons.js), the same construction the landing page uses:
+   an ink stroke layer over a soft accent fill, so a glyph takes the colour of
+   whatever text it sits next to instead of being tinted with a filter. */
+.ico {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.ico svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The landing page fills at 0.22, which is tuned for its 42px feature-cell
+   icons; at the 13-18px this popup draws them, that wash disappears, so the
+   accent layer is carried heavier to keep the same duotone read. */
+.ico svg .f {
+  fill: var(--accent);
+  stroke: none;
+  opacity: 0.5;
+}
+
+/* Brand marks are a single filled glyph, not a duotone drawing. */
+.ico svg .brand {
+  fill: currentColor;
+  stroke: none;
+}
+
+.icon-btn .ico svg,
+.card-title .ico svg,
+.section-title-group .ico svg {
+  color: var(--text-muted);
 }
 
 .home-buttons {
   padding: 20px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+}
+
+/* Boxes stack flush: each one is pulled up onto its neighbour's hairline so a
+   column of them reads as a single ruled block instead of floating cards. */
+.home-buttons > * + * {
+  margin-top: -1px;
+}
+
+/* Ask is its own action rather than part of the summarize-and-format group, so
+   it breaks off the stack. */
+.home-buttons > .seg-row + .action-btn {
+  margin-top: 12px;
 }
 
 .action-btn {
@@ -264,7 +291,6 @@ body {
   height: 52px;
   padding: 0 16px;
   border: 1px solid var(--btn-border);
-  border-radius: 12px;
   background: var(--btn-bg);
   display: flex;
   align-items: center;
@@ -276,30 +302,92 @@ body {
   color: var(--btn-text);
   text-align: left;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Neighbours overlap by 1px, so a hovered box has to paint on top or its
+   highlighted border gets covered by the box below it. */
+.action-btn:hover,
+.prompt-card:hover,
+.past-summary-card:hover,
+.contact-card:hover,
+.settings-card:hover {
+  position: relative;
+  z-index: 1;
 }
 
 .action-btn:hover {
   background: var(--btn-hover-bg);
   border-color: var(--btn-hover-border);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
 }
 
-.action-btn:active {
-  transform: translateY(0) scale(0.97);
+.action-btn .ico svg {
+  width: 21px;
+  height: 21px;
 }
 
-.action-btn img {
-  width: 18px;
-  height: 18px;
+/* Response format: the segmented row from the landing-page demo (docs/, .seg).
+   Three equal boxes on one line, hairlines collapsed into each other, and the
+   active one inverted to a filled block - no heading, no radio circles. */
+.seg-row {
+  display: flex;
+}
+
+.seg {
+  flex: 1;
+  display: flex;
+  cursor: pointer;
+  margin-left: -1px;
+}
+
+.seg:first-child {
+  margin-left: 0;
+}
+
+/* The radio keeps the state and fires the change handler; the span next to it
+   is the visible box, styled off :checked so the fill follows the selection. */
+.seg input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.seg span {
+  flex: 1;
+  padding: 9px 0;
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.seg:hover span {
+  background: var(--btn-hover-bg);
+  color: var(--text-main);
+}
+
+.seg input:checked + span {
+  background: var(--text-main);
+  border-color: var(--text-main);
+  color: var(--bg-color);
+  position: relative;
+  z-index: 1;
+}
+
+.seg input:focus-visible + span {
+  outline: 2px solid var(--radio-checked-color);
+  outline-offset: -3px;
 }
 
 .shortcut-hint {
   margin-left: auto;
   padding: 2px 7px;
   border: 1px solid var(--btn-border);
-  border-radius: 5px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 10px;
   font-weight: 600;
@@ -309,20 +397,19 @@ body {
   flex-shrink: 0;
 }
 
+/* Only the first visible box in the view carries the gap under the header;
+   anything stacked after the progress/logs boxes sits on their hairline. */
+.model-progress:not(.hidden) ~ .summary-card,
+.debug-logs-card:not(.hidden) ~ .summary-card {
+  margin-top: -1px;
+}
+
 .summary-card {
   margin: 16px;
   padding: 16px;
   background: var(--summary-bg);
   border: var(--summary-border);
-  border-radius: 14px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-  transition:
-    border-color 0.25s ease,
-    box-shadow 0.25s ease;
-}
-
-.summary-card:hover {
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.25s ease;
 }
 
 .card-header-row {
@@ -340,7 +427,6 @@ body {
 
 .time-saved-badge {
   padding: 3px 8px;
-  border-radius: 99px;
   background: var(--badge-bg);
   color: var(--badge-text);
   font-family: "Mozilla Text";
@@ -374,7 +460,6 @@ body {
 .apogee-groundable li,
 .apogee-groundable p {
   cursor: pointer;
-  border-radius: 6px;
   margin-left: -6px;
   margin-right: -6px;
   padding-left: 6px;
@@ -436,7 +521,6 @@ body {
 
 .cancel-btn {
   padding: 6px 14px;
-  border-radius: 8px;
   border: 1px solid var(--btn-border);
   background: var(--btn-bg);
   color: var(--text-secondary);
@@ -475,7 +559,6 @@ body {
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  border-radius: 8px;
   border: 1px solid var(--btn-border);
   background: var(--btn-bg);
   color: var(--text-secondary);
@@ -492,10 +575,9 @@ body {
   color: var(--text-main);
 }
 
-.resummarize-btn img {
-  filter: var(--icon-filter);
-  width: 13px;
-  height: 13px;
+.resummarize-btn .ico svg {
+  width: 15px;
+  height: 15px;
 }
 
 .resummarize-hint {
@@ -506,7 +588,6 @@ body {
   margin-top: 12px;
   padding: 8px 12px;
   border: 1px solid var(--radio-checked-color);
-  border-radius: 8px;
   background: color-mix(in srgb, var(--radio-checked-color) 12%, transparent);
 }
 
@@ -519,7 +600,6 @@ body {
 .resummarize-hint button {
   flex-shrink: 0;
   padding: 5px 12px;
-  border-radius: 6px;
   border: none;
   background: var(--radio-checked-color);
   color: #fff;
@@ -578,7 +658,6 @@ body {
   background: var(--badge-bg);
   color: var(--badge-text);
   padding: 2px 6px;
-  border-radius: 4px;
   border: 1px solid var(--card-border);
 }
 
@@ -613,7 +692,6 @@ body {
   border: none;
   background: var(--btn-bg);
   border: 1px solid var(--card-border);
-  border-radius: 6px;
   cursor: pointer;
   width: 24px;
   height: 24px;
@@ -628,9 +706,9 @@ body {
   border-color: var(--btn-hover-border);
 }
 
-.prompts-toggle img {
-  width: 10px;
-  height: 10px;
+.prompts-toggle .ico svg {
+  width: 12px;
+  height: 12px;
 }
 
 .prompt-card {
@@ -639,36 +717,28 @@ body {
   padding: 12px 14px;
   background: var(--btn-bg);
   border: 1px solid var(--btn-border);
-  border-radius: 10px;
   font-family: "Mozilla Text";
   font-weight: 500;
   font-size: 13px;
   line-height: 1.45;
   color: var(--text-muted);
   cursor: pointer;
-  margin-bottom: 10px;
+  margin-bottom: -1px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .prompt-card:hover {
   background: var(--btn-hover-bg);
   border-color: var(--btn-hover-border);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.prompt-card:active {
-  transform: translateY(0) scale(0.98);
 }
 
 .prompt-card:disabled {
   opacity: 0.6;
   cursor: default;
-  transform: none !important;
 }
 
 .past-summaries {
-  margin: 4px 16px 20px;
+  margin: 0 16px 20px;
 }
 
 .section-title-group {
@@ -686,9 +756,8 @@ body {
   padding: 12px 14px;
   background: var(--btn-bg);
   border: 1px solid var(--btn-border);
-  border-radius: 10px;
   cursor: pointer;
-  margin-bottom: 10px;
+  margin-bottom: -1px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -761,7 +830,6 @@ body {
 .copy-btn {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
   border: 1px solid var(--btn-border);
   background: var(--btn-bg);
   display: flex;
@@ -777,10 +845,9 @@ body {
   border-color: var(--btn-hover-border);
 }
 
-.copy-btn img {
-  filter: var(--icon-filter);
-  width: 13px;
-  height: 13px;
+.copy-btn .ico svg {
+  width: 15px;
+  height: 15px;
 }
 
 .suggested-tag {
@@ -789,7 +856,6 @@ body {
   gap: 4px;
   padding: 4px 10px;
   border: 1px solid var(--tag-border);
-  border-radius: 12px;
   background: var(--tag-bg);
   color: var(--tag-text);
   font-family: "Mozilla Text";
@@ -801,12 +867,11 @@ body {
 
 .suggested-tag:hover {
   filter: brightness(1.1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.suggested-tag img {
-  width: 10px;
-  height: 10px;
+.suggested-tag .ico svg {
+  width: 12px;
+  height: 12px;
 }
 
 .chat-box {
@@ -818,7 +883,6 @@ body {
   height: 95px;
   resize: none;
   border: 1px solid var(--input-border);
-  border-radius: 10px;
   background: var(--input-bg);
   padding: 14px 46px 14px 14px;
   font-family: "Mozilla Text";
@@ -848,7 +912,6 @@ body {
 .answer-box {
   min-height: 95px;
   border: 1px solid var(--input-border);
-  border-radius: 10px;
   padding: 12px;
   background: var(--card-bg);
   font-family: "Mozilla Text";
@@ -858,7 +921,6 @@ body {
   color: var(--text-muted);
   white-space: pre-wrap;
   overflow-wrap: break-word;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
   margin-top: 10px;
 }
 
@@ -869,7 +931,6 @@ body {
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: 8px;
   background: var(--send-btn-bg);
   color: var(--send-btn-text);
   cursor: pointer;
@@ -877,21 +938,28 @@ body {
   align-items: center;
   justify-content: center;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .send-btn:hover {
   background: var(--send-btn-hover-bg);
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .send-btn:active {
   transform: scale(0.95);
 }
 
-.send-btn img {
-  filter: var(--send-btn-icon-filter) !important;
+/* Sits on the filled gradient button, so it inverts like the landing page's
+   filled actions do. */
+.send-btn .ico svg {
+  color: var(--send-btn-text);
+  width: 17px;
+  height: 17px;
+}
+
+.send-btn .ico svg .f {
+  fill: var(--send-btn-text);
+  opacity: 0.35;
 }
 
 .header-left {
@@ -900,7 +968,7 @@ body {
   gap: 8px;
 }
 
-.back-btn img {
+.back-btn .ico svg {
   transform: rotate(180deg);
 }
 
@@ -916,8 +984,6 @@ body {
 .settings-content,
 .contact-content {
   overflow: hidden;
-  border-bottom-left-radius: 14px;
-  border-bottom-right-radius: 14px;
 }
 
 .settings-content,
@@ -928,20 +994,18 @@ body {
 }
 
 .settings-card {
-  margin: 0 16px 12px;
   padding: 14px;
   border: 1px solid var(--card-border);
-  border-radius: 12px;
   background: var(--card-bg);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-  transition:
-    border-color 0.25s ease,
-    box-shadow 0.25s ease;
+  transition: border-color 0.25s ease;
+}
+
+.settings-card {
+  margin: 0 16px -1px;
 }
 
 .settings-card:hover {
   border-color: var(--btn-hover-border);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
 }
 
 .card-title {
@@ -951,9 +1015,9 @@ body {
   margin-bottom: 12px;
 }
 
-.card-title img {
-  width: 18px;
-  height: 18px;
+.card-title .ico svg {
+  width: 21px;
+  height: 21px;
 }
 
 .card-title span {
@@ -1035,7 +1099,6 @@ body {
   width: 100%;
   height: 38px;
   border: 1px solid var(--input-border);
-  border-radius: 8px;
   background: var(--input-bg);
   padding: 0 10px;
   font-family: "Mozilla Text";
@@ -1062,7 +1125,6 @@ body {
   width: 100%;
   height: 38px;
   border: 1px solid var(--input-border);
-  border-radius: 8px;
   background: var(--input-bg);
   padding: 0 10px;
   font-family: "Mozilla Text";
@@ -1081,7 +1143,6 @@ body {
   width: 100%;
   min-height: 84px;
   border: 1px solid var(--input-border);
-  border-radius: 8px;
   background: var(--input-bg);
   padding: 10px;
   font-family: "Mozilla Text";
@@ -1126,7 +1187,6 @@ body {
   margin: 0 16px;
   height: 44px;
   border: 1px solid var(--btn-border);
-  border-radius: 10px;
   background: var(--btn-bg);
   padding: 0 12px;
   display: flex;
@@ -1139,12 +1199,6 @@ body {
 .settings-contact-btn:hover {
   background: var(--btn-hover-bg);
   border-color: var(--btn-hover-border);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
-}
-
-.settings-contact-btn:active {
-  transform: translateY(0) scale(0.98);
 }
 
 .settings-contact-left {
@@ -1164,14 +1218,16 @@ body {
   padding: 0 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+
+.contact-links > * + * {
+  margin-top: -1px;
 }
 
 .contact-card {
   width: 100%;
   height: 44px;
   border: 1px solid var(--btn-border);
-  border-radius: 10px;
   background: var(--btn-bg);
   padding: 0 12px;
   display: flex;
@@ -1184,11 +1240,6 @@ body {
 .contact-card:hover {
   background: var(--btn-hover-bg);
   border-color: var(--btn-hover-border);
-  transform: translateY(-1px);
-}
-
-.contact-card:active {
-  transform: translateY(0) scale(0.98);
 }
 
 .contact-card-left {
@@ -1251,7 +1302,6 @@ body {
   gap: 6px;
   padding: 3px 10px;
   border: 1px solid var(--border-color);
-  border-radius: 99px;
   font-size: 10px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -1408,7 +1458,6 @@ body {
   padding: 12px;
   background: var(--warning-bg);
   border: 1px solid var(--warning-border);
-  border-radius: 10px;
   font-family: "Mozilla Text";
   font-size: 12px;
   line-height: 1.5;
@@ -1423,17 +1472,19 @@ body {
   font-size: 13.5px;
 }
 
+/* Uses the card surface, not --summary-bg: it stacks directly on the summary
+   card, which shares that background and (in light) has no border, so the two
+   otherwise read as a single panel with a stray rule through it. */
 .model-progress {
-  margin: 16px 16px 12px;
+  margin: 16px 16px 0;
   padding: 13px 14px;
-  background: var(--summary-bg);
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
-  border-radius: 14px;
 }
 
 .model-progress-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -1441,8 +1492,8 @@ body {
 .model-progress-icon {
   display: inline-flex;
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   color: var(--text-secondary);
 }
 
@@ -1451,20 +1502,30 @@ body {
   height: 100%;
 }
 
+/* web-llm reports progress as one long line ("Fetching param cache[13/38]:
+   900MB fetched. 34% completed, 12 secs elapsed."), far wider than the 342px
+   popup. A single ellipsised line cut it at "900...", hiding the shard count
+   and elapsed time, which are the only parts that tell a slow download from a
+   stuck one. Wrap instead; the cap is set high enough for the stalled-download
+   note offscreen.js appends, and only costs height when the text is long. */
 .model-progress-title {
   flex: 1;
   min-width: 0;
   font-family: "Mozilla Text";
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.35;
   color: var(--text-main);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .model-progress-percent {
   flex-shrink: 0;
+  line-height: 1.35;
   font-family: "Mozilla Text";
   font-size: 11px;
   font-weight: 700;
@@ -1481,7 +1542,6 @@ body {
   width: 100%;
   height: 7px;
   background: var(--progress-track);
-  border-radius: 99px;
   overflow: hidden;
 }
 
@@ -1489,7 +1549,6 @@ body {
   width: 0%;
   height: 100%;
   background: var(--text-main);
-  border-radius: 99px;
   transition: width 0.3s ease;
 }
 
@@ -1504,7 +1563,6 @@ body {
   align-items: center;
   gap: 4px;
   padding: 3px 9px;
-  border-radius: 99px;
   background: transparent;
   border: 1px solid var(--btn-border);
   color: var(--text-secondary);
@@ -1519,22 +1577,20 @@ body {
     border-color 0.15s ease;
 }
 
+.logs-toggle .ico svg {
+  width: 14px;
+  height: 14px;
+}
+
 .logs-toggle:hover {
   background: var(--btn-hover-bg);
   border-color: var(--btn-hover-border);
   color: var(--text-main);
 }
 
-.logs-toggle svg {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-}
-
 .debug-logs-card {
-  margin: 0 16px 10px;
+  margin: -1px 16px 0;
   padding: 10px;
-  border-radius: 10px;
   background: var(--btn-bg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 10.5px;
@@ -1582,7 +1638,6 @@ body {
   width: 100%;
   margin-top: 12px;
   padding: 10px 12px;
-  border-radius: 10px;
   border: 1px solid rgba(239, 68, 68, 0.35);
   background: rgba(239, 68, 68, 0.08);
   color: #ef4444;
@@ -1595,10 +1650,9 @@ body {
     border-color 0.15s ease;
 }
 
-.clear-data-btn svg {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
+.clear-data-btn .ico svg {
+  width: 17px;
+  height: 17px;
 }
 
 .clear-data-btn:hover {
@@ -1632,7 +1686,6 @@ body {
   font-family: "Mozilla Text";
   font-size: 9.5px;
   font-weight: 700;
-  border-radius: 4px;
   margin-left: 6px;
   vertical-align: middle;
   letter-spacing: 0.3px;

@@ -57,6 +57,9 @@ import {
   extractFromActiveTab,
   extractPdfContent,
 } from "../lib/extract/pageExtraction.js";
+// Icons render from icons.js's own <script> in popup.html; this import is only
+// for the buttons whose contents are rebuilt here.
+import { icon } from "./icons.js";
 
 const summarizeBtn = document.getElementById("summarizeBtn");
 const summarizeShortcutHint = document.getElementById("summarizeShortcutHint");
@@ -968,7 +971,7 @@ async function loadPastSummaries() {
     copyBtn.type = "button";
     copyBtn.className = "copy-btn";
     copyBtn.setAttribute("aria-label", "Copy this summary");
-    copyBtn.innerHTML = '<img src="../assets/copy.svg" alt="" />';
+    copyBtn.innerHTML = icon("copy");
     copyBtn.addEventListener("click", (e) => {
       // Otherwise this bubbles up to the card's own click handler and
       // toggles expand/collapse at the same time as copying.
@@ -1058,7 +1061,7 @@ async function copyToClipboard(text, btn) {
     return;
   }
   const original = btn.innerHTML;
-  btn.innerHTML = '<img src="../assets/check.svg" alt="" />';
+  btn.innerHTML = icon("check");
   clearTimeout(btn._copyResetTimer);
   btn._copyResetTimer = setTimeout(() => {
     btn.innerHTML = original;

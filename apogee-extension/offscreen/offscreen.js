@@ -189,7 +189,7 @@ async function ensureEngine(modelId) {
         sendProgress({
           ...lastReport,
           text:
-            `${lastReport.text} — still downloading, the model host is ` +
+            `${lastReport.text} - still downloading, the model host is ` +
             "responding slowly. Progress is saved as it goes.",
         });
       }
