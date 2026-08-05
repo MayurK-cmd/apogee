@@ -59,7 +59,7 @@ import {
 } from "../lib/extract/pageExtraction.js";
 // Icons render from icons.js's own <script> in popup.html; this import is only
 // for the buttons whose contents are rebuilt here.
-import { icon } from "./icons.js";
+import { icon, ICONS } from "./icons.js";
 
 const summarizeBtn = document.getElementById("summarizeBtn");
 const summarizeShortcutHint = document.getElementById("summarizeShortcutHint");
@@ -644,8 +644,13 @@ function randomSummarizeVerb() {
 function setLoadingIndicator(element, label) {
   const wrapper = document.createElement("span");
   wrapper.className = "apogee-loading";
+  // The same sparkle that fronts the "Summarize this page" button, spinning:
+  // the mark the click started from is the thing that keeps turning while the
+  // model works, the way the landing-page demo does it, rather than swapping
+  // in an unrelated generic ring.
   const spinner = document.createElement("span");
-  spinner.className = "apogee-spinner";
+  spinner.className = "apogee-spinner ico";
+  spinner.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.sparkle}</svg>`;
   const text = document.createElement("span");
   text.textContent = label;
   const dots = document.createElement("span");

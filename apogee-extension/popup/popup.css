@@ -1399,14 +1399,17 @@ body {
   font-size: 13px;
 }
 
+/* The sparkle mark turning in place. Slower than a ring spinner would be: the
+   glyph is legible while it moves, and a lazy revolution reads as thinking
+   where a fast one reads as a stalled progress bar. */
 .apogee-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--btn-border);
-  border-top-color: var(--badge-text);
-  border-radius: 50%;
-  flex-shrink: 0;
-  animation: apogee-spin 0.7s linear infinite;
+  animation: apogee-spin 1.6s linear infinite;
+  transform-origin: center;
+}
+
+.apogee-spinner svg {
+  width: 15px;
+  height: 15px;
 }
 
 @keyframes apogee-spin {
