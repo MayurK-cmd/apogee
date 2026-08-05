@@ -59,10 +59,11 @@
     globe:
       '<circle class="f" cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/>',
     translate:
-      '<path class="f" d="M3 5h11v10H3z"/><path d="M3 6h10M8 6v1.5c0 3-2 5-4.5 6M6 9c.8 2 2.5 3.4 5 4"/><path d="M13.5 20l3.5-8 3.5 8M15 17h4"/>',
+      '<rect class="f" x="2.5" y="3.5" width="11.5" height="11.5" rx="2.2"/><rect x="2.5" y="3.5" width="11.5" height="11.5" rx="2.2"/><path d="M5 6.6h6.5M8.2 6.6v1.3c0 2.4-1.4 4.2-3.7 5.1M6.6 9.2c.7 1.7 2 2.9 4.1 3.4"/><path d="M13.2 20.5l3.6-8.2 3.6 8.2M14.8 17.6h4"/>',
     message:
       '<path class="f" d="M4 5h16v11H8l-4 4z"/><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/>',
-    moon: duo("M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5z"),
+    contrast:
+      '<path class="f" d="M12 3.2a8.8 8.8 0 0 1 0 17.6z"/><circle cx="12" cy="12" r="8.8"/><path d="M12 3.2v17.6"/>',
     keyboard:
       '<rect class="f" x="2" y="6" width="20" height="12" rx="2.5"/><rect x="2" y="6" width="20" height="12" rx="2.5"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/>',
     cloudoff:

@@ -7,7 +7,7 @@ A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Run
 [![Get it on the Chrome Web Store](https://img.shields.io/badge/Chrome_%2F_Edge-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog)
 [![Get it on Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
 
-<a href="#how-it-works">How It Works</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
+<a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="#how-it-works">How It Works</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
 
 <sub>An offline-first, privacy-respecting browser extension built with ❤︎ by <a href="https://github.com/darshi1337">darshi1337</a> and <a href="https://github.com/darshi1337/apogee/graphs/contributors">contributors</a></sub>
 
@@ -91,6 +91,10 @@ blank to use the defaults unchanged.
 4. On first use, the model downloads automatically. After that it's instant.
 
 That's it. No backend installation, no terminal commands.
+
+**Response format** (bullets, sentences, or paragraphs) sits right under the
+Summarize button on the home view, so you can switch it in place before
+summarizing rather than going through Settings.
 
 **Faster ways to summarize**: right-click anywhere on a page and pick
 **Summarize this page**, or use the keyboard shortcut (default `Alt+Shift+U`,
@@ -384,7 +388,7 @@ Privacy is the core pillar of Apogee. The key guarantee is simple: **your page c
   - **Model weights** are downloaded once from **Hugging Face** (in-browser mode) or pulled by **Ollama** (local mode), then cached and reused offline. This transfers no page content, only the model files themselves.
   - **YouTube transcripts**: on a YouTube page, the extractor fetches that video's caption track from YouTube/Google (the site you're already on) to feed the transcript to the model. It is restricted to genuine `youtube.com`/`google.com`/`googlevideo.com` hosts.
   - **Bilibili subtitles**: on a Bilibili page, the extractor fetches that video's subtitle track from Bilibili's own endpoints (`api.bilibili.com` and the `hdslb.com` subtitle CDN, the site you're already on). Unlike the YouTube caption fetch, this request is sent with your Bilibili cookies, because Bilibili only exposes subtitle URLs to a signed-in session; it carries only the video's own IDs. A video with no subtitles falls back to a description-only summary.
-  - **YouTube sponsor-segment lookup (SponsorBlock)**: when summarizing a YouTube video, Apogee asks the crowdsourced [SponsorBlock](https://sponsor.ajay.app) API which parts of the video are sponsor reads/self-promo, so they can be stripped from the transcript. This uses SponsorBlock's privacy-preserving k-anonymity endpoint: only the first 4 hex characters of the SHA-256 hash of the video ID are sent (never the video ID, URL, or any page content), and the matching entry is picked out locally. If the lookup fails or the video has no SponsorBlock data, a local phrase heuristic runs instead, with no network call at all. The lookup runs automatically for YouTube videos.
+  - **YouTube sponsor-segment lookup (SponsorBlock)**: when summarizing a YouTube video, Apogee asks the crowdsourced [SponsorBlock](https://sponsor.ajay.app) API which parts of the video are sponsor reads/self-promo, so they can be stripped from the transcript. This uses SponsorBlock's privacy-preserving k-anonymity endpoint: only the first 4 hex characters of the SHA-256 hash of the video ID are sent (never the video ID, URL, or any page content), and the matching entry is picked out locally. If the lookup fails or the video has no SponsorBlock data, a local phrase heuristic runs instead, with no network call at all. The lookup is on by default and can be switched off under Settings, Privacy ("Stay fully local"), in which case no request is made and the local heuristic does the stripping on its own.
   - That's it, there are no other external calls. (See the extension's `content_security_policy.connect-src` in `manifest.json` for the exact allow-list this is enforced against, and `ALLOWED_OLLAMA_HOSTS` in `background/service-worker.js`, which rejects any Local Ollama host setting that isn't plain `http://127.0.0.1` or `http://localhost`.)
 - **No remotely loaded code**: every piece of executable code, JavaScript and WebAssembly alike, ships inside the extension package. That includes onnxruntime-web's WASM runtime (Ask's local embedding model and the Transformers.js engine) and WebLLM's per-model WASM kernels, which are downloaded and SHA-256-verified at **build** time (see `apogee-extension/scripts/model-libs.mjs`) rather than fetched from a CDN or GitHub at runtime. Only model _weights_ (data, not code) are fetched at runtime, from Hugging Face, as described above.
 - **PDFs**: PDF text extraction runs fully client-side using `pdf.js` bundled into the extension, the PDF is downloaded straight into the browser tab (using that tab's own network context) and parsed there. Only the extracted text is ever handed to the model; the file itself never passes through any other process.
@@ -425,4 +429,4 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 [MIT](LICENSE)
 
-UI icons from [Lucide](https://lucide.dev) (ISC) and the GitHub mark from [Simple Icons](https://simpleicons.org) (CC0). Bundled fonts: [Metropolis](https://github.com/chrismsimpson/Metropolis) (Unlicense) and Mozilla Text (SIL OFL 1.1, © Mozilla Foundation), see [`apogee-extension/assets/fonts/LICENSE.md`](apogee-extension/assets/fonts/LICENSE.md).
+UI icons are drawn for this project and inlined as SVG (`apogee-extension/popup/icons.js`, `docs/app.js`); the GitHub mark is the official brand glyph from [Simple Icons](https://simpleicons.org) (CC0). Bundled fonts: [Metropolis](https://github.com/chrismsimpson/Metropolis) (Unlicense) and Mozilla Text (SIL OFL 1.1, © Mozilla Foundation), see [`apogee-extension/assets/fonts/LICENSE.md`](apogee-extension/assets/fonts/LICENSE.md).

@@ -242,7 +242,7 @@ async function ensureEngine(modelId) {
         }
         sendProgress({
           progress: 0,
-          text: `Download hiccup — retrying (attempt ${attempt + 1} of ${MAX_DOWNLOAD_ATTEMPTS})...`,
+          text: `Download hiccup - retrying (attempt ${attempt + 1} of ${MAX_DOWNLOAD_ATTEMPTS})...`,
         });
         await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
       }
@@ -439,7 +439,7 @@ async function runSummarize(eng, pending, emit, signal) {
 
   const onProgress = (p) => {
     if (p.stage === "truncated") {
-      reportProgress("Long page — summarizing the key parts.");
+      reportProgress("Long page - summarizing the key parts.");
     } else if (p.stage === "reduce") {
       reportProgress("Merging summary...");
     } else if (p.stage === "translate") {
@@ -598,7 +598,7 @@ async function runTransformersJob(
             },
             onProgress: (p) => {
               if (p.stage === "truncated") {
-                longNote = "Long page — summarizing the key parts. ";
+                longNote = "Long page - summarizing the key parts. ";
                 reportProgress(longNote.trim());
                 return;
               }

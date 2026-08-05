@@ -14,7 +14,7 @@ store repacks and signs it. `npm run package` produces the release ZIP.
 - **Summary:** AI browser assistant for articles, videos, emails and more. Runs in-browser via WebGPU, WebAssembly, and Ollama.
 - **Category:** Productivity
 - **Language:** English (United States)
-- **Homepage URL:** https://github.com/darshi1337/apogee
+- **Homepage URL:** https://darshi1337.github.io/apogee/
 - **Support URL:** https://github.com/darshi1337/apogee/issues
 - **Privacy policy URL:** https://github.com/darshi1337/apogee/blob/main/PRIVACY.md
 - **Mature content:** No
@@ -36,8 +36,9 @@ WHAT IT DOES
 • Summarize PDFs opened in the browser
 • Ask questions about the page. Apogee reads the whole page (not just the first few thousand characters) using on-device retrieval, so answers can come from deep inside a long article, PDF, or transcript
 • Highlight-in-page: click any bullet in a summary and Apogee scrolls to and highlights the passage of the original page it came from, so you can spot-check a claim without re-reading everything
-• Multiple summary formats: bullets, sentences, or paragraphs
+• Multiple summary formats: bullets, sentences, or paragraphs, switchable right under the Summarize button
 • Custom instructions: add your own standing guidance ("Explain like I'm five", "Focus on the technical details") that applies to every summary and answer
+• Summaries in your language: pick one of 29 output languages (or keep the page's own), translated either by the summarization model itself or, optionally, by dedicated on-device translation models
 
 Fast ways to summarize without opening the popup:
 • Right-click a page, then "Summarize this page"
@@ -57,7 +58,7 @@ PRIVACY
 • No cloud inference. Models run on your device
 • No API keys, no sign-in, no account
 • No analytics or tracking
-• Network access is limited to: downloading model weights (from Hugging Face) on first run, your own local Ollama at 127.0.0.1, for YouTube videos the community SponsorBlock API to skip sponsor segments, and for Bilibili videos that site's own subtitle endpoints (api.bilibili.com, hdslb.com)
+• Network access is limited to: downloading model weights (from Hugging Face) on first run, and a translation model from the same place if you opt into the dedicated translation engine, your own local Ollama at 127.0.0.1, for YouTube videos the community SponsorBlock API to skip sponsor segments, and for Bilibili videos that site's own subtitle endpoints (api.bilibili.com, hdslb.com)
 • Page content is processed locally and never uploaded
 
 REQUIREMENTS

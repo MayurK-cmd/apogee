@@ -397,13 +397,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Only the first visible box in the view carries the gap under the header;
-   anything stacked after the progress/logs boxes sits on their hairline. */
-.model-progress:not(.hidden) ~ .summary-card,
-.debug-logs-card:not(.hidden) ~ .summary-card {
-  margin-top: -1px;
-}
-
 .summary-card {
   margin: 16px;
   padding: 16px;
@@ -1214,6 +1207,16 @@ body {
   color: var(--text-muted);
 }
 
+/* The trailing arrow on a row is an affordance, not a label, so it sits a step
+   smaller and quieter than the icon and text it points away from. Unstyled it
+   inherited --text-main and was the loudest mark in a row of muted ones. */
+.arrow-icon svg,
+.contact-arrow svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
+
 .contact-links {
   padding: 0 16px;
   display: flex;
@@ -1294,6 +1297,15 @@ body {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.made-with .ico svg {
+  width: 14px;
+  height: 14px;
 }
 
 .status-pill {

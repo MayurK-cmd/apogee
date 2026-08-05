@@ -2,7 +2,7 @@ name: Deploy site to GitHub Pages
 
 # Publishes the docs/ marketing site to GitHub Pages on every push to main
 # that touches it (plus a manual trigger). It's a static site, so there is
-# no build step — the docs/ folder is uploaded and deployed as-is.
+# no build step - the docs/ folder is uploaded and deployed as-is.
 
 on:
   push:

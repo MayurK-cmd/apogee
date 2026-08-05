@@ -1440,7 +1440,7 @@ cancelSummarizeBtn?.addEventListener("click", () => {
 // Shown in place of the answer when a question comes back empty, both live
 // (consumeAnswerStream) and when restoring a previously-empty answer.
 const EMPTY_ANSWER_MESSAGE =
-  "No answer came back — try rephrasing the question.";
+  "No answer came back - try rephrasing the question.";
 
 // Consumes an "ask" stream to completion, rendering into answerBox and
 // persisting the final answer text so a reopened popup can show it without

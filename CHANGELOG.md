@@ -63,6 +63,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Settings radio buttons keep their circular shape when a long label wraps, and
   the summary footer no longer leaves an empty gap when it has nothing to show
   (e.g. after a summarize error).
+- **Long-running jobs are no longer killed mid-generation on Chrome.** Manifest
+  V3 terminates the background service worker after ~30s without an extension
+  event, and a job buffered there (Local Ollama always, Transformers.js on
+  Firefox) can easily stay silent longer than that: a multi-chunk summarize
+  emits nothing while it maps each chunk, and a cold Ollama model can take that
+  long to return its first token. The worker was dying mid-fetch and the popup
+  reported "Connection to the model was lost before the response finished". A
+  20s heartbeat now holds the worker up for exactly as long as a job (including
+  the suggested-questions pass that follows it) is actually running.
+- **Local Ollama summaries of long pages now report progress** instead of
+  sitting on a frozen spinner until the final pass starts streaming. The
+  map/reduce/translate stages report "Summarizing part N of M", "Merging
+  summary", and "Translating", the same treatment the in-browser engines
+  already had.
 
 ### Changed
 
@@ -74,11 +88,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Chrome Web Store "no remotely hosted code" policy risk; only model weights
   (data) are fetched at runtime. `@mlc-ai/web-llm` is now pinned exactly so
   the bundled kernels can't drift from the engine version.
-- **SponsorBlock sponsor stripping now always runs** (the earlier on/off
-  toggle was removed). The k-anonymity lookup is still best-effort: when a
-  video has no crowd data or the request fails, the local, network-free phrase
-  heuristic runs instead, so sponsor reads are stripped either way. The
-  Settings slot that toggle occupied now holds Custom Instructions (see Added).
+- **SponsorBlock sponsor stripping now always runs.** The k-anonymity lookup
+  is best-effort: when a video has no crowd data, the request fails, or you
+  have turned the lookup off under Settings, Privacy, the local, network-free
+  phrase heuristic runs instead, so sponsor reads are stripped either way.
 - The two in-browser AI provider options are now labeled **In-Browser AI (GPU)**
   (WebGPU) and **In-Browser AI (CPU)** (Transformers.js), instead of two
   identical "In-Browser AI" rows told apart only by a small badge.
@@ -88,6 +101,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The header logo no longer shows a clickable cursor on Home, where its "back to
   Home" click is a no-op; it still works as that shortcut from Summary and the
   other views.
+- **Redesigned popup: an original duotone icon set and a flat, ruled layout.**
+  The 26 shipped SVG assets are replaced by icons drawn for Apogee and inlined
+  in `popup/icons.js`: every glyph is a soft accent fill under a `currentColor`
+  stroke, so an icon takes the colour of the text beside it instead of being
+  recoloured through a CSS filter. `icons.js` loads as its own module script, so glyphs still render if
+  `popup.js` fails to boot, and icon buttons carry an `aria-label` now that
+  there is no `<img alt>`. The surrounding chrome matches: rounded cards and
+  drop shadows give way to boxes stacked flush on a shared hairline. The same
+  set is shared with the landing page (`docs/app.js`).
+- **Response format moved out of Settings** onto the home view, as a segmented
+  bullets/sentences/paragraphs control directly under "Summarize this page", so
+  the choice sits where it is used.
 - **Internal code layout:** `lib/` (30 flat modules) and its `tests/` were
   reorganized into domain subfolders, `engines/`, `summarize/`, `language/`,
   `extract/`, `retrieval/`, `storage/`, and `util/`, with `constants.js` kept at
@@ -107,6 +132,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **A landing page** at <https://darshi1337.github.io/apogee/>, served from
+  `docs/` and published by a GitHub Pages workflow on every push to main that
+  touches it. Static, no build step, and it shares the extension's icon set.
 - **Bilibili video support.** Bilibili videos are now summarized the same way
   YouTube videos are: the extractor pulls the video's timestamped subtitle
   track (fetched through the service worker, using your existing Bilibili

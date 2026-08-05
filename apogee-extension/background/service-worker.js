@@ -219,6 +219,51 @@ function scheduleStreamCleanup(streamId) {
   });
 }
 
+// Chrome kills this worker after ~30s without an extension event or API call,
+// and a job buffered *here* (Ollama always; Transformers.js on Firefox) can
+// easily stay silent longer than that: the map phase of a multi-chunk
+// summarize emits nothing to the popup port for a whole prefill+decode per
+// chunk, and a cold Ollama model can take that long just to return its first
+// token. When the worker goes, the fetch is aborted and activeStreams is
+// wiped, which the popup reports as "Connection to the model was lost before
+// the response finished." Calling an extension API on a timer resets that idle
+// countdown for as long as a job is actually running. (chrome.alarms, used for
+// the cleanup timers below, can't stand in here: its one-minute floor is
+// coarser than the 30s timeout, and a worker woken by an alarm can't resume a
+// fetch that died with the previous instance.)
+const KEEPALIVE_MS = 20000;
+let keepAliveTimer = null;
+
+function hasWorkInFlight() {
+  for (const stream of activeStreams.values()) {
+    if (!stream.done) return true;
+  }
+  // Suggested-questions generation is another model call that runs here and
+  // reports nothing while it waits (see runSuggestQuestionsJob), and it starts
+  // just as its summarize job goes done, i.e. exactly when the stream check
+  // above stops holding the worker up.
+  return pendingSuggestKeys.size > 0;
+}
+
+// Self-stopping: the interval checks the streams itself rather than being
+// released at each terminal point, so a job that ends by done, error, cancel
+// or an unhandled throw all stop it the same way.
+function startKeepAlive() {
+  if (keepAliveTimer !== null) return;
+  keepAliveTimer = setInterval(() => {
+    if (!hasWorkInFlight()) {
+      clearInterval(keepAliveTimer);
+      keepAliveTimer = null;
+      return;
+    }
+    try {
+      // Callback form, supported on both Chrome and Firefox; the result is
+      // irrelevant, the call itself is what resets the idle timer.
+      chrome.runtime.getPlatformInfo(() => void chrome.runtime.lastError);
+    } catch {}
+  }, KEEPALIVE_MS);
+}
+
 function broadcastToStream(stream, msg) {
   for (const port of stream.subscribers) {
     try {
@@ -339,6 +384,9 @@ function createBufferedStream(streamId, { finalize, model, title, url }) {
     controller: new AbortController(),
   };
   activeStreams.set(streamId, stream);
+  // Every job that buffers here runs in this worker, so it needs the worker
+  // kept alive for its whole (possibly silent) duration, see startKeepAlive.
+  startKeepAlive();
 
   const finish = (msg) => {
     // The "cancel-stream" handler already broadcast "cancelled" and aborted
@@ -409,21 +457,55 @@ async function startOllamaStream(
   // read once here rather than threaded through the job payload.
   const { customInstructions } = await getSettings();
 
+  // Stage labels for the map/reduce passes, same treatment the Transformers.js
+  // jobs get above: on a multi-chunk page nothing reaches the popup until the
+  // final reduce pass starts streaming, so without this the whole map phase
+  // reads as a frozen spinner.
+  let longNote = "";
+  const reportProgress = (text) => {
+    chrome.runtime
+      .sendMessage({
+        type: "model-progress",
+        progress: { progress: 0, text },
+        modelId: model,
+      })
+      .catch(() => {});
+  };
+
   try {
     let generator;
     if (action === "summarize") {
-      generator = summarizeText({
-        text: content,
-        title,
-        url,
-        mode,
-        type,
-        model,
-        language: await resolveEffectiveLanguage(content, language),
-        customInstructions,
-        host: validHost,
-        signal: stream.controller.signal,
-      });
+      generator = summarizeText(
+        {
+          text: content,
+          title,
+          url,
+          mode,
+          type,
+          model,
+          language: await resolveEffectiveLanguage(content, language),
+          customInstructions,
+          host: validHost,
+          signal: stream.controller.signal,
+        },
+        {
+          onProgress: (p) => {
+            if (p.stage === "truncated") {
+              longNote = "Long page - summarizing the key parts. ";
+              reportProgress(longNote.trim());
+              return;
+            }
+            if (p.stage === "reduce")
+              reportProgress(`${longNote}Merging summary...`);
+            else if (p.stage === "translate")
+              reportProgress(`${longNote}Translating...`);
+            else
+              reportProgress(
+                `${longNote}Summarizing part ${p.index + 1} of ${p.total}...`,
+              );
+          },
+        },
+      );
     } else if (action === "ask") {
       const relevantContent = await getRelevantAskContent(content, question);
       // Neutral prompt; the language wrapper enforces the answer's language.
@@ -545,7 +627,7 @@ async function startTransformersStream(
             },
             onProgress: (p) => {
               if (p.stage === "truncated") {
-                longNote = "Long page — summarizing the key parts. ";
+                longNote = "Long page - summarizing the key parts. ";
                 onProgress({ progress: 0, text: longNote.trim() });
                 return;
               }
@@ -674,7 +756,7 @@ async function runBackgroundSummarize(
       if (notifyOnFinish) {
         notifyNothingToSummarize(
           tab,
-          "Nothing to summarize here yet — open a page, email, or video first.",
+          "Nothing to summarize here yet - open a page, email, or video first.",
         );
       }
       return;
@@ -702,7 +784,7 @@ async function runBackgroundSummarize(
       if (notifyOnFinish) {
         notifyNothingToSummarize(
           tab,
-          "Couldn't pull any text out of this PDF — it might be a scanned image.",
+          "Couldn't pull any text out of this PDF - it might be a scanned image.",
         );
       }
       return;
@@ -1069,6 +1151,9 @@ async function runSuggestQuestionsJob(payload) {
   } = payload || {};
   if (!promptsCacheKey || pendingSuggestKeys.has(promptsCacheKey)) return;
   pendingSuggestKeys.add(promptsCacheKey);
+  // The summarize job that triggered this has already gone done, so its own
+  // keepalive has stopped; hold the worker up for this call too.
+  startKeepAlive();
 
   // The delete lives in a finally: if anything past generation throws (e.g.
   // the storage write hitting quota), a key left behind in the Set would
