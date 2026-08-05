@@ -7,7 +7,7 @@ A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Run
 [![Get it on the Chrome Web Store](https://img.shields.io/badge/Chrome_%2F_Edge-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog)
 [![Get it on Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
 
-<a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="#how-it-works">How It Works</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
+<a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="#how-it-works">How It Works</a> | <a href="#screenshots">Screenshots</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
 
 <sub>An offline-first, privacy-respecting browser extension built with ❤︎ by <a href="https://github.com/darshi1337">darshi1337</a> and <a href="https://github.com/darshi1337/apogee/graphs/contributors">contributors</a></sub>
 
@@ -82,6 +82,153 @@ in a formal tone", applied on top of Apogee's built-in prompt for every summary
 and answer. They sit under the grounding rules (a page can't use them to make
 the model invent things), and are capped at 2000 characters. Leave the box
 blank to use the defaults unchanged.
+
+## Screenshots
+
+<table>
+<thead>
+<tr>
+<th width="120">Page</th>
+<th>Description</th>
+<th width="290">Screenshot</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td valign="top"><strong>Home</strong></td>
+<td valign="top">
+<ul>
+<li><strong>Header</strong>: the Apogee wordmark, a status pill showing whether the
+selected provider is reachable (green for connected, so an unreachable Ollama or
+a browser without WebGPU is visible before you click anything), a sliders icon
+that opens Settings, and a close button.</li>
+<li><strong>Summarize this page</strong>: the main action. It shows the current
+keyboard shortcut inline (<code>Alt+Shift+U</code> by default), read live from
+the browser, so remapping or unbinding it at
+<code>chrome://extensions/shortcuts</code> is reflected here.</li>
+<li><strong>bullets / sentences / paragraphs</strong>: the response format, placed
+here rather than in Settings so you can change it in place before summarizing.</li>
+<li><strong>Ask Apogee a question</strong>: jumps straight to the question box,
+skipping the summary, for when you already know what you want to ask.</li>
+<li><strong>Past Summaries</strong>: the eight most recent cached summaries, newest
+first. Each card shows the page title and the first line of the summary; click a
+card to expand it in place, or use the copy button on the right to copy it
+without expanding. The section is hidden entirely when nothing is cached, and
+stays empty if you've turned history off under Settings, Privacy.</li>
+</ul>
+</td>
+<td valign="top">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/home-dark.png">
+  <img alt="Apogee home view: summarize button, response format selector, ask button, and past summaries" src=".github/assets/home-light.png" width="270">
+</picture>
+</td>
+</tr>
+
+<tr>
+<td valign="top"><strong>Summary and Ask</strong></td>
+<td valign="top">
+<ul>
+<li><strong>Summary card</strong>: the generated summary, rendered as Markdown in
+whichever format you picked. It streams in token by token rather than appearing
+all at once. Individual bullets are clickable: Apogee finds the passage of the
+live page the bullet is most likely grounded in and scrolls to and highlights it,
+so you can check a claim against the source (Chromium browsers only for now).</li>
+<li><strong>Two copy buttons</strong> in the card header: the document icon copies
+the summary as Markdown, the second copies it as plain text.</li>
+<li><strong>Time saved badge</strong>: the source's reading time minus the time to
+read the summary. For a video it measures against the real runtime instead of the
+transcript's word count, since people speak slower than they read.</li>
+<li><strong>Resummarize</strong>: regenerates from the cached page text, useful
+after changing format, model, or language. A hint appears above it when one of
+those settings has changed since this summary was produced.</li>
+<li><strong>Suggested Prompts</strong>: two follow-up questions generated from the
+summary, in the background, so they're usually ready by the time you've read it.
+The close button collapses the section into a small tag in the chat header.</li>
+<li><strong>Ask Apogee</strong>: the question box. Answers are grounded in the
+passages of the page most relevant to your question, not just the first few
+thousand characters, so questions about material buried deep in a long article,
+PDF, or transcript still work. The answer renders below the box with its own copy
+button.</li>
+<li>On a YouTube or Bilibili page this same view shows a written gist plus a
+"Key moments" timeline instead, where each timestamp is a link that seeks the
+video.</li>
+</ul>
+</td>
+<td valign="top">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/summary-dark.png">
+  <img alt="Apogee summary view: rendered summary, time saved badge, suggested prompts, and the ask box" src=".github/assets/summary-light.png" width="270">
+</picture>
+</td>
+</tr>
+
+<tr>
+<td valign="top"><strong>Settings</strong></td>
+<td valign="top">
+<ul>
+<li><strong>Status</strong>: the same reachability indicator as the header pill,
+with room for the full message.</li>
+<li><strong>AI Provider</strong>: In-Browser AI (GPU) via WebGPU, In-Browser AI
+(CPU) via Transformers.js, or Local Ollama. Picking Local Ollama swaps the model
+card below for an Ollama host field plus a model list populated live from
+whatever you've actually pulled, so those two cards are not visible in this
+shot.</li>
+<li><strong>In-Browser Model</strong>: the model list for the selected in-browser
+provider, with download sizes, since first use fetches the weights once and then
+caches them offline.</li>
+<li><strong>Summary Language</strong>: the output language for summaries, answers,
+and suggested prompts. Defaults to English; "Same as article" keeps the page's
+own language.</li>
+<li><strong>Translation Engine</strong>: whether the summarization model translates
+as it writes (the default, no extra download) or a dedicated Opus-MT model does
+it (stronger on lower-resource languages, downloads a small model per pair).</li>
+<li><strong>Appearance Theme</strong>: dark, light, or follow the system
+preference. This is what the two variants of every screenshot on this page
+show.</li>
+<li><strong>Custom Instructions</strong>: standing guidance applied on top of the
+built-in prompt for every summary and answer, capped at 2000 characters with a
+live counter. It sits under the grounding rules, so a page cannot use it to make
+the model invent things.</li>
+<li><strong>SponsorBlock</strong>: whether to look up sponsor segments for YouTube
+videos so they can be stripped from the transcript. Switching it off keeps the
+session fully local and falls back to an on-device phrase heuristic.</li>
+<li><strong>Privacy</strong>: whether summaries and history are written to disk at
+all, plus a button that wipes all cached content on demand while keeping
+preferences.</li>
+<li><strong>Get in touch</strong>: opens the last page.</li>
+</ul>
+</td>
+<td valign="top">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/settings-dark.png">
+  <img alt="Apogee settings view: provider, model, language, translation engine, theme, custom instructions, SponsorBlock, and privacy controls" src=".github/assets/settings-light.png" width="270">
+</picture>
+</td>
+</tr>
+
+<tr>
+<td valign="top"><strong>Get in touch</strong></td>
+<td valign="top">
+<ul>
+<li><strong>Contribute</strong>, <strong>Report a bug</strong>, and
+<strong>Request a feature</strong> open the corresponding GitHub pages in a new
+tab.</li>
+<li><strong>About Apogee</strong> and the installed version, handy to quote when
+filing a bug.</li>
+</ul>
+</td>
+<td valign="top">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/contact-dark.png">
+  <img alt="Apogee contact view: contribute, report a bug, request a feature, and an about section" src=".github/assets/contact-light.png" width="270">
+</picture>
+</td>
+</tr>
+
+</tbody>
+</table>
 
 ## Quick Start
 
