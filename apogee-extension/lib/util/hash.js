@@ -1,8 +1,29 @@
-// cyrb53, a fast non-cryptographic 53-bit string hash. Shared by pageCache.js
-// (hashUrl: keeps raw URLs, which can carry session tokens, out of storage
-// keys) and rag.js (hashContent: keys the per-page embedding index by the
-// content text itself). Non-cryptographic, but wide enough to avoid
-// collisions in the small bounded caches that use it.
+// Two hashes with deliberately different jobs.
+//
+// sha256Hex is the one used for anything that reaches disk: storage keys
+// derived from a URL (see pageCache.js's hashUrl). cyrb53's 53 bits are
+// trivially brute-forced against a candidate URL list, so a local attacker
+// could confirm which pages had been summarized just by reading the extension's
+// storage. A truncated SHA-256 makes that infeasible while keeping keys short.
+//
+// cyrb53 stays for the in-memory-only case: rag.js keys its per-page embedding
+// index by the content text itself, which never leaves the process, and that
+// path wants a synchronous hash over a large string on every retrieval.
+
+// First 128 bits of SHA-256, hex-encoded. 32 chars keeps storage keys readable
+// while leaving preimage search far out of reach.
+export async function sha256Hex(str) {
+  const bytes = new TextEncoder().encode(String(str ?? ""));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .slice(0, 16)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// cyrb53, a fast non-cryptographic 53-bit string hash. Wide enough to avoid
+// collisions in the small bounded caches that use it, but not a privacy
+// boundary; see sha256Hex above for anything persisted.
 export function cyrb53(str) {
   // Coerce instead of throwing on a nullish input: hashUrl(tab.url) can see
   // `undefined` when a popup opens without an activeTab grant (e.g. via

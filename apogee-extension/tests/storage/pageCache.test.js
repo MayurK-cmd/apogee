@@ -41,40 +41,49 @@ function installFakeStorage(initial = {}) {
   return data;
 }
 
-test("hashUrl is deterministic and distinguishes different URLs", () => {
+test("hashUrl is deterministic and distinguishes different URLs", async () => {
   assert.strictEqual(
-    hashUrl("https://example.com/a"),
-    hashUrl("https://example.com/a"),
+    await hashUrl("https://example.com/a"),
+    await hashUrl("https://example.com/a"),
   );
   assert.notStrictEqual(
-    hashUrl("https://example.com/a"),
-    hashUrl("https://example.com/b"),
+    await hashUrl("https://example.com/a"),
+    await hashUrl("https://example.com/b"),
   );
 });
 
-test("cache key helpers embed the hashed url and are namespaced by kind", () => {
+test("hashUrl keeps no readable trace of the url it came from", async () => {
+  // The whole point of hashing the key: a URL's query string can carry session
+  // tokens, so nothing recognizable from it may survive into storage.
+  const hash = await hashUrl("https://example.com/reset?token=hunter2");
+  assert.match(hash, /^[0-9a-f]{32}$/);
+  assert.ok(!hash.includes("hunter2"));
+  assert.ok(!hash.includes("example"));
+});
+
+test("cache key helpers embed the hashed url and are namespaced by kind", async () => {
   const url = "https://example.com/article";
-  const hash = hashUrl(url);
+  const hash = await hashUrl(url);
   // Language segment defaults to "auto" when the caller omits it (older
   // 3-arg call sites), and is embedded when supplied so a different output
   // language is a distinct cache entry.
   assert.strictEqual(
-    getSummaryCacheKey(url, "bullets", "model-x"),
+    await getSummaryCacheKey(url, "bullets", "model-x"),
     `summary:bullets:auto:model-x:${hash}`,
   );
   assert.strictEqual(
-    getSummaryCacheKey(url, "bullets", "model-x", "es"),
+    await getSummaryCacheKey(url, "bullets", "model-x", "es"),
     `summary:bullets:es:model-x:${hash}`,
   );
   assert.strictEqual(
-    getPromptsCacheKey(url, "bullets", "model-x"),
+    await getPromptsCacheKey(url, "bullets", "model-x"),
     `suggested-prompts:bullets:auto:model-x:${hash}`,
   );
   assert.strictEqual(
-    getPromptsCacheKey(url, "bullets", "model-x", "es"),
+    await getPromptsCacheKey(url, "bullets", "model-x", "es"),
     `suggested-prompts:bullets:es:model-x:${hash}`,
   );
-  assert.strictEqual(getContentCacheKey(url), `content:${hash}`);
+  assert.strictEqual(await getContentCacheKey(url), `content:${hash}`);
 });
 
 test("isSensitiveUrl matches known webmail/messaging hosts and their subdomains", () => {

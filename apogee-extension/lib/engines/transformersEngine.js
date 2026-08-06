@@ -8,6 +8,7 @@
 // so it isn't affected by the blob:-URL-worker CSP restriction that blocks
 // wllama in every extension execution context on both browsers.
 
+import { debugLog } from "../util/log.js";
 import {
   TRANSFORMERS_MODELS,
   EXPERIMENTAL_WASM_THREADS,
@@ -43,7 +44,7 @@ function resolveWasmThreads(label) {
   const cores = globalThis.navigator?.hardwareConcurrency || 1;
   const threads =
     EXPERIMENTAL_WASM_THREADS && isolated && hasSAB ? Math.min(cores, 4) : 1;
-  console.log(
+  debugLog(
     `[mt] ${label}: crossOriginIsolated=${isolated} ` +
       `SharedArrayBuffer=${hasSAB} cores=${cores} ` +
       `flag=${EXPERIMENTAL_WASM_THREADS} -> numThreads=${threads}`,
@@ -78,9 +79,9 @@ async function ensureEngine(modelId, onProgress) {
 
   loadingModelId = modelId;
 
-  console.log(`[transformers] ensureEngine: loading ${modelId}`);
+  debugLog(`[transformers] ensureEngine: loading ${modelId}`);
   const { pipeline, env } = await getTransformers();
-  console.log("[transformers] library loaded, preparing WASM backend");
+  debugLog("[transformers] library loaded, preparing WASM backend");
   // Single-threaded unless the EXPERIMENTAL multi-thread flag is on AND this
   // context turns out to be cross-origin-isolated (see resolveWasmThreads).
   env.backends.onnx.wasm.numThreads = resolveWasmThreads("text-gen");
@@ -90,7 +91,7 @@ async function ensureEngine(modelId, onProgress) {
   // hangs; wasmPaths is kept only to suppress transformers.js's jsDelivr default).
   env.backends.onnx.wasm.wasmPaths = { wasm: ortWasmUrl() };
   env.backends.onnx.wasm.wasmBinary = await ortWasmBinary();
-  console.log("[transformers] WASM binary ready, building pipeline");
+  debugLog("[transformers] WASM binary ready, building pipeline");
 
   engine = await pipeline("text-generation", modelInfo.id, {
     dtype: modelInfo.dtype,
@@ -103,7 +104,7 @@ async function ensureEngine(modelId, onProgress) {
       });
     },
   });
-  console.log(`[transformers] pipeline ready for ${modelId}`);
+  debugLog(`[transformers] pipeline ready for ${modelId}`);
 
   currentModelId = modelId;
   loadingModelId = null;
@@ -271,7 +272,7 @@ export async function* transformersChatStream(eng, prompt, { system } = {}) {
     skip_special_tokens: true,
     callback_function: (text) => {
       if (firstToken) {
-        console.log("[transformers] first token emitted");
+        debugLog("[transformers] first token emitted");
         firstToken = false;
       }
       if (text) queue.push(text);
@@ -279,9 +280,7 @@ export async function* transformersChatStream(eng, prompt, { system } = {}) {
     },
   });
 
-  console.log(
-    `[transformers] generation start (prompt ${prompt.length} chars)`,
-  );
+  debugLog(`[transformers] generation start (prompt ${prompt.length} chars)`);
   const messages = system
     ? [
         { role: "system", content: system },
@@ -294,7 +293,7 @@ export async function* transformersChatStream(eng, prompt, { system } = {}) {
     streamer,
   })
     .then(() => {
-      console.log("[transformers] generation resolved");
+      debugLog("[transformers] generation resolved");
     })
     .catch((err) => {
       console.error("[transformers] generation error:", err);

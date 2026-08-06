@@ -105,8 +105,20 @@ lending purposes.
 Apogee requests only the permissions needed for on-device summarization and
 question-answering of the page you are viewing (reading the active tab on your
 action, running a local AI model, storing your settings, and showing results).
-It requests no access to websites beyond the loopback address used for your
-own local Ollama server.
+
+It holds standing access to exactly three kinds of host, and nothing else:
+
+- `http://127.0.0.1` and `http://localhost`, the loopback address used for your
+  own local Ollama server (section 2 above).
+- `*.bilibili.com` and `*.hdslb.com`, needed to read the subtitle track of a
+  Bilibili video you are watching (section 5 above). This is the one request
+  Apogee sends with a site's cookies, because Bilibili only exposes subtitle
+  URLs to a logged-in session.
+
+Every other page is read only at the moment you invoke Apogee on it, through
+the `activeTab` permission, which grants access to the single tab you are
+looking at and only for that action. Apogee never requests access to all
+websites.
 
 ## Open source
 

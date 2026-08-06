@@ -197,13 +197,16 @@ session fully local and falls back to an on-device phrase heuristic.</li>
 <li><strong>Privacy</strong>: whether summaries and history are written to disk at
 all, plus a button that wipes all cached content on demand while keeping
 preferences.</li>
+<li><strong>Diagnostics</strong>: whether the AI engine records what it is doing
+while it loads and generates. Off by default; turn it on before reproducing a
+bug and the log panel above the summary collects the run.</li>
 <li><strong>Get in touch</strong>: opens the last page.</li>
 </ul>
 </td>
 <td valign="top">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/settings-dark.png">
-  <img alt="Apogee settings view: provider, model, language, translation engine, theme, custom instructions, SponsorBlock, and privacy controls" src=".github/assets/settings-light.png" width="270">
+  <img alt="Apogee settings view: provider, model, language, translation engine, theme, custom instructions, SponsorBlock, privacy, and diagnostics controls" src=".github/assets/settings-light.png" width="270">
 </picture>
 </td>
 </tr>
@@ -215,14 +218,15 @@ preferences.</li>
 <li><strong>Contribute</strong>, <strong>Report a bug</strong>, and
 <strong>Request a feature</strong> open the corresponding GitHub pages in a new
 tab.</li>
-<li><strong>About Apogee</strong> and the installed version, handy to quote when
-filing a bug.</li>
+<li>The footer carries the installed version, handy to quote when filing a bug,
+and credits <strong>contributors</strong>, linking to the repository's
+contributor graph.</li>
 </ul>
 </td>
 <td valign="top">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/contact-dark.png">
-  <img alt="Apogee contact view: contribute, report a bug, request a feature, and an about section" src=".github/assets/contact-light.png" width="270">
+  <img alt="Apogee contact view: contribute, report a bug, request a feature, and a footer with the version and a contributors credit" src=".github/assets/contact-light.png" width="270">
 </picture>
 </td>
 </tr>
@@ -542,7 +546,7 @@ Privacy is the core pillar of Apogee. The key guarantee is simple: **your page c
 - **Local Ollama connection**: to reach Ollama, Apogee strips the `Origin` header from its `localhost` / `127.0.0.1` requests via a bundled [declarativeNetRequest](apogee-extension/rules/ollama-cors.json) rule (scoped to those loopback hosts only), so Ollama accepts them without any `OLLAMA_ORIGINS` configuration. This is a local, on-device request path, not a data-transmission path to any third party. Ollama itself only binds to `127.0.0.1` by default, so it's never reachable from your network regardless.
 - **No Telemetry, Tracking, or Analytics**: Apogee includes no Google Analytics, Mixpanel, crash-reporting SDKs, or telemetry of any kind. No usage data is collected.
 - **What's stored on your device (and how to control it)**:
-  - To make reopening the popup instant, Apogee caches **summaries, suggested prompts, extracted page text (for articles), and your recent questions/answers** in local extension storage (`chrome.storage.local`), never transmitted, capped in size, and keyed by a hash of the URL (so URLs with tokens aren't stored in plaintext keys).
+  - To make reopening the popup instant, Apogee caches **summaries, suggested prompts, extracted page text (for articles), and your recent questions/answers** in local extension storage (`chrome.storage.local`), never transmitted, capped in size, and keyed by a truncated SHA-256 of the URL (so URLs with session tokens in their query strings aren't stored in plaintext keys, and the key can't be walked back to the URL it came from).
   - **Sensitive sites are never cached**, pages on known webmail/messaging hosts (Gmail, Outlook, Proton Mail, Yahoo Mail, Google Messages, WhatsApp Web, Telegram Web, Slack, Discord, Microsoft Teams) are always treated as ephemeral, regardless of your setting. This is a fixed allow-list, not content detection: private pages on hosts _not_ listed (e.g. a bank, a health portal, a smaller webmail provider) are cached like any other page unless you switch to "Don't save" below.
   - Under **Settings, Privacy**, you can switch to **"Don't save (this session only)"** so nothing page-derived is written to disk, and **"Clear cached summaries & page data"** wipes all cached content on demand (your preferences are kept).
 - **Browser Permission Sandboxing**:
@@ -551,7 +555,8 @@ Privacy is the core pillar of Apogee. The key guarantee is simple: **your page c
   - **`unlimitedStorage`**: Lifts the default quota on `chrome.storage.local` so the cached summaries/page text above aren't evicted under normal storage pressure, it does not grant access to anything beyond that cache.
   - **`offscreen`** (Chrome/Edge only): Runs the in-browser WebLLM engine in a hidden document, since a service worker can't access WebGPU directly, and also runs the Transformers.js engine there when it's selected, since a service worker can't reliably load it either. Not used, and not requested, in the Firefox build, where Transformers.js runs directly in the background page instead.
   - **`alarms`**: Schedules the housekeeping timers that close the idle in-browser model and clean up finished request buffers, these need to survive the extension's background worker being suspended between uses. No user data is involved.
-  - **`clipboardWrite`**: Lets the popup's copy buttons (summary, answer, past summaries) write to your clipboard directly when you click them, instead of routing through an interactive browser permission prompt. Write-only, the extension can never read your clipboard's existing contents.
+  - **`declarativeNetRequestWithHostAccess`**: Backs the single bundled rule that strips the `Origin` header from loopback Ollama requests (see "Local Ollama connection" above). The rule is scoped to `127.0.0.1`/`localhost` only, and this permission grants header rewriting exclusively on hosts the extension already has access to.
+  - **Host permissions**: Apogee holds standing access to exactly two kinds of host, `http://127.0.0.1` / `http://localhost` for your own Ollama, and `*.bilibili.com` / `*.hdslb.com` for the subtitle fetch described above. Every other site is read only at the moment you invoke Apogee on it, through `activeTab`. There is no `<all_urls>` access.
   - **`contextMenus`**: Adds the "Summarize this page" right-click entry. Doesn't grant any visibility into your browsing beyond the page you right-clicked on, which `activeTab` already covers.
   - **`notifications`**: Shows a local OS notification when a right-click/keyboard-shortcut-triggered summary finishes or fails, so you know it's ready without needing to keep the popup open. Purely local UI, no data leaves your device to show it.
 - **Model weights** are stored in standard browser cache structures locally and never transmitted.
@@ -576,4 +581,4 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 [MIT](LICENSE)
 
-UI icons are drawn for this project and inlined as SVG (`apogee-extension/popup/icons.js`, `docs/app.js`); the GitHub mark is the official brand glyph from [Simple Icons](https://simpleicons.org) (CC0). Bundled fonts: [Metropolis](https://github.com/chrismsimpson/Metropolis) (Unlicense) and Mozilla Text (SIL OFL 1.1, © Mozilla Foundation), see [`apogee-extension/assets/fonts/LICENSE.md`](apogee-extension/assets/fonts/LICENSE.md).
+UI icons, the GitHub mark included, are drawn for this project on one duotone construction and inlined as SVG (`apogee-extension/popup/icons.js`, `docs/app.js`). The popup and the site render in Mozilla Headline and Mozilla Text (SIL OFL 1.1, © Mozilla Foundation); [Metropolis](https://github.com/chrismsimpson/Metropolis) (Unlicense) is still in `assets/fonts` from an earlier design but is no longer referenced, so it isn't emitted into the built extension. See [`apogee-extension/assets/fonts/LICENSE.md`](apogee-extension/assets/fonts/LICENSE.md).

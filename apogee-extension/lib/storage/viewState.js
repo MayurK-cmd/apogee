@@ -42,7 +42,11 @@ export async function saveViewState(tabId, partial) {
   let scrubContent = false;
   if (partial.url) {
     scrubContent = !(await shouldPersist(partial.url));
-    partial = { ...partial, url: undefined, urlHash: hashUrl(partial.url) };
+    partial = {
+      ...partial,
+      url: undefined,
+      urlHash: await hashUrl(partial.url),
+    };
   }
   const release = await acquireViewStateLock();
   try {

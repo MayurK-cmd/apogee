@@ -101,7 +101,7 @@ function bulletsStyle(min, max) {
   ].join("\n");
 }
 
-export const SUMMARY_STYLES = {
+const SUMMARY_STYLES = {
   bullets: bulletsStyle(5, 8),
 
   sentences: [

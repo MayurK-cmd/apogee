@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The documented permissions now match the manifest.** The privacy policy
+  claimed no host access beyond loopback while the extension also holds
+  `*.bilibili.com` / `*.hdslb.com` for subtitle fetches; the README and the
+  store listing justified a `clipboardWrite` permission that is not requested
+  (the copy buttons use the async Clipboard API, which needs none) and omitted
+  `declarativeNetRequestWithHostAccess`, which is. All four documents now
+  describe the same permission set.
+- **Get in touch** is down to the three actions plus a footer: the About
+  Apogee blurb is gone (the same copy already lives in the README and the
+  store listing), and the version line it sat above stays.
 - **PDF summarization/Q&A now works on Chrome/Edge.** The PDF's bytes were
   passed between extension contexts as a raw `ArrayBuffer`, which Chromium's
   JSON-based message serialization silently turns into an empty object, so
@@ -168,9 +178,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   again, summary bullets can be focused and activated (Enter/Space) for
   highlight-in-page, and all decorative motion is disabled under
   `prefers-reduced-motion`.
+- **Screen reader support across the popup.** The connection status pills and
+  the model-download banner are live regions, the progress bar reports its
+  value through `role="progressbar"` (the percentage text is hidden from
+  assistive tech so it can't re-announce on every tick), and a clipped live
+  region speaks the events that have no visible text of their own: summary
+  ready, answer ready, copied. Summary failures announce as alerts. The logs
+  panel, the prompts toggle and each past-summary card now expose
+  `aria-expanded`, and switching views moves focus to the view being opened
+  instead of leaving it stranded on the hidden one.
+- The **Get in touch** footer credits contributors, linking to the
+  repository's contributor graph.
 - Bundled font licenses are now documented and shipped
-  (`apogee-extension/assets/fonts/LICENSE.md`: Metropolis, Unlicense;
-  Mozilla Text, SIL OFL 1.1).
+  (`apogee-extension/assets/fonts/LICENSE.md`).
+
+### Security
+
+- **Cache keys are derived with SHA-256 instead of a 53-bit non-cryptographic
+  hash.** Summary, prompt and page-content keys, plus the per-tab view-state
+  pointer, are keyed by a truncated SHA-256 of the page URL. The previous
+  cyrb53 digest was short enough to brute-force against a candidate URL list,
+  so anyone with local access to extension storage could confirm which pages
+  had been summarized; that no longer holds. Keys written by earlier versions
+  simply miss and age out of the FIFO, which costs one re-summarize per
+  cached page. cyrb53 remains where it is not a privacy boundary (the
+  in-memory embedding index).
+- Engine progress logging is now opt-in rather than always writing
+  model-loading diagnostics to the console. Errors are still logged
+  unconditionally. It is switchable in two places that stay in sync:
+  **Settings, then Diagnostics**, which can be armed before starting a job
+  (what a bug report needs), and the existing **Show logs** panel, which only
+  exists while the model-progress banner is on screen.
 
 ## [0.1.9] - 2026-07-25
 

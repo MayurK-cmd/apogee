@@ -28,6 +28,10 @@ import {
   transformersChatStream,
   getTransformersStatus,
 } from "../lib/engines/transformersEngine.js";
+import { initDebugLogging } from "../lib/util/log.js";
+
+// Engine progress logging is opt-in (popup "Show logs"); see lib/util/log.js.
+initDebugLogging();
 
 // Forward all console logs to the service worker for remote debugging
 const originalConsole = {

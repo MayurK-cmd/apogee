@@ -53,6 +53,11 @@ export const ICONS = {
     '<path d="M20.5 11A8.5 8.5 0 0 0 6.2 5.8L3 8.8"/><path d="M3.5 13a8.5 8.5 0 0 0 14.3 5.2l3.2-3"/><path d="M3 4v5h5M21 20v-5h-5"/>',
   activity:
     '<rect class="f" x="2.5" y="4.5" width="19" height="15" rx="3"/><rect x="2.5" y="4.5" width="19" height="15" rx="3"/><path d="M6 12.5h2.6l2-4.6 2.4 8.2 1.9-3.6H18"/>',
+  // Magnifier, for Diagnostics. Deliberately not another screen-shaped glyph:
+  // `activity` (a screen with a trace) already titles the Status card, and two
+  // rounded rectangles a few rows apart read as the same icon at 21px.
+  inspect:
+    '<circle class="f" cx="10.5" cy="10.5" r="6.6"/><circle cx="10.5" cy="10.5" r="6.6"/><path d="M15.4 15.4 20.6 20.6"/>',
   plug: '<path class="f" d="M6.8 9.2h10.4v3.3a5.2 5.2 0 0 1-10.4 0z"/><path d="M6.8 9.2h10.4v3.3a5.2 5.2 0 0 1-10.4 0z"/><path d="M9.6 9.2V4.4M14.4 9.2V4.4M12 17.7V21"/>',
   pencil: duo(
     "M4.6 19.4l.9-3.9L16.3 4.7a1.9 1.9 0 0 1 2.7 0l.3.3a1.9 1.9 0 0 1 0 2.7L8.5 18.5l-3.9.9z",

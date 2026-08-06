@@ -57,9 +57,19 @@ follow a `type: summary` shape (`fix:`, `feat:`, `perf:`, `chore:`, `docs:`,
 Apogee's core guarantee is that page content and generated
 summaries/answers never leave your device except to your own local Ollama
 instance over loopback. If a change would introduce a new outbound network
-call, call that out explicitly in the PR description, and update the
-[Privacy & Permissions](README.md#privacy--permissions) section of the
-README to match.
+call, call that out explicitly in the PR description.
+
+Permissions and network behaviour are described in four places, and they have
+to agree, a claim that lives in one and not the others is exactly what store
+reviewers catch:
+
+- `apogee-extension/manifest.json`, the source of truth
+- [Privacy & Permissions](README.md#privacy--permissions) in the README
+- [PRIVACY.md](PRIVACY.md), the published policy the store listing links to
+- `store-listing.md`, which carries a justification per permission
+
+Adding, removing, or repurposing a permission or a host means editing all
+four in the same PR.
 
 ## Reporting bugs / requesting features
 

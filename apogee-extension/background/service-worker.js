@@ -32,6 +32,7 @@ import {
   transformersChatStream,
 } from "../lib/engines/transformersEngine.js";
 import { getSettings } from "../lib/storage/settings.js";
+import { initDebugLogging } from "../lib/util/log.js";
 import {
   getSummaryCacheKey,
   getPromptsCacheKey,
@@ -51,6 +52,11 @@ import {
 } from "../lib/engines/providers.js";
 import { PROVIDERS, TRANSLATION_ENGINES } from "../lib/constants.js";
 import { saveViewState, removeViewState } from "../lib/storage/viewState.js";
+
+// Engine progress logging is opt-in (popup "Show logs"); see lib/util/log.js.
+// Matters most on Firefox, where the Transformers.js engine runs in this
+// context rather than in an offscreen document.
+initDebugLogging();
 
 const hasOffscreenAPI =
   typeof chrome !== "undefined" &&
@@ -792,13 +798,13 @@ async function runBackgroundSummarize(
   }
 
   const finalize = {
-    cacheKey: getSummaryCacheKey(
+    cacheKey: await getSummaryCacheKey(
       cacheUrl,
       settings.responseFormat,
       model,
       settings.summaryLanguage,
     ),
-    promptsCacheKey: getPromptsCacheKey(
+    promptsCacheKey: await getPromptsCacheKey(
       cacheUrl,
       settings.responseFormat,
       model,

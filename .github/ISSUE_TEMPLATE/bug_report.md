@@ -23,8 +23,10 @@ What you expected to happen instead.
 - OS:
 
 **Debug logs**
-If the bug happened during a summarize/ask, paste the output of
-Settings, then "Show logs" if relevant.
+If the bug happened during a summarize/ask, engine logs help a lot. Turn on
+Settings, then Diagnostics, then "Record engine logs", reproduce the problem,
+and paste what the log panel (above the summary, with the model progress bar)
+collected. Recording is off by default, so switch it on before reproducing.
 
 **Additional context**
 Anything else that might help (console errors, screenshots, the page/site

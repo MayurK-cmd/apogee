@@ -6,7 +6,7 @@
 // service worker, the offscreen document, and the popup.
 
 import { getSettings } from "./settings.js";
-import { cyrb53 } from "../util/hash.js";
+import { sha256Hex } from "../util/hash.js";
 import { createLock } from "../util/mutex.js";
 
 // Serializes this context's read-modify-write cycles on the FIFO index keys
@@ -28,12 +28,17 @@ const acquireIndexLock = createLock();
 // through this path either, their text comes from a separate pipeline.
 export const CACHEABLE_PAGE_TYPES = new Set(["article", "generic"]);
 
-// Hash the URL (cyrb53, see lib/hash.js) so raw URLs, which can carry session
-// tokens or reset links in their query strings, aren't left sitting in
-// plaintext in storage, neither in keys (here) nor in stored values (see
-// persistContent, which strips/hashes the URL before writing).
-export function hashUrl(url) {
-  return cyrb53(url);
+// Hash the URL (truncated SHA-256, see lib/util/hash.js) so raw URLs, which can
+// carry session tokens or reset links in their query strings, aren't left
+// sitting in plaintext in storage, neither in keys (here) nor in stored values
+// (see persistContent, which strips/hashes the URL before writing).
+//
+// Async because crypto.subtle is: every caller already sits in an async path
+// (storage reads/writes surround all of them). Keys derived before this moved
+// off cyrb53 simply miss and get re-derived, which costs one extra summarize
+// and then ages out of the FIFO like any other entry.
+export async function hashUrl(url) {
+  return sha256Hex(url);
 }
 
 // `lang` (the summaryLanguage setting) is part of the key: the same page in
@@ -41,18 +46,18 @@ export function hashUrl(url) {
 // different summary, so keying without it would serve a stale wrong-language
 // result after the user switches languages. Defaulted so any older caller
 // that still omits it stays on the pre-language key namespace.
-export function getSummaryCacheKey(url, fmt, model, lang = "auto") {
-  return `summary:${fmt}:${lang}:${model}:${hashUrl(url)}`;
+export async function getSummaryCacheKey(url, fmt, model, lang = "auto") {
+  return `summary:${fmt}:${lang}:${model}:${await hashUrl(url)}`;
 }
-export function getPromptsCacheKey(url, fmt, model, lang = "auto") {
-  return `suggested-prompts:${fmt}:${lang}:${model}:${hashUrl(url)}`;
+export async function getPromptsCacheKey(url, fmt, model, lang = "auto") {
+  return `suggested-prompts:${fmt}:${lang}:${model}:${await hashUrl(url)}`;
 }
 // Extracted page content is independent of format/model, so it's cached
 // separately and survives model switches and popup close/reopen, avoids
 // re-scraping (a full Readability parse on generic pages) just to ask a
 // follow-up question or regenerate a summary in a different format.
-export function getContentCacheKey(url) {
-  return `content:${hashUrl(url)}`;
+export async function getContentCacheKey(url) {
+  return `content:${await hashUrl(url)}`;
 }
 
 // Cap how many pages we keep cached so storage doesn't grow without bound.
@@ -95,7 +100,7 @@ export async function persistSummary(cacheKey, promptsCacheKey, text, title) {
 export async function persistContent(url, pageData) {
   const release = await acquireIndexLock();
   try {
-    const contentKey = getContentCacheKey(url);
+    const contentKey = await getContentCacheKey(url);
     const { contentCacheOrder = [] } =
       await chrome.storage.local.get("contentCacheOrder");
     const order = contentCacheOrder.filter((k) => k !== contentKey);
@@ -125,7 +130,7 @@ export async function persistContent(url, pageData) {
 }
 
 export async function getCachedContent(url) {
-  const contentKey = getContentCacheKey(url);
+  const contentKey = await getContentCacheKey(url);
   const stored = await chrome.storage.local.get(contentKey);
   if (!stored[contentKey]) return null;
   // Re-attach the URL persistContent stripped; the lookup key is derived

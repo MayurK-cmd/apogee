@@ -14,12 +14,16 @@ By Chris Simpson, released into the public domain under the
 > this software, either in source code form or as a compiled binary, for any
 > purpose, commercial or non-commercial, and by any means.
 
-## Mozilla Text (`MozillaText-Bold.ttf`)
+## Mozilla Text and Mozilla Headline (`MozillaText-Variable.woff2`, `MozillaText-Bold.ttf`, `MozillaHeadline-Variable.woff2`)
 
 Copyright © Mozilla Foundation. Licensed under the SIL Open Font License,
 Version 1.1 (reproduced below), as published by the Mozilla Foundation for
 its brand typefaces. "Mozilla" is a trademark of the Mozilla Foundation; this
 project is not affiliated with or endorsed by Mozilla.
+
+The two variable `.woff2` files are the ones the popup and the landing page
+actually load, and therefore the only fonts emitted into the built extension.
+The remaining files in this directory are kept from earlier designs.
 
 ### SIL Open Font License, Version 1.1
 

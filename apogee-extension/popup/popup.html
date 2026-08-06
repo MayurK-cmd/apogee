@@ -8,14 +8,19 @@
 
   <body>
     <div class="container">
-      <div id="homeView">
+      <div id="homeView" tabindex="-1" aria-label="Apogee home">
         <header class="header">
           <div class="brand">
             <img src="../assets/logo.png" class="logo" alt="Apogee Logo" />
             <span class="brand-name">apogee</span>
           </div>
 
-          <div class="status-pill" id="homeStatus">
+          <div
+            class="status-pill"
+            id="homeStatus"
+            role="status"
+            aria-live="polite"
+          >
             <span id="homeStatusText">Checking...</span>
             <span id="homeStatusDot" class="status-dot checking"></span>
           </div>
@@ -87,14 +92,19 @@
         </div>
       </div>
 
-      <div id="summaryView" class="hidden">
+      <div id="summaryView" class="hidden" tabindex="-1" aria-label="Summary">
         <header class="header">
           <div class="brand">
             <img src="../assets/logo.png" class="logo" alt="Apogee Logo" />
             <span class="brand-name">apogee</span>
           </div>
 
-          <div class="status-pill" id="summaryStatus">
+          <div
+            class="status-pill"
+            id="summaryStatus"
+            role="status"
+            aria-live="polite"
+          >
             <span id="summaryStatusText">Checking...</span>
             <span id="summaryStatusDot" class="status-dot checking"></span>
           </div>
@@ -111,7 +121,12 @@
         </header>
 
         <div class="view-body">
-          <div id="modelProgress" class="model-progress hidden">
+          <div
+            id="modelProgress"
+            class="model-progress hidden"
+            role="status"
+            aria-live="polite"
+          >
             <div class="model-progress-top">
               <span
                 class="ico model-progress-icon"
@@ -124,13 +139,26 @@
               <span
                 id="modelProgressPercent"
                 class="model-progress-percent"
+                aria-hidden="true"
               ></span>
             </div>
-            <div class="model-progress-bar">
+            <div
+              class="model-progress-bar"
+              role="progressbar"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-label="Model download progress"
+            >
               <div id="modelProgressFill" class="model-progress-fill"></div>
             </div>
             <div class="model-progress-footer">
-              <button type="button" id="toggleDebugLogsBtn" class="logs-toggle">
+              <button
+                type="button"
+                id="toggleDebugLogsBtn"
+                class="logs-toggle"
+                aria-expanded="false"
+                aria-controls="debugLogsCard"
+              >
                 <span class="ico" data-ico="lines" aria-hidden="true"></span>
                 <span class="logs-toggle-label">Show logs</span>
               </button>
@@ -247,7 +275,11 @@
                   <span class="ico" data-ico="copy" aria-hidden="true"></span>
                 </button>
 
-                <button class="suggested-tag" id="togglePromptsBtn">
+                <button
+                  class="suggested-tag"
+                  id="togglePromptsBtn"
+                  aria-expanded="false"
+                >
                   Question
 
                   <span
@@ -280,7 +312,7 @@
         </div>
       </div>
 
-      <div id="settingsView" class="hidden">
+      <div id="settingsView" class="hidden" tabindex="-1" aria-label="Settings">
         <header class="header">
           <div class="header-left">
             <button
@@ -502,6 +534,30 @@
             <div id="clearDataStatus" class="clear-data-status"></div>
           </div>
 
+          <div class="settings-card">
+            <div class="card-title">
+              <span class="ico" data-ico="inspect" aria-hidden="true"></span>
+              <span>Diagnostics</span>
+            </div>
+
+            <p class="settings-hint">
+              Records what the AI engine is doing as it loads and generates. Off
+              by default; turn it on before reproducing a bug, then attach the
+              log panel's output (it appears with the model progress bar while a
+              summary runs).
+            </p>
+
+            <label class="radio-option">
+              <input type="radio" name="debugLogs" value="off" checked />
+              <span>Don't record engine logs</span>
+            </label>
+
+            <label class="radio-option">
+              <input type="radio" name="debugLogs" value="on" />
+              <span>Record engine logs</span>
+            </label>
+          </div>
+
           <div class="settings-divider"></div>
 
           <button id="getInTouchBtn" class="settings-contact-btn">
@@ -519,7 +575,12 @@
         </div>
       </div>
 
-      <div id="contactView" class="hidden">
+      <div
+        id="contactView"
+        class="hidden"
+        tabindex="-1"
+        aria-label="Get in touch"
+      >
         <header class="header">
           <div class="header-left">
             <button
@@ -581,29 +642,27 @@
             </button>
           </div>
 
-          <div class="about-apogee">
-            <h2>About Apogee</h2>
-
-            <p>
-              AI browser assistant for articles, videos, emails and more. Runs
-              in-browser via WebGPU (Chrome), Transformers.js (Firefox), and
-              Ollama. Inspired by Mozilla's Orbit, a discontinued AI reading
-              assistant, reimagined here as fully local and privacy-first.
-            </p>
-          </div>
-
           <div class="contact-footer">
             <div class="version" id="versionText"></div>
 
             <div class="made-with">
               <span>Made with</span>
               <span class="ico" data-ico="heart" aria-hidden="true"></span>
-              <span>by darshi1337</span>
+              <span>by darshi1337 and</span>
+              <a
+                class="made-with-link"
+                href="https://github.com/darshi1337/apogee/graphs/contributors"
+                target="_blank"
+                rel="noopener noreferrer"
+                >contributors</a
+              >
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <p id="a11yAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
 
     <script type="module" src="icons.js"></script>
     <script type="module" src="popup.js"></script>

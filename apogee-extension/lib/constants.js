@@ -40,7 +40,7 @@ export const WEBLLM_MODELS = [
   },
 ];
 
-export const DEFAULT_WEBLLM_MODEL = WEBLLM_MODELS.find((m) => m.default).id;
+const DEFAULT_WEBLLM_MODEL = WEBLLM_MODELS.find((m) => m.default).id;
 
 // Transformers.js (ONNX/WASM) model catalog, used only on Firefox as its
 // in-browser provider. Unlike WebLLM (WebGPU, needs an offscreen document
@@ -75,7 +75,7 @@ export const TRANSFORMERS_MODELS = [
   },
 ];
 
-export const DEFAULT_TRANSFORMERS_MODEL = TRANSFORMERS_MODELS.find(
+const DEFAULT_TRANSFORMERS_MODEL = TRANSFORMERS_MODELS.find(
   (m) => m.default,
 ).id;
 
@@ -131,7 +131,7 @@ export const SUMMARY_LANGUAGES = [
 // links (see summarizeYoutube / videoTimestampParts in lib/summarize/). Adding
 // a platform here (plus its extractor + jump-link host) routes it through that
 // same video path instead of the plain-article one.
-export const VIDEO_PAGE_TYPES = new Set(["youtube", "bilibili"]);
+const VIDEO_PAGE_TYPES = new Set(["youtube", "bilibili"]);
 
 export function isVideoType(type) {
   return VIDEO_PAGE_TYPES.has(type);
@@ -139,7 +139,7 @@ export function isVideoType(type) {
 
 // English default: summaries come out in English regardless of the source
 // article's language. Users who prefer native-language summaries pick "auto".
-export const DEFAULT_SUMMARY_LANGUAGE = "en";
+const DEFAULT_SUMMARY_LANGUAGE = "en";
 
 // Free-text "custom instructions" the user can add in Settings, injected into
 // every summary and Ask prompt on top of Apogee's built-in rules (see
@@ -157,7 +157,7 @@ export const CUSTOM_INSTRUCTIONS_MAX_CHARS = 2000;
 // fidelity on low-resource languages. Only applies to the in-browser providers
 // (WebLLM/Transformers.js); Ollama always uses the LLM path.
 export const TRANSLATION_ENGINES = { LLM: "llm", OPUS: "opus" };
-export const DEFAULT_TRANSLATION_ENGINE = TRANSLATION_ENGINES.LLM;
+const DEFAULT_TRANSLATION_ENGINE = TRANSLATION_ENGINES.LLM;
 
 // EXPERIMENTAL: request multi-threaded WASM for the Transformers.js engines
 // (translation + Firefox text-gen). Multi-threading could give a near-linear
@@ -177,7 +177,7 @@ export const LOCAL_MODELS = [
   { id: "gemma3:4b", label: "Gemma 3" },
 ];
 
-export const DEFAULT_LOCAL_MODEL = "qwen3:8b";
+const DEFAULT_LOCAL_MODEL = "qwen3:8b";
 
 const isFirefox = process.env.TARGET_BROWSER === "firefox";
 
@@ -229,4 +229,8 @@ export const DEFAULT_SETTINGS = {
   // falls back to its network-free phrase heuristic. See
   // fetchSponsorBlockSegments in background/service-worker.js and PRIVACY.md.
   useSponsorBlock: true,
+  // Opt-in engine diagnostics. Flipped by the popup's "Show logs" panel and
+  // read by the engine hosts (see lib/util/log.js); off means model loading
+  // stays quiet in the console.
+  debugLogs: false,
 };

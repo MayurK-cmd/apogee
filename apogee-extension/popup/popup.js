@@ -133,12 +133,14 @@ const toggleDebugLogsBtn = document.getElementById("toggleDebugLogsBtn");
 const debugLogsCard = document.getElementById("debugLogsCard");
 const debugLogsContent = document.getElementById("debugLogsContent");
 const clearDebugLogsBtn = document.getElementById("clearDebugLogsBtn");
+const a11yAnnouncer = document.getElementById("a11yAnnouncer");
 const saveHistoryRadios = document.querySelectorAll(
   'input[name="saveHistory"]',
 );
 const sponsorBlockRadios = document.querySelectorAll(
   'input[name="useSponsorBlock"]',
 );
+const debugLogsRadios = document.querySelectorAll('input[name="debugLogs"]');
 const clearDataBtn = document.getElementById("clearDataBtn");
 const clearDataStatus = document.getElementById("clearDataStatus");
 const versionText = document.getElementById("versionText");
@@ -475,6 +477,11 @@ async function applySettingsToUI(settings) {
   );
   if (sponsorBlockRadio) sponsorBlockRadio.checked = true;
 
+  const debugLogsRadio = document.querySelector(
+    `input[name="debugLogs"][value="${settings.debugLogs === true ? "on" : "off"}"]`,
+  );
+  if (debugLogsRadio) debugLogsRadio.checked = true;
+
   // Fire-and-forget: checkWebGPUSupport() can create the offscreen document
   // on a cold start (a few seconds on Chrome), which used to make every
   // caller of applySettingsToUI, including the popup's initial view
@@ -560,6 +567,10 @@ chrome.runtime.onMessage.addListener((message) => {
       const pct = Math.round(p.progress * 100);
       modelProgressPercent.textContent = `${pct}%`;
       modelProgressFill.style.width = `${pct}%`;
+      // The percentage text is aria-hidden (re-announcing it on every tick
+      // would talk over everything else); the bar carries the value instead,
+      // which assistive tech reports on demand rather than out loud.
+      modelProgressFill.parentElement?.setAttribute("aria-valuenow", pct);
       if (pct >= 100) {
         modelProgressHideTimer = setTimeout(
           () => modelProgress?.classList.add("hidden"),
@@ -660,6 +671,17 @@ function setLoadingIndicator(element, label) {
   wrapper.appendChild(text);
   element.textContent = "";
   element.appendChild(wrapper);
+}
+
+// Speaks a one-off message through the off-screen live region. Streaming text
+// (the summary and answer bodies) is deliberately NOT wired to a live region:
+// announcing every token would be unusable, so the terminal events announce
+// instead. Re-setting the same string twice in a row is a no-op for most
+// screen readers, hence the clear-then-set.
+function announce(message) {
+  if (!a11yAnnouncer) return;
+  a11yAnnouncer.textContent = "";
+  a11yAnnouncer.textContent = message;
 }
 
 function escapeHtml(text) {
@@ -932,6 +954,9 @@ async function loadPastSummaries() {
     card.className = "past-summary-card";
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
+    // Collapsed by default; toggleExpanded keeps this in sync so the state
+    // is conveyed rather than left to the visual change alone.
+    card.setAttribute("aria-expanded", "false");
 
     // Groups the (optional) title and preview into one flex item so the
     // copy button below can sit alongside both instead of just the preview.
@@ -956,6 +981,7 @@ async function loadPastSummaries() {
 
     const toggleExpanded = () => {
       const expanded = card.classList.toggle("expanded");
+      card.setAttribute("aria-expanded", String(expanded));
       if (expanded) preview.innerHTML = renderStoredSummaryMarkdown(text);
       else preview.textContent = firstLineOf(text);
     };
@@ -1065,6 +1091,7 @@ async function copyToClipboard(text, btn) {
     console.error("Copy to clipboard failed:", err);
     return;
   }
+  announce("Copied to clipboard.");
   const original = btn.innerHTML;
   btn.innerHTML = icon("check");
   clearTimeout(btn._copyResetTimer);
@@ -1123,6 +1150,10 @@ function hideCancelSummarizeButton() {
 function renderSummaryError(error) {
   console.error(error);
   const p = document.createElement("p");
+  // role="alert" so the failure is spoken the moment it replaces the
+  // streaming summary; everything else in the popup announces politely, but
+  // a dead job is the one thing worth interrupting for.
+  p.setAttribute("role", "alert");
   p.style.color = "var(--error-text)";
   p.style.fontSize = "13px";
   p.textContent = error.message;
@@ -1351,13 +1382,13 @@ async function summarizeActivePage() {
       await persistContent(tab.url, pageData);
     }
 
-    const cacheKey = getSummaryCacheKey(
+    const cacheKey = await getSummaryCacheKey(
       tab.url,
       settings.responseFormat,
       model,
       settings.summaryLanguage,
     );
-    const promptsCacheKey = getPromptsCacheKey(
+    const promptsCacheKey = await getPromptsCacheKey(
       tab.url,
       settings.responseFormat,
       model,
@@ -1424,6 +1455,7 @@ async function summarizeActivePage() {
     showCancelSummarizeButton(streamId);
 
     await consumeSummaryStream(stream, { tab, promptsCacheKey });
+    announce("Summary ready.");
   } catch (error) {
     if (error instanceof StreamCancelledError) {
       returnHomeAfterCancel(activeTabId);
@@ -1470,6 +1502,7 @@ async function consumeAnswerStream(stream, { tab, question }) {
 
   currentAnswerText = fullText;
   copyAnswerBtn.classList.toggle("hidden", !started);
+  announce(started ? "Answer ready." : EMPTY_ANSWER_MESSAGE);
 
   await saveViewState(tab.id, {
     view: "summaryView",
@@ -1633,6 +1666,15 @@ function showOnlyView(view) {
   summaryView.classList.toggle("hidden", view !== "summaryView");
   settingsView.classList.toggle("hidden", view !== "settingsView");
   contactView.classList.toggle("hidden", view !== "contactView");
+
+  // Views swap in place, so without moving focus a screen reader stays parked
+  // on whatever it was reading in the view that just went display:none, and
+  // the next Tab lands back at the top of the document. Each view container
+  // carries tabindex="-1" + aria-label for exactly this: focusing it
+  // announces the view the user just navigated to. preventScroll keeps the
+  // popup from jumping when a long view (Settings) is focused.
+  const target = document.getElementById(view);
+  target?.focus({ preventScroll: true });
 }
 
 // Shows the actual current "Summarize this page" keyboard shortcut on its
@@ -1704,7 +1746,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // running in the background, so reattach instead of restarting it.
     // States are matched by URL hash (see saveViewState); states written by
     // older versions stored a raw `url` instead and simply read as stale.
-    if (state && state.urlHash === hashUrl(tab.url) && state.streamId) {
+    if (state && state.urlHash === (await hashUrl(tab.url)) && state.streamId) {
       if (state.subview === "summarizing") {
         showOnlyView("summaryView");
         showSummarizingContext();
@@ -1765,7 +1807,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // No in-flight job, restore whichever static page the user was last on.
-    if (state && state.urlHash === hashUrl(tab.url)) {
+    if (state && state.urlHash === (await hashUrl(tab.url))) {
       if (state.view === "settingsView") {
         showOnlyView("settingsView");
         return;
@@ -1837,13 +1879,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const model = getModelForSettings(settings);
-    const cacheKey = getSummaryCacheKey(
+    const cacheKey = await getSummaryCacheKey(
       tab.url,
       settings.responseFormat,
       model,
       settings.summaryLanguage,
     );
-    const promptsCacheKey = getPromptsCacheKey(
+    const promptsCacheKey = await getPromptsCacheKey(
       tab.url,
       settings.responseFormat,
       model,
@@ -1868,7 +1910,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       // would otherwise size the badge against the wrong original (e.g. a past
       // video's runtime applied to an article's cached summary).
       const badgeInputs =
-        state && state.urlHash === hashUrl(tab.url) ? state.timeSaved : null;
+        state && state.urlHash === (await hashUrl(tab.url))
+          ? state.timeSaved
+          : null;
       showTimeSavedFromInputs(badgeInputs, cached[cacheKey]);
       showOnlyView("summaryView");
       // A present key (even []) means prompts finished; a missing key means
@@ -2020,6 +2064,24 @@ sponsorBlockRadios.forEach((radio) => {
   });
 });
 
+// Same `debugLogs` setting the summary view's "Show logs" panel writes (see
+// toggleDebugLogsBtn). Settings is the copy you can reach *before* starting a
+// job, which is what a bug reporter needs: that panel only exists while the
+// model-progress banner is on screen, so arming it there always missed the
+// run that was being reported. Both controls live in the same popup document,
+// so whichever one is used has to move the other.
+function syncDebugLogsRadios(on) {
+  debugLogsRadios.forEach((radio) => {
+    radio.checked = radio.value === (on ? "on" : "off");
+  });
+}
+
+debugLogsRadios.forEach((radio) => {
+  radio.addEventListener("change", async () => {
+    await saveSettings({ debugLogs: radio.value === "on" });
+  });
+});
+
 // Removes every persisted summary, suggested-prompt set, extracted page body,
 // and per-tab view state (plus their FIFO indexes), the "clear cached data"
 // control. Preferences (the `settings` key) are intentionally left intact.
@@ -2080,6 +2142,7 @@ promptsCloseBtn?.addEventListener("click", () => {
 
 togglePromptsBtn?.addEventListener("click", () => {
   promptsSection.classList.remove("hidden");
+  togglePromptsBtn.setAttribute("aria-expanded", "true");
   togglePromptsBtn.style.display = "none";
 });
 
@@ -2320,10 +2383,19 @@ toggleDebugLogsBtn?.addEventListener("click", async () => {
   if (isHidden) {
     debugLogsCard.classList.remove("hidden");
     label.textContent = "Hide logs";
+    toggleDebugLogsBtn.setAttribute("aria-expanded", "true");
+    // Emission is gated on this setting (see lib/util/log.js): turning the
+    // panel on is what makes the engine hosts start writing progress lines,
+    // so the logs cover the next job rather than every job the user runs.
+    await saveSettings({ debugLogs: true });
+    syncDebugLogsRadios(true);
     await updateDebugLogsUI();
   } else {
     debugLogsCard.classList.add("hidden");
     label.textContent = "Show logs";
+    toggleDebugLogsBtn.setAttribute("aria-expanded", "false");
+    await saveSettings({ debugLogs: false });
+    syncDebugLogsRadios(false);
   }
 });
 

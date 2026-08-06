@@ -14,8 +14,15 @@
 
 ## Privacy impact
 
-<!-- Does this add, remove, or change any outbound network request? -->
-<!-- If yes, update the Privacy & Permissions section of README.md to match. -->
+<!-- Does this add, remove, or change any outbound network request or permission? -->
 
 - [ ] No new outbound network calls
-- [ ] Adds/changes a network call (described above, README updated)
+- [ ] Adds/changes a network call (described above, docs updated)
+
+<!-- Permissions and network behaviour are described in four places that must
+     agree: apogee-extension/manifest.json, README.md (Privacy & Permissions),
+     PRIVACY.md, and store-listing.md (permission justifications). A claim in
+     one and not the others is what store reviewers catch. -->
+
+- [ ] Permissions unchanged, or all four of manifest / README / PRIVACY /
+      store-listing updated together
