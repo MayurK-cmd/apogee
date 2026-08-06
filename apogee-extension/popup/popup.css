@@ -256,12 +256,6 @@ body {
   opacity: 0.5;
 }
 
-/* Brand marks are a single filled glyph, not a duotone drawing. */
-.ico svg .brand {
-  fill: currentColor;
-  stroke: none;
-}
-
 .icon-btn .ico svg,
 .card-title .ico svg,
 .section-title-group .ico svg {

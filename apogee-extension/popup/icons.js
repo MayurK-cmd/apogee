@@ -80,11 +80,13 @@ export const ICONS = {
   trash:
     '<path class="f" d="M6 8h12l-1 12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1z"/><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M10 11v6M14 11v6"/>',
 
-  // Brand marks stay as their official filled glyph rather than being redrawn;
-  // the official path fills its box edge to edge, so it is scaled into the same
-  // optical size as the stroked icons it sits in a list with.
-  github:
-    '<g transform="translate(2.6 2.6) scale(0.783)"><path class="brand" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.9 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.2 4.7 18.2 5 18.2 5c.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></g>',
+  // The Octocat as an outline rather than the official filled mark: dropped into
+  // a list beside bug and bulb, a solid brand glyph reads as a foreign sticker,
+  // so it is redrawn on the same fill-plus-stroke construction as the rest.
+  github: duo(
+    "M15.4 21.6v-3.5a3.2 3.2 0 0 0-.9-2.5c3-.3 6.1-1.5 6.1-6.7a5.2 5.2 0 0 0-1.4-3.6 4.8 4.8 0 0 0-.1-3.6s-1.1-.3-3.7 1.4a12.7 12.7 0 0 0-6.6 0C6.2 1.4 5.1 1.7 5.1 1.7a4.8 4.8 0 0 0-.1 3.6 5.2 5.2 0 0 0-1.4 3.6c0 5.2 3.1 6.4 6.1 6.7a3.2 3.2 0 0 0-.9 2.5v3.5",
+    '<path d="M8.8 18.6c-4.3 1.9-4.8-1.9-6.6-1.9"/>',
+  ),
 };
 
 /**
