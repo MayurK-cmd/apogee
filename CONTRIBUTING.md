@@ -28,9 +28,20 @@ the whole setup. See
 for the harness and three worked examples. If that is the kind of contribution
 you want to make, you can skip the browser setup below entirely.
 
-Comment on an issue before you start so two people don't write the same patch.
-If nothing fits, open an issue describing what you want to change before writing
-it, especially for anything touching network behaviour or permissions.
+### Claiming an issue
+
+Comment on it and it'll be assigned to you, so two people don't write the same
+patch. If it goes seven days with no draft PR and no update, it gets unassigned
+and is fair game again. That isn't a judgement about you, it's so the next
+person isn't blocked by a claim that went quiet. If you're still on it and just
+need more time, say so on the issue and it stays yours.
+
+One issue per PR, and please don't start on something already assigned to
+someone else.
+
+If nothing on the list fits, open an issue describing what you want to change
+before writing it, especially for anything touching network behaviour or
+permissions.
 
 Stuck partway through? Open a draft PR and ask. A half-finished branch with a
 specific question attached is easier to help with than a stalled one.
@@ -38,6 +49,9 @@ specific question attached is easier to help with than a stalled one.
 [gfi]: https://github.com/darshi1337/apogee/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22
 
 ## Getting set up
+
+Use **Node 22 or newer**, which is what CI runs and what `.nvmrc` pins. Older
+versions differ in ways that show up as test failures which aren't your fault.
 
 ```bash
 cd apogee-extension
@@ -66,9 +80,26 @@ npm run build           # builds both dist/chrome and dist/firefox
 ```
 
 CI runs the same four checks on every push and pull request, a PR won't be
-mergeable until they're green.
+mergeable until they're green. On your first PR to the repo, CI waits for a
+maintainer to approve the run, so a workflow sitting at "pending" for a while
+is normal and not something you did wrong.
 
 If `format:check` fails, run `npm run format` to auto-fix it.
+
+**Don't edit `CHANGELOG.md`.** It's written when a version is released, not per
+PR. If everyone adds their own entry, every open PR conflicts with every other
+one, and then again after each merge. Describe the change in your PR
+description instead and it'll be credited at release.
+
+### Test fixtures
+
+If your change adds an HTML fixture under `tests/extractors/fixtures/`, trim it
+to the markup your extractor actually reads and replace real people's details
+with `alice`/`bob` placeholders, as the existing fixtures do. Saved pages carry
+someone else's copyrighted content and often real usernames, avatars, or, in
+Gmail's case, real mail. A small hand-trimmed fixture is better on every axis:
+reviewable, resilient to the site redesigning everything you didn't keep, and
+carrying nobody's personal data.
 
 ## Code style
 

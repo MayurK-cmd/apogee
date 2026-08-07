@@ -3,6 +3,9 @@
   "version": "0.2.0",
   "private": true,
   "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "install:extension": "npm install --prefix apogee-extension",
     "build": "npm run build --prefix apogee-extension",

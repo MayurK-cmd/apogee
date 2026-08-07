@@ -7,16 +7,34 @@ dist/
 web-ext-artifacts/
 *.zip
 *.xpi
+*.crx
 *.tgz
+
+# Written by `web-ext sign` after an AMO upload; it's an account-scoped id, not
+# a project file.
+.web-extension-id
 
 # Downloaded (hash-verified) WebLLM model-lib kernels, see
 # apogee-extension/scripts/model-libs.mjs
 .model-libs-cache/
 
+# This project is npm-only, and package-lock.json is what CI installs from. A
+# lockfile from another package manager, committed by accident after a `yarn
+# install`, resolves a different dependency tree than `npm ci` does, so the
+# machine that produced it is the one machine where the build behaves
+# differently.
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
 # Secrets / env
 .env
 .env.*
 *.pem
+
+# Merge and rebase leftovers, easy to `git add -A` by mistake mid-conflict.
+*.orig
+*.rej
 
 # Logs
 *.log
@@ -30,5 +48,10 @@ coverage/
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
+*.bak
 .DS_Store
+._*
 Thumbs.db
+desktop.ini
