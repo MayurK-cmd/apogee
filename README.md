@@ -7,7 +7,7 @@ A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Run
 [![Get it on the Chrome Web Store](https://img.shields.io/badge/Chrome_%2F_Edge-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog)
 [![Get it on Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
 
-<a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="#how-it-works">How It Works</a> | <a href="#screenshots">Screenshots</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
+<a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="#how-it-works">How It Works</a> | <a href="#architecture">Architecture</a> | <a href="#screenshots">Screenshots</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
 
 <sub>An offline-first, privacy-respecting browser extension built with ❤︎ by <a href="https://github.com/darshi1337">darshi1337</a> and <a href="https://github.com/darshi1337/apogee/graphs/contributors">contributors</a></sub>
 
@@ -82,6 +82,113 @@ in a formal tone", applied on top of Apogee's built-in prompt for every summary
 and answer. They sit under the grounding rules (a page can't use them to make
 the model invent things), and are capped at 2000 characters. Leave the box
 blank to use the defaults unchanged.
+
+## Architecture
+
+Apogee is four cooperating contexts: the popup you see, a service worker that
+routes every job and buffers its output, an inference host that actually runs
+the model, and extractors injected into the page you are reading. Nothing sits
+behind them: there is no backend, and the only bytes that ever leave your
+machine are model weights on first run plus two optional lookups noted below.
+
+**Where inference happens** depends on the browser and your settings. Chromium
+browsers get an offscreen document (a real `Document` context, which MV3
+service workers are not, and which WebGPU and dynamic `import()` both need).
+Firefox has no offscreen API, so Transformers.js runs in the background page
+instead. Local Ollama mode skips both and streams over HTTP from the service
+worker.
+
+### Components and trust boundary
+
+```mermaid
+flowchart TD
+    subgraph device["Your device"]
+        subgraph page["Active tab"]
+            EX["Extractors, injected on demand<br/>Readability, YouTube, Bilibili,<br/>Gmail, Reddit, HN, GitHub"]
+            HL["Highlight overlay<br/>scrolls to the source passage"]
+        end
+
+        subgraph ui["Popup"]
+            POPUP["popup.js<br/>Summarize, Ask, Settings"]
+        end
+
+        subgraph bg["Service worker"]
+            ROUTER["Message router<br/>buffered streams, cancel, finalize"]
+        end
+
+        subgraph host["Inference host"]
+            WEBLLM["WebLLM, WebGPU<br/>Chromium default"]
+            TJS["Transformers.js, WASM/CPU<br/>Firefox default"]
+            EMB["all-MiniLM-L6-v2 embeddings<br/>Ask and highlight-in-page"]
+        end
+
+        STORE[("chrome.storage.local<br/>summaries, extracted content,<br/>settings, view state")]
+        OLLAMA["Ollama on 127.0.0.1:11434<br/>opt-in, larger models"]
+    end
+
+    HF["Hugging Face<br/>model weights, first run only"]
+    APIS["SponsorBlock, Bilibili API<br/>segment and subtitle lookups"]
+
+    POPUP <==>|"inject, extract, read back"| EX
+    POPUP -->|"highlight a claim"| HL
+    POPUP <==>|"job out, tokens back"| ROUTER
+    ROUTER <==>|"prompt out, tokens back"| host
+    ROUTER <==>|"HTTP stream"| OLLAMA
+    POPUP <-->|"cache lookup"| STORE
+    ROUTER <-->|"persist on completion"| STORE
+
+    host -.->|"download once, cached forever"| HF
+    ROUTER -.->|"video pages only"| APIS
+
+    classDef local fill:#e6f4ea,stroke:#1e7e34,color:#12351f
+    classDef remote fill:#fff4e0,stroke:#c2680a,color:#4a2905
+    class EX,HL,POPUP,ROUTER,STORE,WEBLLM,TJS,EMB,OLLAMA local
+    class HF,APIS remote
+    style device fill:#f7fdf9,stroke:#1e7e34,stroke-width:2px,stroke-dasharray:6 4,color:#12351f
+```
+
+Green is on-device. Amber leaves the device, and it is only ever these two:
+public model weights fetched from Hugging Face once and cached forever after,
+and, on video pages, a SponsorBlock lookup by video ID (toggleable in Settings)
+or Bilibili's own subtitle API for the video you are already watching. Page
+content, summaries, and questions are never among them.
+
+### What happens when you hit Summarize
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor You
+    participant P as Popup
+    participant Page as Active tab
+    participant SW as Service worker
+    participant Engine as WebLLM / Transformers.js / Ollama
+    participant DB as storage.local
+
+    Note over P,DB: On open, the popup restores from cache first,<br/>keyed by url + format + model + language
+    You->>P: Click Summarize
+    P->>Page: Inject extractors, read the page
+    Page-->>P: Title, clean text (or timestamped transcript)
+    P->>DB: Cache extracted content (skipped for sensitive URLs)
+    P->>SW: Start job with content, format, language, finalize keys
+    SW->>Engine: Clean, chunk, map over chunks, reduce to one summary
+    loop While generating
+        Engine-->>SW: Token
+        SW-->>P: Chunk over a port (buffered, survives popup close)
+        P-->>You: Summary streams in
+    end
+    Engine-->>SW: Done
+    SW->>DB: Persist summary, then generate suggested questions
+    Note over SW,DB: Finalization lives in the worker, not the popup,<br/>so closing the popup mid-job never loses the result
+```
+
+**Ask** takes the same path with one extra step: before prompting, the page is
+embedded on-device and only the passages closest to your question are sent to
+the model, so an answer buried deep in a long article or transcript is still
+reachable. **Highlight-in-page** reuses that same index in reverse, matching a
+summary bullet back to the sentence it was grounded in and scrolling the live
+page to it. Both need the embedding pipeline in the offscreen document, so both
+are Chromium-only for now; Firefox falls back to a plain truncated slice.
 
 ## Screenshots
 

@@ -3,6 +3,40 @@
 Thanks for taking a look at Apogee. This project is a single package,
 `apogee-extension/`, a Chrome/Edge/Dia/Firefox browser extension.
 
+By taking part you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Your first contribution
+
+New here? Start with the [`good first issue`][gfi] list. Those are scoped so you
+can finish one without reading the whole extension first, and each says which
+files it touches and what "done" looks like.
+
+What the labels mean:
+
+- **`good first issue`**: self-contained, no deep context needed, an evening's work
+- **`help wanted`**: real work we would like help with, but it assumes some
+  familiarity with the codebase already
+- **`extractor`**: adding or improving per-site page extraction, the most
+  repeatable kind of contribution here. `content/extractors/hackernews.js` and
+  `reddit.js` are the two examples to copy from, and `thread.js` is the shared
+  machinery they both build on
+
+**Extractor work needs no browser, no GPU, and no model download.** Extractors
+run against saved HTML fixtures in plain Node, so `npm install && npm test` is
+the whole setup. See
+[`apogee-extension/tests/extractors/README.md`](apogee-extension/tests/extractors/README.md)
+for the harness and three worked examples. If that is the kind of contribution
+you want to make, you can skip the browser setup below entirely.
+
+Comment on an issue before you start so two people don't write the same patch.
+If nothing fits, open an issue describing what you want to change before writing
+it, especially for anything touching network behaviour or permissions.
+
+Stuck partway through? Open a draft PR and ask. A half-finished branch with a
+specific question attached is easier to help with than a stalled one.
+
+[gfi]: https://github.com/darshi1337/apogee/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22
+
 ## Getting set up
 
 ```bash
@@ -76,3 +110,17 @@ four in the same PR.
 Open an issue using the templates under `.github/ISSUE_TEMPLATE/`. Include
 your browser + version, the extension version (`chrome://extensions`), and
 whether you're using WebLLM or Local Ollama mode.
+
+## What gets reviewed and what doesn't
+
+Apogee welcomes contributions year-round, including during
+[Hacktoberfest](https://hacktoberfest.com/). The same bar applies either way:
+
+- **Reviewed**: bug fixes, new extractors, tests, and documentation changes that
+  fix something actually wrong or missing
+- **Closed without review**: whitespace-only reformatting, unrequested
+  dependency bumps, and README edits that reword working prose without adding
+  information. These get the `spam` or `invalid` label
+
+Quality over count. One working extractor is worth more here than four
+cosmetic PRs.

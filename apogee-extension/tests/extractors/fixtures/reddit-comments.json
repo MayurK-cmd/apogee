@@ -1,0 +1,68 @@
+[
+  {
+    "kind": "Listing",
+    "data": {
+      "children": [
+        {
+          "kind": "t3",
+          "data": {
+            "title": "What finally made caching click for you?",
+            "subreddit_name_prefixed": "r/programming",
+            "author": "alice",
+            "score": 842,
+            "num_comments": 3,
+            "link_flair_text": "Discussion",
+            "is_self": true,
+            "selftext": "I struggled with invalidation for years.\n\nWhat was the explanation that landed for you?"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "Listing",
+    "data": {
+      "children": [
+        {
+          "kind": "t1",
+          "data": {
+            "author": "bob",
+            "score": 210,
+            "body": "Thinking of a cache as a bet that the world hasn't changed yet.",
+            "replies": {
+              "kind": "Listing",
+              "data": {
+                "children": [
+                  {
+                    "kind": "t1",
+                    "data": {
+                      "author": "carol",
+                      "score": 74,
+                      "body": "And a TTL is just how long you're willing to be wrong."
+                    }
+                  },
+                  {
+                    "kind": "t1",
+                    "data": { "author": "dave", "score": 3, "body": "[deleted]" }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "t1",
+          "data": {
+            "author": "erin",
+            "score": 18,
+            "body": "Write-through vs write-back finally made sense once I drew it."
+          }
+        },
+        {
+          "kind": "more",
+          "data": { "count": 41, "children": ["abc123"] }
+        }
+      ]
+    }
+  }
+]

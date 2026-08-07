@@ -32,6 +32,8 @@ function threadTruncate(text, max, { preserveLines = false } = {}) {
 // Rebuilds parent links, paths, and reply/subtree counts from a pre-order list
 // of { depth, ... } items (depth 0 = top level). Mutates items in place (adds
 // parent/path/directReplies/subtreeSize) and returns them as the node list.
+// directReplies here counts every child; selectThreadComments recounts it over
+// eligible children once it knows which ones are real comments.
 function buildThreadNodes(items) {
   const counters = []; // counters[d] = running index of comments at depth d
   const parents = []; // parents[d] = the node currently open at depth d
@@ -64,6 +66,21 @@ function buildThreadNodes(items) {
 // removed) ancestors stay dropped, paths are absolute, so the numbering reads
 // coherently regardless. Returns survivors in original pre-order sequence.
 function selectThreadComments(nodes, eligible, maxComments) {
+  // buildThreadNodes counts every child, because it runs before anyone knows
+  // what counts as a real comment. Recount over eligible children only, now
+  // that we do: a `[deleted]` stub or a flagged-to-oblivion rant is not a reply
+  // anyone would count, and reporting <replies: 2> above a single visible reply
+  // invites the model to describe a second one that was never in its context.
+  //
+  // Deliberately eligibility, not the maxComments selection below: a reply
+  // dropped for capacity is still a real reply, and on exactly the huge threads
+  // where that happens, the reply count is the signal telling the model which
+  // comments drew the argument.
+  for (const node of nodes) node.directReplies = 0;
+  for (const node of nodes) {
+    if (eligible(node) && node.parent) node.parent.directReplies++;
+  }
+
   const survivors = nodes.filter(eligible);
   if (survivors.length <= maxComments) return survivors;
 
