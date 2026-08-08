@@ -1,12 +1,22 @@
 @font-face {
   font-family: "Mozilla Headline";
   src: url("../assets/fonts/MozillaHeadline-Variable.woff2") format("woff2");
-  font-weight: 100 800;
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
   font-family: "Mozilla Text";
   src: url("../assets/fonts/MozillaText-Variable.woff2") format("woff2");
-  font-weight: 100 800;
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-body: "Mozilla Text", system-ui, -apple-system, sans-serif;
+  --font-head: "Mozilla Headline", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 :root,
@@ -167,7 +177,7 @@ body {
   background: var(--bg-color);
   background-image: var(--bg-gradient);
   background-attachment: fixed;
-  font-family: "Mozilla Text", sans-serif;
+  font-family: var(--font-body);
   color: var(--text-main);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -217,7 +227,7 @@ body {
 }
 
 .brand-name {
-  font-family: "Mozilla Headline", sans-serif;
+  font-family: var(--font-head);
   font-weight: 700;
   font-size: 23px;
   background: var(--brand-color-gradient);
@@ -317,7 +327,7 @@ body {
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 700;
   font-size: 14px;
   color: var(--btn-text);
@@ -378,7 +388,7 @@ body {
   border: 1px solid var(--btn-border);
   background: var(--btn-bg);
   color: var(--text-secondary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
   text-align: center;
@@ -409,7 +419,7 @@ body {
   margin-left: auto;
   padding: 2px 7px;
   border: 1px solid var(--btn-border);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -443,22 +453,22 @@ body {
   padding: 3px 8px;
   background: var(--badge-bg);
   color: var(--badge-text);
-  font-family: "Mozilla Text";
-  font-size: 10.5px;
+  font-family: var(--font-body);
+  font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .summary-card h2 {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 700;
-  font-size: 14.5px;
+  font-size: 15px;
   color: var(--text-main);
 }
 
 #summaryText {
-  font-family: "Mozilla Text";
-  font-size: 13.5px;
+  font-family: var(--font-body);
+  font-size: 14px;
   line-height: 1.5;
   color: var(--text-muted);
   white-space: pre-wrap;
@@ -505,7 +515,7 @@ body {
 }
 
 .apogee-locate-note {
-  font-size: 11.5px;
+  font-size: 11px;
   font-style: italic;
   color: var(--text-secondary);
 }
@@ -538,7 +548,7 @@ body {
   border: 1px solid var(--btn-border);
   background: var(--btn-bg);
   color: var(--text-secondary);
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -576,7 +586,7 @@ body {
   border: 1px solid var(--btn-border);
   background: var(--btn-bg);
   color: var(--text-secondary);
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -606,7 +616,7 @@ body {
 }
 
 .resummarize-hint span {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 12px;
   color: var(--text-main);
 }
@@ -617,7 +627,7 @@ body {
   border: none;
   background: var(--radio-checked-color);
   color: #fff;
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -644,7 +654,7 @@ body {
 .answer-box h1,
 .answer-box h2,
 .answer-box h3 {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 700;
   font-size: 14px;
   line-height: 1.4;
@@ -667,8 +677,8 @@ body {
 
 #summaryText code,
 .answer-box code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11.5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   background: var(--badge-bg);
   color: var(--badge-text);
   padding: 2px 6px;
@@ -695,9 +705,9 @@ body {
 }
 
 .section-title {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 700;
-  font-size: 14.5px;
+  font-size: 15px;
   color: var(--text-main);
   margin: 0;
 }
@@ -731,7 +741,7 @@ body {
   padding: 12px 14px;
   background: var(--btn-bg);
   border: 1px solid var(--btn-border);
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 500;
   font-size: 13px;
   line-height: 1.45;
@@ -805,9 +815,9 @@ body {
 }
 
 .past-summary-title {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 700;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -835,7 +845,7 @@ body {
 }
 
 .past-summary-preview {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 500;
   font-size: 13px;
   line-height: 1.45;
@@ -877,9 +887,9 @@ body {
 .past-summary-card.expanded .past-summary-preview h4,
 .past-summary-card.expanded .past-summary-preview h5,
 .past-summary-card.expanded .past-summary-preview h6 {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.4;
   color: var(--text-main);
   margin: 14px 0 6px;
@@ -907,8 +917,8 @@ body {
 }
 
 .past-summary-card.expanded .past-summary-preview code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11.5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   background: var(--badge-bg);
   color: var(--badge-text);
   padding: 2px 6px;
@@ -985,9 +995,9 @@ body {
 }
 
 .chat-header h3 {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 700;
-  font-size: 14.5px;
+  font-size: 15px;
   color: var(--text-main);
 }
 
@@ -1028,7 +1038,7 @@ body {
   border: 1px solid var(--tag-border);
   background: var(--tag-bg);
   color: var(--tag-text);
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -1055,7 +1065,7 @@ body {
   border: 1px solid var(--input-border);
   background: var(--input-bg);
   padding: 14px 46px 14px 14px;
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 500;
   font-size: 14px;
   color: var(--text-main);
@@ -1084,9 +1094,9 @@ body {
   border: 1px solid var(--input-border);
   padding: 12px;
   background: var(--card-bg);
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 500;
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--text-muted);
   white-space: pre-wrap;
@@ -1143,7 +1153,7 @@ body {
 }
 
 .header-title {
-  font-family: "Mozilla Text", sans-serif;
+  font-family: var(--font-body);
   font-size: 18px;
   font-weight: 700;
   color: var(--text-main);
@@ -1191,7 +1201,7 @@ body {
 }
 
 .card-title span {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 700;
   color: var(--text-muted);
@@ -1242,8 +1252,8 @@ body {
 }
 
 .radio-option span {
-  font-family: "Mozilla Text";
-  font-size: 13.5px;
+  font-family: var(--font-body);
+  font-size: 14px;
   color: var(--text-muted);
 }
 
@@ -1259,7 +1269,7 @@ body {
 }
 
 .settings-field span {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 700;
   color: var(--text-secondary);
@@ -1271,7 +1281,7 @@ body {
   border: 1px solid var(--input-border);
   background: var(--input-bg);
   padding: 0 10px;
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 13px;
   color: var(--text-main);
   outline: none;
@@ -1284,7 +1294,7 @@ body {
 }
 
 .settings-hint {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 12px;
   line-height: 1.45;
   color: var(--text-secondary);
@@ -1297,7 +1307,7 @@ body {
   border: 1px solid var(--input-border);
   background: var(--input-bg);
   padding: 0 10px;
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 13px;
   color: var(--text-main);
   outline: none;
@@ -1315,7 +1325,7 @@ body {
   border: 1px solid var(--input-border);
   background: var(--input-bg);
   padding: 10px;
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.45;
   color: var(--text-main);
@@ -1341,7 +1351,7 @@ body {
 }
 
 .settings-textarea-meta .char-count {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 11px;
   color: var(--text-secondary);
 }
@@ -1378,7 +1388,7 @@ body {
 }
 
 .settings-contact-left span {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 700;
   color: var(--text-muted);
@@ -1429,7 +1439,7 @@ body {
 }
 
 .contact-card-left span {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 700;
   color: var(--text-muted);
@@ -1444,7 +1454,7 @@ body {
 }
 
 .version {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary);
@@ -1452,7 +1462,7 @@ body {
 }
 
 .made-with {
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary);
@@ -1507,8 +1517,8 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: "Mozilla Text";
-  font-size: 13.5px;
+  font-family: var(--font-body);
+  font-size: 14px;
   color: var(--text-muted);
 }
 
@@ -1566,7 +1576,7 @@ body {
   align-items: center;
   gap: 8px;
   color: var(--badge-text);
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-weight: 500;
   font-size: 13px;
 }
@@ -1645,7 +1655,7 @@ body {
   padding: 12px;
   background: var(--warning-bg);
   border: 1px solid var(--warning-border);
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 12px;
   line-height: 1.5;
   color: var(--warning-text);
@@ -1656,7 +1666,7 @@ body {
 
 .webgpu-warning .warning-icon {
   flex-shrink: 0;
-  font-size: 13.5px;
+  font-size: 14px;
 }
 
 /* Uses the card surface, not --summary-bg: it stacks directly on the summary
@@ -1698,7 +1708,7 @@ body {
 .model-progress-title {
   flex: 1;
   min-width: 0;
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.35;
@@ -1718,7 +1728,7 @@ body {
 .model-progress-percent {
   flex-shrink: 0;
   line-height: 1.35;
-  font-family: "Mozilla Text";
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 700;
   color: var(--text-main);
@@ -1758,8 +1768,8 @@ body {
   background: transparent;
   border: 1px solid var(--btn-border);
   color: var(--text-secondary);
-  font-family: "Mozilla Text";
-  font-size: 10.5px;
+  font-family: var(--font-body);
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
   user-select: none;
@@ -1784,8 +1794,8 @@ body {
   margin: -1px 16px 0;
   padding: 10px;
   background: var(--btn-bg);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
   max-height: 140px;
   overflow-y: auto;
   border: 1px solid var(--btn-border);
@@ -1811,7 +1821,7 @@ body {
 
 .debug-logs-clear {
   color: #ef4444;
-  font-size: 9.5px;
+  font-size: 10px;
   padding: 0 4px;
   font-weight: bold;
 }
@@ -1833,8 +1843,8 @@ body {
   border: 1px solid rgba(239, 68, 68, 0.35);
   background: rgba(239, 68, 68, 0.08);
   color: #ef4444;
-  font-family: "Mozilla Text";
-  font-size: 12.5px;
+  font-family: var(--font-body);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -1864,8 +1874,8 @@ body {
 .clear-data-status {
   margin-top: 7px;
   min-height: 13px;
-  font-family: "Mozilla Text";
-  font-size: 10.5px;
+  font-family: var(--font-body);
+  font-size: 10px;
   color: var(--text-muted);
   text-align: center;
 }
@@ -1875,8 +1885,8 @@ body {
   padding: 1px 6px;
   background: var(--badge-bg);
   color: var(--badge-text);
-  font-family: "Mozilla Text";
-  font-size: 9.5px;
+  font-family: var(--font-body);
+  font-size: 10px;
   font-weight: 700;
   margin-left: 6px;
   vertical-align: middle;
@@ -1884,8 +1894,8 @@ body {
 }
 
 .model-size {
-  font-family: "Mozilla Text";
-  font-size: 10.5px;
+  font-family: var(--font-body);
+  font-size: 10px;
   font-weight: 500;
   color: var(--text-secondary);
   margin-left: 6px;

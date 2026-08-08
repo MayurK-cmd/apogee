@@ -4,26 +4,16 @@ The fonts bundled in this directory are redistributed under their original
 licenses, reproduced/linked below. They are not covered by the repository's
 MIT license.
 
-## Metropolis (`Metropolis-Regular.otf`, `Metropolis-Medium.otf`, `Metropolis-Bold.otf`)
-
-By Chris Simpson, released into the public domain under the
-[Unlicense](https://unlicense.org):
-
-> This is free and unencumbered software released into the public domain.
-> Anyone is free to copy, modify, publish, use, compile, sell, or distribute
-> this software, either in source code form or as a compiled binary, for any
-> purpose, commercial or non-commercial, and by any means.
-
-## Mozilla Text and Mozilla Headline (`MozillaText-Variable.woff2`, `MozillaText-Bold.ttf`, `MozillaHeadline-Variable.woff2`)
+## Mozilla Text and Mozilla Headline (`MozillaText-Variable.woff2`, `MozillaHeadline-Variable.woff2`)
 
 Copyright © Mozilla Foundation. Licensed under the SIL Open Font License,
 Version 1.1 (reproduced below), as published by the Mozilla Foundation for
 its brand typefaces. "Mozilla" is a trademark of the Mozilla Foundation; this
 project is not affiliated with or endorsed by Mozilla.
 
-The two variable `.woff2` files are the ones the popup and the landing page
-actually load, and therefore the only fonts emitted into the built extension.
-The remaining files in this directory are kept from earlier designs.
+These two variable fonts are the only ones the popup loads, and the build
+copies this directory wholesale, so they are also the only fonts emitted into
+the packaged extension.
 
 ### SIL Open Font License, Version 1.1
 

@@ -688,4 +688,4 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 [MIT](LICENSE)
 
-UI icons, the GitHub mark included, are drawn for this project on one duotone construction and inlined as SVG (`apogee-extension/popup/icons.js`, `docs/app.js`). The popup and the site render in Mozilla Headline and Mozilla Text (SIL OFL 1.1, © Mozilla Foundation); [Metropolis](https://github.com/chrismsimpson/Metropolis) (Unlicense) is still in `assets/fonts` from an earlier design but is no longer referenced, so it isn't emitted into the built extension. See [`apogee-extension/assets/fonts/LICENSE.md`](apogee-extension/assets/fonts/LICENSE.md).
+UI icons, the GitHub mark included, are drawn for this project on one duotone construction and inlined as SVG (`apogee-extension/popup/icons.js`, `docs/index.html`). The popup and the site render in Mozilla Headline and Mozilla Text (SIL OFL 1.1, © Mozilla Foundation), the only two fonts bundled. See [`apogee-extension/assets/fonts/LICENSE.md`](apogee-extension/assets/fonts/LICENSE.md).
