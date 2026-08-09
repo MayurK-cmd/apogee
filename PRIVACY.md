@@ -93,6 +93,26 @@ third party.
 We do not control Hugging Face, SponsorBlock, YouTube, Bilibili, Reddit, or
 GitHub; their own privacy policies govern the requests described above.
 
+## Diagnostics you choose to share
+
+Recording engine logs is off by default. When you turn it on, **Copy
+diagnostics as Markdown** in Settings copies a report you can paste into a bug
+report. Nothing is sent anywhere: it goes to your clipboard, and only when you
+press the button.
+
+That report contains your extension version, browser user agent, whether WebGPU
+is available, and your settings. Two settings are deliberately reported as a
+shape rather than a value, because a bug report is usually public:
+
+- **Custom instructions** appear as `set (42 chars)` or `unset`, never the text
+  you wrote.
+- **Ollama host** appears verbatim only when it is a loopback address such as
+  `http://127.0.0.1:11434`. Any other host becomes `custom host, port 11434`,
+  so a machine name on your network is not disclosed.
+
+The engine logs themselves are recorded by the inference engine and are not
+scrubbed. Read them before you paste.
+
 ## Data sharing
 
 We do not sell or transfer user data to third parties, we do not use or

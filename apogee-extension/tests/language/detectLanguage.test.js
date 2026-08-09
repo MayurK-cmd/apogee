@@ -3,7 +3,6 @@ import assert from "node:assert";
 
 import { resolveEffectiveLanguage } from "../../lib/language/detectLanguage.js";
 
-// Stub chrome.i18n.detectLanguage with a fixed top language/percentage.
 function stubDetect(language, percentage = 90) {
   globalThis.chrome = {
     i18n: {
@@ -19,7 +18,7 @@ function clearDetect() {
 }
 
 test("auto/unknown target never translates (and skips detection)", async () => {
-  clearDetect(); // detection unavailable on purpose
+  clearDetect();
   assert.strictEqual(
     await resolveEffectiveLanguage("hola mundo", "auto"),
     "auto",
@@ -60,7 +59,7 @@ test("region subtags compare by base code (en-US matches en)", async () => {
 });
 
 test("unsure/unavailable detection errs toward translating for correctness", async () => {
-  stubDetect("en", 20); // below confidence threshold -> treated as unknown
+  stubDetect("en", 20);
   assert.strictEqual(await resolveEffectiveLanguage("text", "es"), "es");
   clearDetect();
   assert.strictEqual(await resolveEffectiveLanguage("text", "es"), "es");

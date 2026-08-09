@@ -18,8 +18,9 @@ What the labels mean:
   familiarity with the codebase already
 - **`extractor`**: adding or improving per-site page extraction, the most
   repeatable kind of contribution here. `content/extractors/hackernews.js` and
-  `reddit.js` are the two examples to copy from, and `thread.js` is the shared
-  machinery they both build on
+  `reddit.js` are the two examples to copy from, `thread.js` is the shared
+  machinery they both build on, and `wikipedia.js` shows how to cut a long page
+  down and hand back `null` for pages you do not handle
 
 **Extractor work needs no browser, no GPU, and no model download.** Extractors
 run against saved HTML fixtures in plain Node, so `npm install && npm test` is

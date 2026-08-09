@@ -35,15 +35,11 @@ test("formatTimeSaved returns null for empty input", () => {
 });
 
 test("formatVideoTimeSaved reports whole minutes for a long video vs a short summary", () => {
-  // 20 min video, a summary that reads in ~1 min (225 words @ 225 wpm).
   const result = formatVideoTimeSaved(20 * 60, words(225));
   assert.strictEqual(result, "~19 min saved");
 });
 
 test("formatVideoTimeSaved reports seconds when the gap is under a minute", () => {
-  // 48s video vs. a summary that reads in ~12s (45 words @ 225 wpm): a 36s
-  // gap, comfortably between the 30s "barely any gap" floor and the 60s
-  // seconds/minutes formatting boundary.
   const result = formatVideoTimeSaved(48, words(45));
   assert.match(result, /^~\d+s saved$/);
 });
@@ -53,7 +49,6 @@ test("formatVideoTimeSaved returns null when there's barely any gap", () => {
 });
 
 test("formatVideoTimeSaved returns null when the summary takes longer to read than the video runs", () => {
-  // 30s video, a summary that itself takes ~1 min to read (225 words).
   assert.strictEqual(formatVideoTimeSaved(30, words(225)), null);
 });
 
@@ -63,8 +58,6 @@ test("formatVideoTimeSaved returns null for a zero/missing duration", () => {
 });
 
 test("formatTimeSavedFromWordCount matches formatTimeSaved given the same original text", () => {
-  // The word-count variant (used to restore the badge from persisted inputs)
-  // must produce exactly what the live text-based path would.
   assert.strictEqual(
     formatTimeSavedFromWordCount(2250, words(50)),
     formatTimeSaved(words(2250), words(50)),
@@ -84,7 +77,6 @@ test("timeSavedInputsFor distills the minimal restore inputs per page type", () 
     timeSavedInputsFor({ type: "article", content: words(2250) }),
     { kind: "text", originalWords: 2250 },
   );
-  // Nothing measurable (no duration, no content) → null, so the badge hides.
   assert.strictEqual(
     timeSavedInputsFor({ type: "article", content: "" }),
     null,
@@ -93,8 +85,6 @@ test("timeSavedInputsFor distills the minimal restore inputs per page type", () 
 });
 
 test("timeSavedInputsFor round-trips through formatTimeSavedFromInputs to the live badge value", () => {
-  // Restoring from persisted inputs must reproduce the live badge exactly, for
-  // both a video and an article, so the badge doesn't change on popup reopen.
   const videoInputs = timeSavedInputsFor({
     type: "youtube",
     durationSeconds: 1200,
@@ -113,6 +103,5 @@ test("timeSavedInputsFor round-trips through formatTimeSavedFromInputs to the li
     formatTimeSaved(words(2250), words(50)),
   );
 
-  // No inputs → null (badge hidden), never a throw.
   assert.strictEqual(formatTimeSavedFromInputs(null, words(50)), null);
 });

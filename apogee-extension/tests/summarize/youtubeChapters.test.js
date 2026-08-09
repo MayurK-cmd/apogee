@@ -35,7 +35,6 @@ test("parseChaptersBlock returns [] when there is no Chapters block", () => {
 });
 
 test("parseChaptersBlock ignores inline transcript timestamp markers", () => {
-  // The transcript's own [0:20] markers must not be read as chapters.
   const chapters = parseChaptersBlock(CONTENT);
   assert.ok(!chapters.some((c) => c.start === 20));
 });
@@ -61,12 +60,10 @@ test("buildYoutubeBriefPrompt builds deterministic per-chapter headings and link
   );
   assert.match(out, /## Overview/);
   assert.match(out, /\*\*Key Takeaways\*\*/);
-  // Section headings use the exact jump links, derived from each chapter start.
   assert.match(
     out,
     /### \[0:00\]\(https:\/\/www\.youtube\.com\/watch\?v=abc&t=0s\) Intro {3}\(covers 0s-30s\)/,
   );
-  // The final chapter runs to the transcript end (lastAvailableSeconds = 60).
   assert.match(
     out,
     /### \[0:30\]\(https:\/\/www\.youtube\.com\/watch\?v=abc&t=30s\) Body {3}\(covers 30s-60s\)/,

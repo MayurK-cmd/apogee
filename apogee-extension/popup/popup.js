@@ -1,14 +1,3 @@
-// Only load the dev-only chrome.* shim when running outside a real
-// extension context (e.g. a built dist/*/popup/popup.html opened directly
-// in a browser tab, not loaded unpacked, for UI iteration). In the shipped
-// extension chrome.runtime.sendMessage is always defined, so this branch,
-// and the dynamic import for mock.js it would trigger, never runs for real
-// users. (Gating this further on a Vite `import.meta.env.DEV`-style build
-// flag was tried and reverted: this project's own "dev" script is still a
-// full `vite build` under the hood, so that flag is always false in every
-// build this project produces, including the one real UI-iteration
-// workflow above; an `import.meta.env.DEV` gate would have permanently
-// disabled the shim rather than just trimming it from the packaged zip/xpi.)
 if (
   typeof chrome === "undefined" ||
   !chrome.runtime ||
@@ -38,6 +27,10 @@ import {
 import { getSettings } from "../lib/storage/settings.js";
 import { formatSummaryAsMarkdown } from "../lib/util/exportFormat.js";
 import {
+  formatDiagnosticSettings,
+  formatDiagnosticsMarkdown,
+} from "../lib/util/diagnostics.js";
+import {
   formatTimeSaved,
   formatVideoTimeSaved,
   timeSavedInputsFor,
@@ -57,8 +50,6 @@ import {
   extractFromActiveTab,
   extractPdfContent,
 } from "../lib/extract/pageExtraction.js";
-// Icons render from icons.js's own <script> in popup.html; this import is only
-// for the buttons whose contents are rebuilt here.
 import { icon, ICONS } from "./icons.js";
 
 const summarizeBtn = document.getElementById("summarizeBtn");
@@ -132,6 +123,8 @@ const modelProgressFill = document.getElementById("modelProgressFill");
 const toggleDebugLogsBtn = document.getElementById("toggleDebugLogsBtn");
 const debugLogsCard = document.getElementById("debugLogsCard");
 const debugLogsContent = document.getElementById("debugLogsContent");
+const copyDiagnosticsBtn = document.getElementById("copyDiagnosticsBtn");
+const copyDiagnosticsHint = document.getElementById("copyDiagnosticsHint");
 const clearDebugLogsBtn = document.getElementById("clearDebugLogsBtn");
 const a11yAnnouncer = document.getElementById("a11yAnnouncer");
 const saveHistoryRadios = document.querySelectorAll(
@@ -145,29 +138,18 @@ const clearDataBtn = document.getElementById("clearDataBtn");
 const clearDataStatus = document.getElementById("clearDataStatus");
 const versionText = document.getElementById("versionText");
 
-// Read from the manifest instead of hardcoding a version string here, which
-// drifted out of sync with the real package/manifest version in the past.
 if (versionText) {
   versionText.textContent = `v${chrome.runtime.getManifest().version}`;
 }
 
 let currentPageData = null;
 let currentSummaryText = "";
-// The summaryLanguage the on-screen summary was actually generated in, so we
-// can flag it as stale when the user later switches the language setting
-// without re-summarizing (see updateResummarizeHint). null when no summary is
-// displayed.
 let currentSummaryLanguage = null;
 
-// code -> display label, for the "Re-summarize to apply <language>" hint.
 const LANGUAGE_LABELS = new Map(
   SUMMARY_LANGUAGES.map((l) => [l.code, l.label]),
 );
 
-// Shows a "this summary isn't in the selected language" nudge when the
-// displayed summary's language no longer matches the summaryLanguage setting.
-// Changing the setting (like changing Response Format) deliberately does NOT
-// auto-regenerate; this just makes the staleness visible and one click to fix.
 async function updateResummarizeHint(settings) {
   if (!resummarizeHint) return;
   const s = settings || (await getSettings());
@@ -192,29 +174,14 @@ resummarizeHintBtn?.addEventListener("click", () => {
   summarizeActivePage();
 });
 let currentAnswerText = "";
-// streamId of the summarize job currently in flight, if any; drives the
-// Cancel button, cleared on any terminal outcome (done/cancelled/error).
 let activeSummarizeStreamId = null;
-// Same idea as activeSummarizeStreamId, for the "Ask a question" flow.
 let activeAskStreamId = null;
-// Which view Settings was opened from (homeView or summaryView), so its
-// back button returns there instead of always landing on Home, that used
-// to drop a just-generated summary still sitting in summaryView's DOM.
 let settingsEntryView = "homeView";
 
-// The tab the popup is currently associated with. Set once on
-// DOMContentLoaded and reused by view-state persistence below, the popup
-// doesn't follow tab switches while it's open.
 let activeTabId = null;
 
-// The prompts-cache key the storage listener below is currently watching for.
-// See runSuggestQuestionsJob in service-worker.js.
 let currentPromptsCacheKey = null;
 
-// Kicks off suggested-question generation as a background job. When `persist`
-// is true the result is cached (and delivered via storage.onChanged, so a
-// reopened popup still gets it); when false it's kept ephemeral and delivered
-// only via the runtime message below to a still-open popup.
 function startSuggestedQuestionsBg(
   promptsCacheKey,
   { title, url, summary },
@@ -229,12 +196,6 @@ function startSuggestedQuestionsBg(
       payload: {
         promptsCacheKey,
         persist,
-        // Normalized the same way getProvider() resolves a real provider
-        // instance (see getProviderType), not the raw settings.provider: a
-        // stale value carried over from the other build's profile (e.g.
-        // "webllm" in a Firefox profile) used to fall through to the
-        // `else` branch in runSuggestQuestionsJob, which tries to talk to
-        // an offscreen document Firefox doesn't have.
         providerType: getProviderType(settings),
         host: settings.ollamaHost,
         title,
@@ -248,8 +209,6 @@ function startSuggestedQuestionsBg(
     .catch(() => {});
 }
 
-// Renders suggested prompts when the background job persists them to storage
-// (covers the reopen-while-generating case).
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !currentPromptsCacheKey) return;
   const change = changes[currentPromptsCacheKey];
@@ -258,8 +217,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
   setSuggestedQuestions(questions);
 });
 
-// Direct delivery from the background job, the only path when prompts aren't
-// persisted (history off / sensitive host), and a fast path when they are.
 chrome.runtime.onMessage.addListener((message) => {
   if (
     message.type === "suggested-prompts-ready" &&
@@ -277,15 +234,11 @@ async function saveSettings(partial) {
   return settings;
 }
 
-// NOTE: The popup runs in a chrome-extension:// context where navigator.gpu is always undefined. The actual WebGPU context lives in the offscreen document.
-// We probe the offscreen doc via the service worker instead.
-
-let _webgpuSupported = null; // cached result
+let _webgpuSupported = null;
 
 async function checkWebGPUSupport() {
   if (_webgpuSupported !== null) return _webgpuSupported;
   try {
-    // Ask the service worker to create the offscreen doc and check WebGPU
     const response = await new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
         { target: "service-worker", action: "check-webgpu" },
@@ -301,10 +254,6 @@ async function checkWebGPUSupport() {
     _webgpuSupported = response?.supported === true;
     return _webgpuSupported;
   } catch {
-    // If we can't reach the service worker, optimistically assume support so
-    // the user isn't blocked, and let the offscreen doc surface the real error
-    // at inference time. Do NOT cache this, a transient messaging failure
-    // should not suppress the warning for the rest of the session.
     return true;
   }
 }
@@ -328,15 +277,11 @@ function buildWebllmModelUI(selectedId) {
 
   webllmModelList.querySelectorAll('input[name="webllmModel"]').forEach((r) => {
     r.addEventListener("change", async () => {
-      // No cache wipe needed, summary/prompt cache keys are namespaced by
-      // model, so switching models just starts reading/writing a different
-      // slot instead of losing everything.
       await saveSettings({ webllmModel: r.value });
     });
   });
 }
 
-// Mirrors buildWebllmModelUI, driven by TRANSFORMERS_MODELS instead.
 function buildTransformersModelUI(selectedId) {
   transformersModelList.innerHTML = "";
   for (const model of TRANSFORMERS_MODELS) {
@@ -363,9 +308,6 @@ function buildTransformersModelUI(selectedId) {
     });
 }
 
-// Mirrors buildWebllmModelUI. `models` defaults to the hardcoded
-// LOCAL_MODELS list, but updateLocalModelList (below) overrides it with
-// whatever Ollama actually reports having pulled, once that's known.
 function buildLocalModelUI(selectedId, models = LOCAL_MODELS) {
   localModelList.innerHTML = "";
   for (const model of models) {
@@ -449,8 +391,6 @@ async function applySettingsToUI(settings) {
   }
 
   if (summaryLanguageSelect) {
-    // Populate once (the option set is static); re-selecting the stored value
-    // on every applySettingsToUI keeps the dropdown in sync after a reset.
     if (summaryLanguageSelect.options.length === 0) {
       for (const lang of SUMMARY_LANGUAGES) {
         const opt = document.createElement("option");
@@ -482,12 +422,6 @@ async function applySettingsToUI(settings) {
   );
   if (debugLogsRadio) debugLogsRadio.checked = true;
 
-  // Fire-and-forget: checkWebGPUSupport() can create the offscreen document
-  // on a cold start (a few seconds on Chrome), which used to make every
-  // caller of applySettingsToUI, including the popup's initial view
-  // restore on DOMContentLoaded, block on a warning banner that has
-  // nothing to do with which view should be shown. The banner just appears
-  // a moment later once this resolves instead.
   updateWebgpuWarning(isWebllm).catch((err) => console.error(err));
 }
 
@@ -508,15 +442,6 @@ async function getPageData(tab) {
   if (
     currentPageData &&
     currentPageData.url === tab.url &&
-    // PDFs aren't in CACHEABLE_PAGE_TYPES (content.js's extractor never sets
-    // `type` for them, and their text isn't persisted, see below), but a
-    // PDF already extracted earlier in this popup session (e.g. by a prior
-    // Summarize) is still worth reusing here: re-running
-    // extractFromActiveTab for a PDF only ever returns `content: null` (the
-    // real text comes from the separate extractPdfContent() pipeline
-    // below), so without this check, asking a follow-up question after
-    // summarizing a PDF used to silently clobber the already-extracted text
-    // with null.
     (CACHEABLE_PAGE_TYPES.has(currentPageData.type) ||
       (currentPageData.isPdf && currentPageData.content))
   ) {
@@ -531,11 +456,6 @@ async function getPageData(tab) {
 
   const pageData = await extractFromActiveTab(tab);
   if (pageData?.isPdf) {
-    // content.js's extractor can't pull PDF text itself (needs pdf.js,
-    // which runs in the service worker, see extractPdfContent), so fetch it
-    // here too, the same way summarizeActivePage does, otherwise asking a
-    // question about a PDF without summarizing it first always fails with
-    // "Could not extract enough page content to answer."
     pageData.content = await extractPdfContent(tab);
   }
   if (pageData) {
@@ -550,11 +470,6 @@ async function getPageData(tab) {
   return pageData;
 }
 
-// Pending "hide the progress bar 1.5s after it hit 100%" timer. Tracked (not
-// fire-and-forget) so a *new* download starting right after a previous one
-// finished, e.g. the Opus translator loading just after the summarization
-// model, cancels the stale hide instead of having it blank out the bar
-// mid-download. Every incoming progress message clears it first.
 let modelProgressHideTimer = null;
 
 chrome.runtime.onMessage.addListener((message) => {
@@ -567,9 +482,6 @@ chrome.runtime.onMessage.addListener((message) => {
       const pct = Math.round(p.progress * 100);
       modelProgressPercent.textContent = `${pct}%`;
       modelProgressFill.style.width = `${pct}%`;
-      // The percentage text is aria-hidden (re-announcing it on every tick
-      // would talk over everything else); the bar carries the value instead,
-      // which assistive tech reports on demand rather than out loud.
       modelProgressFill.parentElement?.setAttribute("aria-valuenow", pct);
       if (pct >= 100) {
         modelProgressHideTimer = setTimeout(
@@ -589,12 +501,10 @@ chrome.runtime.onMessage.addListener((message) => {
       const isScrollAtBottom =
         debugLogsCard.scrollHeight - debugLogsCard.clientHeight <=
         debugLogsCard.scrollTop + 10;
-      if (
-        debugLogsContent.textContent ===
-        "No logs recorded. Try starting summary or chat."
-      ) {
-        debugLogsContent.textContent = "";
-      }
+      debugLogsContent.textContent = debugLogsContent.textContent.replace(
+        /\n?No logs recorded\. Try starting summary or chat\.$/,
+        "",
+      );
       debugLogsContent.textContent +=
         (debugLogsContent.textContent ? "\n" : "") + message.log;
       if (isScrollAtBottom) {
@@ -604,9 +514,6 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-// Playful stand-ins for "Summarizing", picked at random each time so the
-// spinner isn't always the same word (same idea as Claude Code's rotating
-// spinner verbs).
 const SUMMARIZE_VERBS = [
   "Summarizing",
   "TL;DRing",
@@ -655,10 +562,6 @@ function randomSummarizeVerb() {
 function setLoadingIndicator(element, label) {
   const wrapper = document.createElement("span");
   wrapper.className = "apogee-loading";
-  // The same sparkle that fronts the "Summarize this page" button, spinning:
-  // the mark the click started from is the thing that keeps turning while the
-  // model works, the way the landing-page demo does it, rather than swapping
-  // in an unrelated generic ring.
   const spinner = document.createElement("span");
   spinner.className = "apogee-spinner ico";
   spinner.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.sparkle}</svg>`;
@@ -673,11 +576,6 @@ function setLoadingIndicator(element, label) {
   element.appendChild(wrapper);
 }
 
-// Speaks a one-off message through the off-screen live region. Streaming text
-// (the summary and answer bodies) is deliberately NOT wired to a live region:
-// announcing every token would be unusable, so the terminal events announce
-// instead. Re-setting the same string twice in a row is a no-op for most
-// screen readers, hence the clear-then-set.
 function announce(message) {
   if (!a11yAnnouncer) return;
   a11yAnnouncer.textContent = "";
@@ -693,41 +591,10 @@ function escapeHtml(text) {
     .replace(/'/g, "&#39;");
 }
 
-// Renders `[label](url)` as a real link before the bold/italic/code passes
-// below run, pulled out into placeholder tokens rather than substituted
-// inline: YouTube video IDs (and their timestamp links, see
-// buildYoutubeAssemblyPrompt in lib/summarize/prompts.js) routinely contain `_`/`*`,
-// which would otherwise trip the italic/bold regexes into matching *across*
-// an already-rendered <a href="..."> and corrupting it. Only http(s) URLs
-// are linkified. escapedText is already HTML-entity-escaped by the time
-// this runs (see renderMarkdown), so a `javascript:`/`data:` href couldn't
-// break out of the attribute, but it could still execute on click, which
-// this scheme check rules out.
-//
-// The href's origin is also gated: model output is steered by the page
-// being summarized, so a malicious page could tell the model to emit
-// "[0:12](https://evil.example/...)" and smuggle a phishing link, dressed
-// as a timestamp, into the trusted popup UI. Only URLs on the summarized
-// page's own host (plus youtube.com, the sole host the app itself ever
-// instructs the model to link to, for jump-to-video timestamps) become real
-// links; anything else renders as its plain label text instead.
-
-// Private-Use-Area character bracketing each numeric placeholder below:
-// never appears in real page text, so the restore regex in renderInline
-// matches regardless of what's adjacent (a plain space-delimited digit
-// missed links at the end of a line, exactly where the YouTube assembly
-// prompt's headings/bullets put them; see buildYoutubeAssemblyPrompt).
 const LINK_PLACEHOLDER_MARK = "\uE000";
 
-// The video hosts are always allowed because the only links the app itself asks
-// the model to produce are jump-to-moment timestamp links back to the video,
-// which stay clickable even when a past video summary is rendered from an
-// unrelated tab (past-summary cards have no URL to derive an origin from).
 const ALWAYS_LINKIFY_HOSTS = new Set(["youtube.com", "bilibili.com"]);
 
-// Host of the page whose summary/answer is currently being rendered; set from
-// the active tab on load (see DOMContentLoaded). null = only the always-allowed
-// hosts above are linkified.
 let linkifyPageHost = null;
 
 function normalizeLinkHost(host) {
@@ -758,8 +625,6 @@ function extractMarkdownLinks(escapedText) {
   const text = escapedText.replace(
     /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
     (match, label, href) => {
-      // A cross-origin href (relative to the summarized page) is dropped to
-      // its plain label rather than turned into a clickable link.
       if (!isLinkifiableHref(href)) return label;
       links.push(
         `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`,
@@ -829,14 +694,6 @@ function renderMarkdown(source) {
   return html;
 }
 
-// Past summaries are rendered on Home, where the popup's linkify origin
-// (linkifyPageHost) reflects whichever tab is currently active, not the tab
-// the stored summary came from, whose origin we no longer have (cache entries
-// only keep { s, p, t }). Rendering with that unrelated origin made a stored
-// summary's links clickable-or-not depending on the current tab. Render these
-// with no trusted page origin instead, so the result is deterministic: only
-// always-trusted hosts (YouTube timestamps) linkify, everything else stays
-// plain text.
 function renderStoredSummaryMarkdown(text) {
   const savedHost = linkifyPageHost;
   linkifyPageHost = null;
@@ -847,19 +704,6 @@ function renderStoredSummaryMarkdown(text) {
   }
 }
 
-// Timestamp / jump links inside the CURRENT page's summary or answer open in
-// the SAME tab the popup is bound to (activeTabId), never a new tab. A video
-// summary's key moments are meant to seek the very video you're watching.
-// Clicking through 15 of them should move that one tab along the timeline
-// (YouTube seeks to the &t=SECONDS the link carries), not pile up 15 tabs.
-// Past-summary links (#pastSummariesList) are the exception: a past summary is
-// for some OTHER page entirely, not the active tab, so routing its links to
-// activeTabId would hijack whatever unrelated page the user currently has open.
-// Those open a fresh tab instead. Delegated on document but gated to the
-// markdown-rendering containers, so the popup's own chrome (settings/contact
-// links) is untouched. The anchors keep target="_blank" as a safety net: if
-// this handler is ever missed, a new tab still beats navigating the popup's own
-// document away.
 document.addEventListener("click", (e) => {
   const anchor = e.target.closest?.("a[href^='http']");
   if (!anchor) return;
@@ -903,20 +747,10 @@ function setSuggestedQuestionsLoading() {
   container.appendChild(btn);
 }
 
-// How many past summaries to show on Home; cacheOrder can hold up to
-// MAX_CACHED_PAGES (50), far more than makes sense to list at a glance.
 const PAST_SUMMARIES_SHOWN = 8;
 
-// Strips the leading markdown marker (heading/bullet/number) off the first
-// non-empty line so the preview reads as plain text instead of literally
-// showing "# " or "- ".
 function firstLineOf(text) {
   const lines = (text || "").split(/\r?\n/).filter((l) => l.trim() !== "");
-  // A video / chaptered-brief summary opens with a "## Summary" / "## Overview"
-  // heading (see buildYoutubeAssemblyPrompt / buildYoutubeBriefPrompt); using
-  // that heading as the card preview would label every video the same word.
-  // Prefer the first line of actual content, falling back to the heading only
-  // if the summary is nothing but headings.
   const line =
     lines.find((l) => !/^#{1,6}\s+/.test(l.trim())) || lines[0] || "";
   return line
@@ -926,10 +760,6 @@ function firstLineOf(text) {
     .replace(/^\d+[.)]\s+/, "");
 }
 
-// Populates Home's "Past Summaries" list from the same cache persistSummary
-// writes to (see MAX_CACHED_PAGES above), most recent first. Hidden
-// entirely when there's nothing cached yet (fresh install) or after
-// "Clear cached summaries & page data".
 async function loadPastSummaries() {
   const { cacheOrder = [] } = await chrome.storage.local.get("cacheOrder");
   if (cacheOrder.length === 0) {
@@ -944,28 +774,17 @@ async function loadPastSummaries() {
   pastSummariesList.innerHTML = "";
   for (const entry of recent) {
     const text = stored[entry.s];
-    if (!text) continue; // evicted/cleared since cacheOrder was written
+    if (!text) continue;
 
-    // A <div> (not <button>), because it needs to contain the copy button
-    // below, and <button> can't nest inside <button> (the browser silently
-    // breaks the inner one). role="button" + the keydown handler keep it
-    // keyboard-operable in place of the native semantics that loses.
     const card = document.createElement("div");
     card.className = "past-summary-card";
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
-    // Collapsed by default; toggleExpanded keeps this in sync so the state
-    // is conveyed rather than left to the visual change alone.
     card.setAttribute("aria-expanded", "false");
 
-    // Groups the (optional) title and preview into one flex item so the
-    // copy button below can sit alongside both instead of just the preview.
     const textWrap = document.createElement("div");
     textWrap.className = "past-summary-text";
 
-    // Entries persisted before persistSummary started threading a title
-    // through have no `t`, fall back to showing just the preview, same as
-    // before this field existed.
     if (entry.t) {
       const titleEl = document.createElement("div");
       titleEl.className = "past-summary-title";
@@ -986,8 +805,6 @@ async function loadPastSummaries() {
       else preview.textContent = firstLineOf(text);
     };
     card.addEventListener("click", (e) => {
-      // A link inside an expanded card (e.g. a YouTube timestamp) should
-      // follow the link without also toggling the card collapsed underneath.
       if (e.target.closest("a")) return;
       toggleExpanded();
     });
@@ -1004,15 +821,10 @@ async function loadPastSummaries() {
     copyBtn.setAttribute("aria-label", "Copy this summary");
     copyBtn.innerHTML = icon("copy");
     copyBtn.addEventListener("click", (e) => {
-      // Otherwise this bubbles up to the card's own click handler and
-      // toggles expand/collapse at the same time as copying.
       e.stopPropagation();
       copyToClipboard(text, copyBtn);
     });
 
-    // Decorative: the card itself is the toggle (role="button" above), this
-    // just gives the collapsed row a visible hint that it opens. CSS flips it
-    // on .expanded.
     const chevron = document.createElement("span");
     chevron.className = "past-summary-chevron";
     chevron.setAttribute("aria-hidden", "true");
@@ -1045,20 +857,12 @@ function showSummarizingContext() {
   updateTimeSavedBadge(null, null);
 }
 
-// Sets (or, for a null/empty label, hides) the badge. Shared by the live path
-// below and the restore-from-cache path (showTimeSavedFromInputs) so both
-// render the badge identically.
 function setTimeSavedBadgeLabel(label) {
   if (!timeSavedBadge) return;
   timeSavedBadge.textContent = label || "";
   timeSavedBadge.classList.toggle("hidden", !label);
 }
 
-// Live path: compute + show the badge from the in-memory page data right after
-// a summarize job finishes. Video pages (YouTube, Bilibili, see isVideoType)
-// measure against the video's actual runtime (durationSeconds); everything else
-// against the original text's word count. On reopen, showTimeSavedFromInputs
-// takes over from persisted inputs.
 function updateTimeSavedBadge(pageData, summaryText) {
   const label = isVideoType(pageData?.type)
     ? formatVideoTimeSaved(pageData.durationSeconds, summaryText)
@@ -1066,40 +870,21 @@ function updateTimeSavedBadge(pageData, summaryText) {
   setTimeSavedBadgeLabel(label);
 }
 
-// Re-shows the badge when a finished summary is restored from cache on popup
-// reopen: the live page data (currentPageData) is gone by then, but the inputs
-// the badge needs were persisted into the tab's view state on completion (see
-// consumeSummaryStream), so recompute from those against the restored summary.
-// Without this the badge would appear once, then vanish the first time the
-// popup closed and reopened. `inputs` absent (e.g. an older cached summary
-// saved before this was persisted, or a background job) → badge stays hidden.
 function showTimeSavedFromInputs(inputs, summaryText) {
   setTimeSavedBadgeLabel(formatTimeSavedFromInputs(inputs, summaryText));
 }
 
-// Shared by every place that shows/hides the summary card's copy buttons
-// (plain text and Markdown) and the Resummarize button in lockstep, so a
-// spot that toggles one can't accidentally leave the others stale. All three
-// only make sense once a finished summary is actually on screen.
 function setSummaryCopyButtonsVisible(hasText) {
   copySummaryBtn.classList.toggle("hidden", !hasText);
   copyMarkdownBtn?.classList.toggle("hidden", !hasText);
   resummarizeBtn?.classList.toggle("hidden", !hasText);
 }
 
-// Copies plain text (not the rendered HTML) to the clipboard and briefly
-// swaps the button's icon to a checkmark so the click has visible feedback,
-// same pattern for both the summary and answer copy buttons.
 async function copyToClipboard(text, btn) {
   if (!text || !btn) return;
   try {
     await navigator.clipboard.writeText(text);
   } catch (err) {
-    // Clipboard permission denied or unavailable; nothing sensible to do
-    // beyond not showing the "copied" confirmation below. Logged (not
-    // silently swallowed) since a failed copy with no feedback at all is
-    // otherwise indistinguishable from "worked, but the checkmark simply
-    // wasn't noticed".
     console.error("Copy to clipboard failed:", err);
     return;
   }
@@ -1116,9 +901,6 @@ copySummaryBtn?.addEventListener("click", () =>
   copyToClipboard(currentSummaryText, copySummaryBtn),
 );
 copyMarkdownBtn?.addEventListener("click", async () => {
-  // currentPageData isn't always populated (e.g. right after reopening the
-  // popup on a cached summary, see getPageData's known gap), so fall back
-  // to the active tab's own title/url, always available regardless.
   const [tab] = await chrome.tabs.query({
     active: true,
     currentWindow: true,
@@ -1147,24 +929,12 @@ function showCancelSummarizeButton(streamId) {
 function hideCancelSummarizeButton() {
   activeSummarizeStreamId = null;
   cancelSummarizeBtn.classList.add("hidden");
-  // Runs on every terminal outcome of a summarize job (done/cancelled/
-  // error, see this function's callers), so a lingering "model-progress"
-  // banner (e.g. "Summarizing part 2 of 3..." at a permanent 0%, which
-  // never crosses the >=100% threshold that otherwise auto-hides it) can't
-  // outlive the job that was reporting it.
   modelProgress?.classList.add("hidden");
 }
 
-// Shared by a freshly started summarize job and one resumed after the popup
-// was reopened mid-stream. Cancellation itself is handled by the caller
-// (navigates back to the home view instead), this only renders a real
-// failure.
 function renderSummaryError(error) {
   console.error(error);
   const p = document.createElement("p");
-  // role="alert" so the failure is spoken the moment it replaces the
-  // streaming summary; everything else in the popup announces politely, but
-  // a dead job is the one thing worth interrupting for.
   p.setAttribute("role", "alert");
   p.style.color = "var(--error-text)";
   p.style.fontSize = "13px";
@@ -1173,10 +943,6 @@ function renderSummaryError(error) {
   summaryText.appendChild(p);
 }
 
-// On cancel there's no partial summary worth keeping the user parked on, so
-// send them back to Home rather than showing a "cancelled" state in place.
-// Clears the persisted streamId too, otherwise reopening the popup would
-// try to reattach to the now-dead job (see the resume logic below).
 function returnHomeAfterCancel(tabId) {
   showOnlyView("homeView");
   saveViewState(tabId, { view: "homeView", streamId: null });
@@ -1201,10 +967,6 @@ function showSummaryContext(questions = []) {
 
 function showAskContext() {
   summaryCard.classList.add("hidden");
-  // Unlike showAnswerContext (which reuses promptsSection to show the
-  // submitted question), there's nothing to show here yet: no page has been
-  // summarized, so there are no real suggestions, just an empty "Suggested
-  // Prompts" heading with nothing under it.
   promptsSection.classList.add("hidden");
   answerHeading.textContent = "Ask Apogee";
   resetQuestionCards();
@@ -1249,15 +1011,9 @@ function showCancelAskButton(streamId) {
 function hideCancelAskButton() {
   activeAskStreamId = null;
   cancelAskBtn.classList.add("hidden");
-  // See hideCancelSummarizeButton's comment: same lingering-banner issue,
-  // e.g. "Reconnecting to local model..." shown while re-creating the
-  // offscreen document for an ask's RAG lookup.
   modelProgress?.classList.add("hidden");
 }
 
-// Mirrors returnHomeAfterCancel, but for a cancelled "ask": there's still a
-// summary/page context worth staying on, so this returns to the question
-// input instead of leaving summaryView entirely.
 function returnToAskAfterCancel(tabId) {
   showAskContext();
   saveViewState(tabId, { view: "summaryView", subview: "ask", streamId: null });
@@ -1284,10 +1040,6 @@ async function streamGeneratorIntoElement(generator, element) {
   return fullText;
 }
 
-// Consumes a summary stream to completion (persisting the result, showing
-// the summary view, and fetching suggested questions). Shared between a
-// freshly started summarize job and one being resumed after the popup was
-// reopened mid-stream.
 async function consumeSummaryStream(stream, { tab, promptsCacheKey }) {
   const text = await streamGeneratorIntoElement(stream, summaryText);
 
@@ -1295,8 +1047,6 @@ async function consumeSummaryStream(stream, { tab, promptsCacheKey }) {
   makeSummaryPassagesFocusable();
   showSummaryContext();
   setSummaryCopyButtonsVisible(!!text.trim());
-  // The just-finished summary matches the current setting, so clear any stale
-  // language hint that may have been showing before this re-run.
   updateResummarizeHint();
   updateTimeSavedBadge(currentPageData, text);
   await saveViewState(tab.id, {
@@ -1304,9 +1054,6 @@ async function consumeSummaryStream(stream, { tab, promptsCacheKey }) {
     subview: "summary",
     url: tab.url,
     streamId: null,
-    // Persist just the inputs the badge needs (video runtime or original word
-    // count) so it can be recomputed and shown again when this summary is
-    // restored from cache on a later popup open, instead of vanishing.
     timeSaved: timeSavedInputsFor({
       type: currentPageData?.type,
       durationSeconds: currentPageData?.durationSeconds,
@@ -1315,16 +1062,6 @@ async function consumeSummaryStream(stream, { tab, promptsCacheKey }) {
   });
   setSuggestedQuestionsLoading();
 
-  // The service worker's finalizeSummaryJob (triggered by this same
-  // summarize job finishing, see background/service-worker.js) is what
-  // actually persists the summary and kicks off suggested-question
-  // generation now, not this function, that's what lets a finished summary
-  // survive even if the popup is closed before the job wraps up. This just
-  // needs to watch for the result: set currentPromptsCacheKey so the
-  // storage.onChanged/"suggested-prompts-ready" listeners above route to
-  // this popup, and also check storage directly here in case that
-  // background job already finished (e.g. reattaching after the popup was
-  // closed and reopened) before either listener had a chance to attach.
   currentPromptsCacheKey = promptsCacheKey;
   const { [promptsCacheKey]: existingQuestions } =
     await chrome.storage.local.get(promptsCacheKey);
@@ -1337,12 +1074,6 @@ async function consumeSummaryStream(stream, { tab, promptsCacheKey }) {
 }
 
 async function summarizeActivePage() {
-  // A prior summarize job (e.g. Home -> Summarize -> logo back to Home ->
-  // Summarize again before the first one finished) otherwise keeps
-  // generating in the background for up to 2 minutes with nothing
-  // subscribed to it, wasted GPU/CPU for output no one will see. This also
-  // stops that job's still-running consumeSummaryStream loop, if any, from
-  // racing this one to write into the same DOM elements below.
   if (activeSummarizeStreamId) {
     cancelStream(activeSummarizeStreamId);
   }
@@ -1365,12 +1096,7 @@ async function summarizeActivePage() {
     const settings = await getSettings();
     const provider = getProvider(settings);
     const model = getModelForSettings(settings);
-    // The summary about to be generated will be in this language; record it so
-    // a later language-setting change can flag the result as stale.
     currentSummaryLanguage = settings.summaryLanguage;
-    // Explicit "Summarize" click always re-reads the live page, unlike
-    // getPageData()'s reuse path (used by follow-up questions), we don't
-    // want a stale cached extraction here.
     const pageData = await extractFromActiveTab(tab);
 
     if (!pageData) {
@@ -1378,9 +1104,6 @@ async function summarizeActivePage() {
         "Couldn't read this page, try reloading it, or pick a different tab.";
       return;
     }
-    // Gmail returns empty content when no thread is open rather than
-    // dumping the inbox chrome, surface that instead of sending blank
-    // content to the model.
     if (!pageData.isPdf && !pageData.content) {
       summaryText.textContent =
         "Nothing to summarize here yet, open a page, email, or video first.";
@@ -1406,12 +1129,6 @@ async function summarizeActivePage() {
       model,
       settings.summaryLanguage,
     );
-    // Read once here (rather than after the stream finishes) and threaded
-    // through as `finalize`: the service worker is what actually persists
-    // the summary and kicks off suggested questions once the job completes
-    // (see finalizeSummaryJob in background/service-worker.js), so it needs
-    // this up front, not just this popup instance if it happens to still be
-    // open by then.
     const finalize = {
       cacheKey,
       promptsCacheKey,
@@ -1486,15 +1203,9 @@ cancelSummarizeBtn?.addEventListener("click", () => {
   cancelStream(activeSummarizeStreamId);
 });
 
-// Shown in place of the answer when a question comes back empty, both live
-// (consumeAnswerStream) and when restoring a previously-empty answer.
 const EMPTY_ANSWER_MESSAGE =
   "No answer came back - try rephrasing the question.";
 
-// Consumes an "ask" stream to completion, rendering into answerBox and
-// persisting the final answer text so a reopened popup can show it without
-// needing to re-run the question. Shared between a freshly started ask and
-// one being resumed after the popup was closed mid-stream.
 async function consumeAnswerStream(stream, { tab, question }) {
   let fullText = "";
   let started = false;
@@ -1508,8 +1219,6 @@ async function consumeAnswerStream(stream, { tab, question }) {
     answerBox.textContent = fullText.trimStart();
   }
   if (started) answerBox.innerHTML = renderMarkdown(answerBox.textContent);
-  // A model that streams back nothing usable (empty or all-whitespace) would
-  // otherwise leave a blank bordered box, indistinguishable from a glitch.
   else answerBox.textContent = EMPTY_ANSWER_MESSAGE;
 
   currentAnswerText = fullText;
@@ -1533,9 +1242,6 @@ async function submitQuestion(question) {
     questionInput.focus();
     return;
   }
-  // See the matching comment in summarizeActivePage: stop wasting
-  // generation on a still-running prior question nobody's waiting on
-  // anymore, and stop it from racing this one into answerBox.
   if (activeAskStreamId) {
     cancelStream(activeAskStreamId);
   }
@@ -1554,9 +1260,6 @@ async function submitQuestion(question) {
       question: trimmed,
       answerText: "",
     });
-    // Reuse cached page data (in-memory or persisted) when it's safe to,
-    // see getPageData()/CACHEABLE_PAGE_TYPES for why Gmail/YouTube are
-    // always re-extracted live instead.
     let pageData = await getPageData(tab);
     if (!pageData) {
       answerBox.textContent =
@@ -1603,30 +1306,17 @@ async function submitQuestion(question) {
   }
 }
 
-// Returns the provider's full checkReady() result (not just a boolean):
-// DirectOllamaProvider's includes `models`, the live list from Ollama's own
-// /api/tags (see ollamaClient.js's checkHealth), which updateLocalModelList
-// uses to replace the hardcoded LOCAL_MODELS list with whatever the user has
-// actually pulled.
 async function checkConnection() {
   const settings = await getSettings();
   const provider = getProvider(settings);
   return await provider.checkReady();
 }
 
-// Populates the Local Ollama model list from that live result, so users
-// aren't limited to the 4 models baked into LOCAL_MODELS. Falls back to that
-// hardcoded list when Ollama isn't reachable or reports no models, so the
-// settings page still shows something sensible before Ollama is running.
 function updateLocalModelList(settings, status) {
   if (settings.provider !== PROVIDERS.LOCAL) return;
 
   const liveModels = Array.isArray(status?.models) ? status.models : [];
   if (liveModels.length > 0) {
-    // Keep the currently selected model in the list even if this Ollama
-    // response doesn't include it (e.g. it was picked before Ollama was
-    // reachable), so switching providers/reopening never silently changes
-    // the user's choice out from under them.
     const names = liveModels.includes(settings.localModel)
       ? liveModels
       : [settings.localModel, ...liveModels];
@@ -1642,11 +1332,6 @@ function updateLocalModelList(settings, status) {
   } else {
     buildLocalModelUI(settings.localModel, LOCAL_MODELS);
     if (localModelStatus) {
-      // `status.error` (set by DirectOllamaProvider.checkReady when the
-      // service worker rejected the host itself, e.g. a scheme other than
-      // http:// or a non-loopback hostname) is a specific, actionable
-      // reason; without it, an invalid host just read as the same generic
-      // "connect to Ollama to see yours" as Ollama simply not running yet.
       localModelStatus.textContent = status?.error
         ? status.error
         : status?.ready
@@ -1679,22 +1364,10 @@ function showOnlyView(view) {
   settingsView.classList.toggle("hidden", view !== "settingsView");
   contactView.classList.toggle("hidden", view !== "contactView");
 
-  // Views swap in place, so without moving focus a screen reader stays parked
-  // on whatever it was reading in the view that just went display:none, and
-  // the next Tab lands back at the top of the document. Each view container
-  // carries tabindex="-1" + aria-label for exactly this: focusing it
-  // announces the view the user just navigated to. preventScroll keeps the
-  // popup from jumping when a long view (Settings) is focused.
   const target = document.getElementById(view);
   target?.focus({ preventScroll: true });
 }
 
-// Shows the actual current "Summarize this page" keyboard shortcut on its
-// button, read live via chrome.commands.getAll() rather than hardcoding the
-// manifest's suggested_key: the user can remap it any time via
-// chrome://extensions/shortcuts (or unbind it entirely), and a hardcoded
-// hint would silently go stale the moment they did, same reasoning as
-// reading the version from the manifest instead of a literal string above.
 async function updateSummarizeShortcutHint() {
   if (!summarizeShortcutHint || typeof chrome.commands?.getAll !== "function") {
     return;
@@ -1705,36 +1378,22 @@ async function updateSummarizeShortcutHint() {
     summarizeShortcutHint.textContent = command.shortcut;
     summarizeShortcutHint.classList.remove("hidden");
   } else {
-    // Unbound (user cleared it in chrome://extensions/shortcuts, or it
-    // never registered on this platform), nothing to show.
     summarizeShortcutHint.classList.add("hidden");
   }
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // WebLLM (WebGPU via an offscreen document) only exists on Chrome/Edge;
-  // Firefox has no offscreen API at all, so hide that radio there. Chrome/Edge
-  // keep BOTH in-browser providers, WebLLM (default) and Transformers.js
-  // (ONNX/WASM, opt-in), so nothing is hidden there (see PROVIDERS in
-  // lib/constants.js). Don't offer a provider getProvider() can't construct.
   if (process.env.TARGET_BROWSER === "firefox") {
     webllmProviderOption?.classList.add("hidden");
   }
 
   try {
-    // Independent of settings/connection-check/tab below, and those can be
-    // slow (or hang, if the provider never responds), so this isn't awaited
-    // here, it just populates Home in the background on its own schedule.
     loadPastSummaries().catch((err) => console.error(err));
     updateSummarizeShortcutHint().catch((err) => console.error(err));
 
     const settings = await getSettings();
     await applySettingsToUI(settings);
 
-    // Not awaited, same reasoning as loadPastSummaries above: probing
-    // connectivity can create the offscreen document (WebLLM) or hit an
-    // unreachable Ollama host, either of which can take seconds, and
-    // nothing below (which view to restore) depends on the result.
     checkConnection()
       .then((status) => {
         updateConnectionUI(status?.ready === true);
@@ -1747,17 +1406,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       currentWindow: true,
     });
     activeTabId = tab.id;
-    // The popup stays bound to this one tab (it doesn't follow tab switches),
-    // so this host governs which links in every summary/answer rendered below
-    // are trusted enough to become clickable, see extractMarkdownLinks.
     setLinkifyOriginFromUrl(tab.url);
 
     const state = await loadViewState(tab.id);
 
-    // Mid-summarize or mid-answer when the popup last closed: the job kept
-    // running in the background, so reattach instead of restarting it.
-    // States are matched by URL hash (see saveViewState); states written by
-    // older versions stored a raw `url` instead and simply read as stale.
     if (state && state.urlHash === (await hashUrl(tab.url)) && state.streamId) {
       if (state.subview === "summarizing") {
         showOnlyView("summaryView");
@@ -1765,11 +1417,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         setLoadingIndicator(summaryText, randomSummarizeVerb());
         showCancelSummarizeButton(state.streamId);
         try {
-          // Not consumed directly below (consumeSummaryStream no longer
-          // needs pageData, the service worker's finalizeSummaryJob owns
-          // persistence now, see that function's own comment), but still
-          // worth populating currentPageData's in-memory reuse for any
-          // follow-up "Ask" click on this same page.
           await getPageData(tab);
           await consumeSummaryStream(attachToStream(state.streamId), {
             tab,
@@ -1780,10 +1427,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             returnHomeAfterCancel(tab.id);
           } else {
             renderSummaryError(error);
-            // Clear the dead stream pointer so reopening the popup doesn't
-            // retry the same failed reattach forever, the underlying job is
-            // gone either way (evicted service worker, crashed offscreen
-            // engine, etc.), so there's nothing left to reattach to.
             await saveViewState(tab.id, { streamId: null });
           }
         } finally {
@@ -1807,8 +1450,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           } else {
             console.error(error);
             answerBox.textContent = error.message;
-            // Same reasoning as the summarize reattach above, don't leave a
-            // dead streamId behind for the next popup open to retry.
             await saveViewState(tab.id, { streamId: null });
           }
         } finally {
@@ -1818,7 +1459,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // No in-flight job, restore whichever static page the user was last on.
     if (state && state.urlHash === (await hashUrl(tab.url))) {
       if (state.view === "settingsView") {
         showOnlyView("settingsView");
@@ -1848,11 +1488,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           return;
         }
         if (state.subview === "summary" && state.summaryText) {
-          // A background "Summarize selection" job parked its finished result
-          // here (see finalizeSummaryJob): it's deliberately not in the
-          // URL-keyed page cache, so render this inline text directly rather
-          // than falling through to the cache lookup below, which would only
-          // ever find the real page summary (or nothing).
           currentSummaryText = state.summaryText;
           currentSummaryLanguage = settings.summaryLanguage;
           summaryText.innerHTML = renderMarkdown(state.summaryText);
@@ -1878,15 +1513,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 summary: state.summaryText,
               },
               settings,
-              // Selection summaries never persist, so neither do their
-              // suggested questions; they arrive live via the listeners above.
               false,
             );
           }
           return;
         }
-        // subview === "summary" (or unknown) falls through to the cache
-        // lookup below, which is the source of truth for summary text.
       }
     }
 
@@ -1907,29 +1538,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (cached[cacheKey]) {
       currentSummaryText = cached[cacheKey];
-      // A cache hit is keyed by the current summaryLanguage, so the restored
-      // summary is, by construction, in the currently-selected language.
       currentSummaryLanguage = settings.summaryLanguage;
       summaryText.innerHTML = renderMarkdown(cached[cacheKey]);
       makeSummaryPassagesFocusable();
       setSummaryCopyButtonsVisible(!!cached[cacheKey].trim());
       updateResummarizeHint(settings);
-      // Restore the "time saved" badge from the inputs persisted alongside this
-      // tab's view state, so it survives the popup closing and reopening. Only
-      // trust those inputs when the stored state is for THIS url: the cache
-      // lookup here runs unconditionally (outside the urlHash gate above), so a
-      // stale state left by a different page previously open in the same tab
-      // would otherwise size the badge against the wrong original (e.g. a past
-      // video's runtime applied to an article's cached summary).
       const badgeInputs =
         state && state.urlHash === (await hashUrl(tab.url))
           ? state.timeSaved
           : null;
       showTimeSavedFromInputs(badgeInputs, cached[cacheKey]);
       showOnlyView("summaryView");
-      // A present key (even []) means prompts finished; a missing key means
-      // they were still generating when the popup closed, show loading and
-      // re-kick the job so the storage listener can fill them in.
       if (cached[promptsCacheKey] !== undefined) {
         showSummaryContext(cached[promptsCacheKey]);
       } else {
@@ -1990,10 +1609,6 @@ questionInput?.addEventListener("keydown", (e) => {
   }
 });
 
-// Provider/format/model/backend changes no longer wipe the cache: provider
-// switches already land on a distinct model id (webllmModel vs localModel
-// namespaces don't collide), and format/model are baked into the cache key
-// itself, see getSummaryCacheKey.
 providerRadios.forEach((radio) => {
   radio.addEventListener("change", async () => {
     const settings = await saveSettings({ provider: radio.value });
@@ -2010,7 +1625,6 @@ formatRadios.forEach((radio) => {
   });
 });
 
-// Keeps the "N / 2000" counter under the custom-instructions box in sync.
 function updateCustomInstructionsCount() {
   if (!customInstructionsCount || !customInstructionsInput) return;
   const len = customInstructionsInput.value.length;
@@ -2018,11 +1632,6 @@ function updateCustomInstructionsCount() {
 }
 
 if (customInstructionsInput) {
-  // Update the counter live on every keystroke, but only persist once the user
-  // pauses/leaves the field: saving on every keystroke would thrash
-  // chrome.storage. The maxlength attribute caps input in the DOM; slice() here
-  // is defensive against a paste that somehow exceeds it (and matches the
-  // model-side CUSTOM_INSTRUCTIONS_MAX_CHARS budget).
   let customInstructionsSaveTimer = null;
   const persistCustomInstructions = async () => {
     const value = customInstructionsInput.value
@@ -2046,8 +1655,6 @@ summaryLanguageSelect?.addEventListener("change", async () => {
   const settings = await saveSettings({
     summaryLanguage: summaryLanguageSelect.value,
   });
-  // Changing the language doesn't auto-regenerate (same as Response Format);
-  // surface the mismatch so the visible summary can be refreshed on demand.
   await updateResummarizeHint(settings);
 });
 
@@ -2076,27 +1683,23 @@ sponsorBlockRadios.forEach((radio) => {
   });
 });
 
-// Same `debugLogs` setting the summary view's "Show logs" panel writes (see
-// toggleDebugLogsBtn). Settings is the copy you can reach *before* starting a
-// job, which is what a bug reporter needs: that panel only exists while the
-// model-progress banner is on screen, so arming it there always missed the
-// run that was being reported. Both controls live in the same popup document,
-// so whichever one is used has to move the other.
 function syncDebugLogsRadios(on) {
   debugLogsRadios.forEach((radio) => {
     radio.checked = radio.value === (on ? "on" : "off");
   });
+  copyDiagnosticsBtn?.classList.toggle("hidden", !on);
+  copyDiagnosticsHint?.classList.toggle("hidden", !on);
 }
 
 debugLogsRadios.forEach((radio) => {
   radio.addEventListener("change", async () => {
-    await saveSettings({ debugLogs: radio.value === "on" });
+    const on = radio.value === "on";
+    await saveSettings({ debugLogs: on });
+    copyDiagnosticsBtn?.classList.toggle("hidden", !on);
+    copyDiagnosticsHint?.classList.toggle("hidden", !on);
   });
 });
 
-// Removes every persisted summary, suggested-prompt set, extracted page body,
-// and per-tab view state (plus their FIFO indexes), the "clear cached data"
-// control. Preferences (the `settings` key) are intentionally left intact.
 async function clearCachedData() {
   const all = await chrome.storage.local.get(null);
   const keys = Object.keys(all).filter(
@@ -2131,10 +1734,6 @@ clearDataBtn?.addEventListener("click", async () => {
 
 backendUrlInput?.addEventListener("change", async () => {
   let val = (backendUrlInput.value || DEFAULT_OLLAMA_HOST).trim();
-  // A bare host:port (e.g. "127.0.0.1:11434", easy to type without
-  // thinking of it as a URL) otherwise fails validateOllamaHost's `new
-  // URL()` parse in the service worker and just reads as "Disconnected"
-  // with no indication why.
   if (val && !/^https?:\/\//i.test(val)) {
     val = `http://${val}`;
   }
@@ -2163,14 +1762,10 @@ getInTouchBtn?.addEventListener("click", () => {
   saveViewState(activeTabId, { view: "contactView" });
 });
 
-// Only Home and Summary show the logo (Settings/Contact use a back-arrow
-// header instead), clicking it acts as a "go home" shortcut from Summary.
 document.querySelectorAll(".brand").forEach((brand) => {
   brand.addEventListener("click", () => {
     showOnlyView("homeView");
     saveViewState(activeTabId, { view: "homeView" });
-    // Refresh in case a summary was generated (or cleared) earlier in this
-    // same popup session; Home otherwise only reloads this on reopen.
     loadPastSummaries();
   });
 });
@@ -2187,13 +1782,7 @@ document.getElementById("featureBtn")?.addEventListener("click", () => {
 
 settingsBackBtn?.addEventListener("click", () => {
   showOnlyView(settingsEntryView);
-  // summaryView's own subview/promptsCacheKey fields (set when the summary
-  // finished, see consumeSummaryStream) are untouched by this merge, so
-  // navigating back there doesn't disturb what's actually being resumed on
-  // a later popup reopen, just which page is currently on screen.
   saveViewState(activeTabId, { view: settingsEntryView });
-  // Returning to a summary after possibly changing the language in Settings:
-  // re-evaluate whether the on-screen summary is now in a stale language.
   if (settingsEntryView === "summaryView") updateResummarizeHint();
 });
 
@@ -2210,23 +1799,8 @@ document
     submitQuestion(card.textContent);
   });
 
-// Highlight-in-page: click a summary bullet/line, scroll to and highlight
-// the matching passage in the live page, so the model's claims are visibly
-// grounded in the source text. Needs the on-device embedding pipeline,
-// which only runs in the offscreen document (see "find-passage" in
-// background/service-worker.js, same Chrome/Edge-only constraint Ask's own
-// retrieval already has), so this is a no-op on Firefox: no listener is
-// attached, and summaryText doesn't get the CSS class that gives bullets
-// their clickable affordance in the first place.
 const HIGHLIGHT_SUPPORTED = process.env.TARGET_BROWSER !== "firefox";
 
-// A dot-product similarity below this is treated as "not actually the same
-// claim", not just a loose match, since the top-scoring chunk is always
-// returned even when nothing on the page is a good fit (e.g. a bullet that
-// synthesizes several parts of the page at once). This threshold is a
-// starting point, not empirically tuned against real model output, expect
-// to revisit it based on how often real clicks land on false positives vs.
-// unnecessary "couldn't locate" misses.
 const HIGHLIGHT_MIN_SCORE = 0.35;
 
 function showLocateFailure(target) {
@@ -2254,9 +1828,6 @@ async function locateAndHighlight(target) {
 
   target.classList.add("apogee-locating");
   try {
-    // currentPageData isn't always populated at this point, e.g. right
-    // after reopening the popup on a cached summary (see getPageData's
-    // known gap), so populate it lazily here before the first lookup.
     if (!currentPageData?.content) {
       await getPageData(tab);
     }
@@ -2296,10 +1867,6 @@ async function locateAndHighlight(target) {
       return;
     }
 
-    // Bring the highlighted passage into view, then close the popup, it
-    // otherwise sits on top of exactly what the user just asked to see;
-    // Chrome popups close on losing focus anyway, this just makes that
-    // happen immediately instead of requiring a separate click to dismiss.
     if (tab.windowId != null) {
       await chrome.windows.update(tab.windowId, { focused: true });
     }
@@ -2313,11 +1880,6 @@ async function locateAndHighlight(target) {
   }
 }
 
-// Makes each rendered summary bullet/paragraph reachable by keyboard, since
-// the click-to-highlight affordance is otherwise mouse-only. Called after
-// every summaryText render that produces final content (stream completion,
-// cached restore); mid-stream re-renders are skipped, focus wouldn't survive
-// the constant innerHTML replacement anyway.
 function makeSummaryPassagesFocusable() {
   if (!HIGHLIGHT_SUPPORTED) return;
   summaryText?.querySelectorAll("li, p").forEach((el) => {
@@ -2326,12 +1888,6 @@ function makeSummaryPassagesFocusable() {
   });
 }
 
-// Links (e.g. YouTube timestamps) navigate the page being summarized in its
-// own tab rather than spawning a new one. Registered unconditionally, and
-// before the highlight handler below, so a link click is fully consumed here
-// (stopImmediatePropagation) and never also triggers passage highlighting.
-// This must stay outside the HIGHLIGHT_SUPPORTED gate since Firefox drops that
-// block but still needs same-tab link behavior.
 summaryText?.addEventListener("click", (event) => {
   const link = event.target.closest("a[href]");
   if (!link || !summaryText.contains(link)) return;
@@ -2353,8 +1909,6 @@ if (HIGHLIGHT_SUPPORTED) {
     if (!target || !summaryText.contains(target)) return;
     locateAndHighlight(target);
   });
-  // Keyboard counterpart of the click handler above, for the tabindexed
-  // passages makeSummaryPassagesFocusable creates.
   summaryText?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     const target = event.target.closest("li, p");
@@ -2364,8 +1918,16 @@ if (HIGHLIGHT_SUPPORTED) {
   });
 }
 
-// Signal popup lifecycle to the service worker to handle offscreen document cleanup
 chrome.runtime.connect({ name: "popup-lifecycle" });
+
+async function diagnosticHeader() {
+  const settings = await getSettings();
+  return formatDiagnosticSettings(settings, {
+    version: chrome.runtime.getManifest().version,
+    browser: navigator.userAgent,
+    webgpu: "gpu" in navigator ? "available" : "unavailable",
+  });
+}
 
 async function updateDebugLogsUI() {
   if (!debugLogsCard || debugLogsCard.classList.contains("hidden")) return;
@@ -2375,9 +1937,10 @@ async function updateDebugLogsUI() {
       action: "get-offscreen-logs",
     });
     if (res && Array.isArray(res.logs)) {
-      debugLogsContent.textContent =
+      const body =
         res.logs.join("\n") ||
         "No logs recorded. Try starting summary or chat.";
+      debugLogsContent.textContent = `${await diagnosticHeader()}\n${body}`;
       debugLogsCard.scrollTop = debugLogsCard.scrollHeight;
     }
   } catch (err) {
@@ -2386,8 +1949,6 @@ async function updateDebugLogsUI() {
 }
 
 toggleDebugLogsBtn?.addEventListener("click", async () => {
-  // Update only the label span so the leading icon isn't clobbered; fall back
-  // to the element itself if the markup ever changes.
   const label =
     toggleDebugLogsBtn.querySelector(".logs-toggle-label") ||
     toggleDebugLogsBtn;
@@ -2396,9 +1957,6 @@ toggleDebugLogsBtn?.addEventListener("click", async () => {
     debugLogsCard.classList.remove("hidden");
     label.textContent = "Hide logs";
     toggleDebugLogsBtn.setAttribute("aria-expanded", "true");
-    // Emission is gated on this setting (see lib/util/log.js): turning the
-    // panel on is what makes the engine hosts start writing progress lines,
-    // so the logs cover the next job rather than every job the user runs.
     await saveSettings({ debugLogs: true });
     syncDebugLogsRadios(true);
     await updateDebugLogsUI();
@@ -2417,9 +1975,42 @@ clearDebugLogsBtn?.addEventListener("click", async () => {
       target: "service-worker",
       action: "clear-offscreen-logs",
     });
-    debugLogsContent.textContent =
-      "No logs recorded. Try starting summary or chat.";
+    debugLogsContent.textContent = `${await diagnosticHeader()}\nNo logs recorded. Try starting summary or chat.`;
   } catch (err) {
     debugLogsContent.textContent = `Error clearing logs: ${err.message}`;
   }
+});
+
+copyDiagnosticsBtn?.addEventListener("click", async () => {
+  const original = copyDiagnosticsBtn.textContent;
+  try {
+    let logs = [];
+    try {
+      const res = await chrome.runtime.sendMessage({
+        target: "service-worker",
+        action: "get-offscreen-logs",
+      });
+      if (res && Array.isArray(res.logs)) logs = res.logs;
+    } catch {
+      logs = ["(engine logs unavailable: the service worker did not respond)"];
+    }
+    const settings = await getSettings();
+    await navigator.clipboard.writeText(
+      formatDiagnosticsMarkdown(
+        settings,
+        {
+          version: chrome.runtime.getManifest().version,
+          browser: navigator.userAgent,
+          webgpu: "gpu" in navigator ? "available" : "unavailable",
+        },
+        logs,
+      ),
+    );
+    copyDiagnosticsBtn.textContent = "Copied";
+  } catch {
+    copyDiagnosticsBtn.textContent = "Copy failed";
+  }
+  setTimeout(() => {
+    copyDiagnosticsBtn.textContent = original;
+  }, 1500);
 });

@@ -59,7 +59,6 @@ test("splitIntoSections does not treat numbered sentences as headings", () => {
     "2. The results were surprising in several respects.",
   ].join("\n");
   const sections = splitIntoSections(text);
-  // Only the real "Introduction" heading, the numbered sentences stay body.
   assert.strictEqual(sections.length, 1);
   assert.strictEqual(sections[0].heading, "Introduction");
   assert.match(sections[0].text, /We then trained/);
@@ -80,7 +79,7 @@ test("chunkBySections falls back to plain chunking for unstructured text", () =>
 });
 
 test("chunkBySections keeps each chunk within the char budget and includes headings", () => {
-  const body = "x ".repeat(60).trim(); // ~119 chars
+  const body = "x ".repeat(60).trim();
   const text = ["Introduction", body, "Methods", body].join("\n");
   const chunks = chunkBySections(text, 200);
   for (const c of chunks)
@@ -94,7 +93,6 @@ test("chunkBySections packs several small sections into one chunk under budget",
   const text = ["Introduction", "a.", "Methods", "b.", "Results", "c."].join(
     "\n",
   );
-  // Everything fits comfortably in one 1000-char chunk.
   const chunks = chunkBySections(text, 1000);
   assert.strictEqual(chunks.length, 1);
   assert.match(chunks[0], /Introduction/);
@@ -102,7 +100,7 @@ test("chunkBySections packs several small sections into one chunk under budget",
 });
 
 test("chunkBySections splits an oversized single section, keeping the heading on the first piece", () => {
-  const bigBody = "word ".repeat(200).trim(); // ~999 chars
+  const bigBody = "word ".repeat(200).trim();
   const text = ["Methods", bigBody].join("\n");
   const chunks = chunkBySections(text, 300);
   assert.ok(chunks.length > 1);

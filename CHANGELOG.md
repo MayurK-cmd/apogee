@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **A Wikipedia extractor.** Wikipedia articles were going through the generic
+  Readability path, which kept the whole citation apparatus. On the World War
+  II article that was 169,014 characters in 30 chunks, of which 76,568 (45%)
+  were See also, Notes, References, Further reading and External links. The
+  extractor cuts from the first appendix heading, drops navboxes, infoboxes and
+  the 506 inline citation markers, and re-emits the real section headings as
+  Markdown so the heading-aware chunker can use them: the same article is now
+  85,659 characters in 17 chunks, and the section detector recognises 33
+  sections where it previously found 3. Article namespace only; anything else
+  falls through to Readability. No network call.
+- **Copy diagnostics as Markdown.** With engine logs recording, Settings now
+  offers a button that copies your settings and the captured logs as a Markdown
+  report ready to paste into an issue, so a bug report says which configuration
+  produced it. Custom instructions and non-loopback Ollama hosts are reported
+  as a shape (`set (42 chars)`, `custom host, port 11434`) rather than their
+  contents. Previously the log panel was only reachable from the model progress
+  bar, so it disappeared once a model was cached.
+
+### Changed
+
+- **The popup follows the site's visual language.** Gradients and decorative
+  shadows are gone (the landing page uses neither), the active segmented
+  control is the purple accent rather than ink, the summary card separates by
+  tint instead of shadow, and secondary labels are set in the mono eyebrow
+  style the site uses.
+- **Typography corrections in the popup.** The `@font-face` blocks declared a
+  `100 800` weight range for variable fonts whose axis is `200 700`, so the
+  browser was synthesising weights instead of using the real masters. Font
+  families now come from tokens with proper fallback stacks (47 declarations
+  had no fallback at all), and the size scale is eight integer steps instead of
+  thirteen including six half-pixel values.
+
+### Removed
+
+- **Four unused bundled fonts.** `Metropolis-{Regular,Medium,Bold}.otf` and
+  `MozillaText-Bold.ttf` were referenced by nothing but were copied into every
+  build, adding roughly 137 KB to the packaged extension.
+
 ## [0.2.0] - 2026-08-06
 
 ### Fixed

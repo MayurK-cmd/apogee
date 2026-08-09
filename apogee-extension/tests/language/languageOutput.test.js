@@ -6,8 +6,6 @@ import {
   generateInTargetLanguage,
 } from "../../lib/language/languageOutput.js";
 
-// A chatFn(prompt, { system }) that records each call and returns scripted
-// output, so we can assert on pass count, system usage, and translate routing.
 function makeChat(outputs) {
   const calls = [];
   const fn = async function* (prompt, opts = {}) {
@@ -97,7 +95,7 @@ test("translateFn (opus mode): output already in target skips the translate step
   let onFallback = false;
   const out = await collect(
     streamInTargetLanguage(fn, "PROMPT", "es", {
-      detectLanguageFn: async () => "es", // neutral pass already produced target
+      detectLanguageFn: async () => "es",
       translateFn: async () => {
         translateCalled = true;
         return "should not be used";
@@ -121,7 +119,7 @@ test("translateFn returning null falls back to the LLM translate pass", async ()
   const { fn, calls } = makeChat(["English summary", "traducción LLM"]);
   const out = await collect(
     streamInTargetLanguage(fn, "PROMPT", "es", {
-      translateFn: async () => null, // MT can't cover this language
+      translateFn: async () => null,
     }),
   );
   assert.strictEqual(out, "traducción LLM");

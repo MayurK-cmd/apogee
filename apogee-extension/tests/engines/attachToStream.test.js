@@ -70,8 +70,6 @@ test("attachToStream yields buffered chunks before throwing StreamCancelledError
 });
 
 test("attachToStream errors (instead of silently truncating) when the port disconnects before done/error", async () => {
-  // Simulates the service worker being evicted mid-stream (MV3 kills it
-  // after ~30s of inactivity), the port drops with no terminal message.
   const port = createFakePort();
   globalThis.chrome = { runtime: { connect: () => port } };
 

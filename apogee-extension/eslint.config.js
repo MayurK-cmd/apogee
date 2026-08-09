@@ -14,9 +14,6 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.webextensions,
-        // Vite's `define` (see vite.config.js) string-replaces
-        // `process.env.TARGET_BROWSER` at build time; it isn't a real
-        // runtime global, but source files reference it as one.
         process: "readonly",
       },
     },
@@ -32,10 +29,6 @@ export default [
     },
   },
   {
-    // Content scripts are injected as plain (non-module) scripts, one per
-    // file, into the same page global scope (see popup.js's
-    // extractFromActiveTab), so functions declared in one file are called
-    // from another with no import/export between them.
     files: ["content/**/*.js"],
     languageOptions: { sourceType: "script" },
     rules: {
@@ -46,9 +39,6 @@ export default [
     },
   },
   {
-    // Only content.js *consumes* the other files' globals; declaring these
-    // as globals on the files that define them would make ESLint flag the
-    // declarations themselves as redeclaring a global.
     files: ["content/content.js"],
     languageOptions: {
       globals: {
@@ -60,20 +50,17 @@ export default [
         extractHackerNews: "readonly",
         extractReddit: "readonly",
         extractGitHub: "readonly",
+        extractWikipedia: "readonly",
       },
     },
   },
   {
-    // generic.js consumes Readability.js's global (loaded first, see
-    // popup.js's extractFromActiveTab injection order), but doesn't declare it.
     files: ["content/extractors/generic.js"],
     languageOptions: {
       globals: { Readability: "readonly" },
     },
   },
   {
-    // thread.js DEFINES the shared discussion-thread helpers that hackernews.js
-    // and reddit.js consume; within thread.js itself they read as unused.
     files: ["content/extractors/thread.js"],
     rules: {
       "no-unused-vars": [
@@ -87,8 +74,6 @@ export default [
     },
   },
   {
-    // These CONSUME thread.js's globals (loaded first, see the extractor
-    // injection order in lib/extract/pageExtraction.js).
     files: [
       "content/extractors/hackernews.js",
       "content/extractors/reddit.js",

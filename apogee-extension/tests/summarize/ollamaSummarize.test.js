@@ -18,8 +18,6 @@ test("summarizeText (paragraphs) stops issuing new model calls once the signal i
   // eslint-disable-next-line require-yield
   async function* chatStreamFn() {
     calls += 1;
-    // Aborts after the first chunk's own call has already started, mirroring
-    // a cancel click landing mid-map-phase.
     controller.abort();
   }
 
@@ -62,9 +60,6 @@ test("summarizeText (bullets) stops issuing new model calls once the signal is a
     ),
   );
 
-  // Bullets now goes through the same map-then-reduce path as every other
-  // mode (see below), so an abort before the reduce pass means nothing has
-  // been yielded to the caller yet, not the partial per-chunk bullet.
   assert.deepStrictEqual(result, []);
   assert.strictEqual(
     calls,
@@ -90,7 +85,6 @@ test("summarizeText (paragraphs) runs every chunk plus the reduce merge when nev
     ),
   );
 
-  // Two map calls (one per chunk) plus one reduce/merge call.
   assert.strictEqual(calls, 3);
   assert.strictEqual(result.length, 1);
   assert.match(result[0], /^summary of:/);
@@ -115,19 +109,10 @@ test("summarizeText (bullets) also runs every chunk plus a final reduce/synthesi
     ),
   );
 
-  // Two map calls (one per chunk) plus one reduce/merge call, same shape as
-  // paragraphs/sentences above, instead of streaming each chunk's raw
-  // bullets straight through with no synthesis step.
   assert.strictEqual(calls, 3);
-  // Only the final reduce pass's output reaches the caller.
   assert.deepStrictEqual(result, ["- merged bullet\n"]);
-  // The reduce prompt must be built from both chunks' map output, not just
-  // the last one.
   assert.match(prompts[2], /bullet from chunk 1/);
   assert.match(prompts[2], /bullet from chunk 2/);
-  // The reduce pass's bullet-count target must scale with chunk count (see
-  // buildScaledBulletsStyle), not stay at the base single-pass 5-8 - two
-  // chunks scales to 7-10.
   assert.match(prompts[2], /Output 7-10 bullet points/);
 });
 
@@ -145,7 +130,6 @@ test("summarizeText (multi-chunk article) uses extract-then-abstract: extract no
     ),
   );
 
-  // prompts[0], [1] = map (extract), prompts[2] = reduce (synthesis).
   assert.match(prompts[0], /extracting the key information/i);
   assert.match(prompts[0], /PART 1 OF 2/);
   assert.match(prompts[1], /PART 2 OF 2/);
@@ -166,8 +150,6 @@ test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', u
         text: "[0:00] hello world",
         title: "A Video",
         url: "https://youtube.com/watch?v=abc",
-        // mode is intentionally ignored by the video pipeline (it has its own
-        // fixed shape); passing one must not change the prompt's structure.
         mode: "sentences",
         type: "youtube",
       },
@@ -179,8 +161,6 @@ test("summarizeText dispatches to the YouTube pipeline when type is 'youtube', u
   );
 
   assert.deepStrictEqual(result, ["brief"]);
-  // Should hit the YouTube assembly prompt: video title/URL plus the fixed
-  // brief + key-moments structure, not the reader's flat sentences style.
   assert.match(prompts[0], /A Video/);
   assert.match(prompts[0], /youtube\.com\/watch\?v=abc/);
   assert.match(prompts[0], /## Key moments/);
@@ -212,8 +192,6 @@ test("summarizeText dispatches to the video pipeline for type 'bilibili', with B
   );
 
   assert.deepStrictEqual(result, ["brief"]);
-  // Routed through the same video-assembly prompt YouTube uses, but the jump
-  // links are the Bilibili bare-second form (?t=SECONDS, no "s" unit).
   assert.match(prompts[0], /A Bilibili Video/);
   assert.match(prompts[0], /BV1xx411c7mD\?t=SECONDS[^s]/);
 });
@@ -234,8 +212,6 @@ test("summarizeText appends custom instructions to the final summary prompt only
         mode: "bullets",
         customInstructions: "Answer in a formal tone.",
       },
-      // Two chunks force the map/reduce split: map prompts (extract notes) must
-      // stay clean, the final reduce prompt must carry the instructions.
       { chunkTextFn: () => ["part A", "part B"], chatStreamFn },
     ),
   );
@@ -248,8 +224,6 @@ test("summarizeText appends custom instructions to the final summary prompt only
   assert.match(reducePrompt, /ADDITIONAL INSTRUCTIONS FROM THE USER/);
   assert.match(reducePrompt, /Answer in a formal tone\./);
 });
-
-// --- Discussion post-context: carry the post into later chunks ---
 
 test("discussionPostExcerpt pulls the Post body out of extracted discussion content, empty for link posts", () => {
   const withPost =
@@ -287,16 +261,11 @@ test("summarizeText (reddit) prepends the post as context to later chunks but no
     ),
   );
 
-  // prompts[0] = map chunk 0, prompts[1] = map chunk 1, prompts[2] = reduce.
   assert.doesNotMatch(prompts[0], /Post context/);
   assert.match(prompts[1], /\[Post context\]/);
   assert.match(prompts[1], /Original poster's story\./);
 });
 
-// --- Output-language: single-pass system directive, verify, translate fallback ---
-
-// A chatStreamFn that records whether each call carried a system message and
-// what prompt it saw, and returns scripted output per call.
 function makeRecordingChat(outputs) {
   const calls = [];
   async function* fn(_host, _model, prompt, opts) {

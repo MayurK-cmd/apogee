@@ -556,6 +556,21 @@
               <input type="radio" name="debugLogs" value="on" />
               <span>Record engine logs</span>
             </label>
+
+            <button
+              type="button"
+              id="copyDiagnosticsBtn"
+              class="copy-diagnostics-btn hidden"
+            >
+              Copy diagnostics as Markdown
+            </button>
+            <p
+              id="copyDiagnosticsHint"
+              class="settings-hint copy-diagnostics-hint"
+            >
+              Custom instructions and a non-loopback Ollama host are reported as
+              a shape only, never their contents.
+            </p>
           </div>
 
           <div class="settings-divider"></div>

@@ -1,26 +1,3 @@
-// Downloads (once, into .model-libs-cache/) and SHA-256-verifies the WebLLM
-// model-library WASM kernels, so the Chrome build can ship them inside the
-// package instead of letting @mlc-ai/web-llm fetch them from
-// raw.githubusercontent.com at runtime. Remotely loaded executable code
-// (which WASM is) is both a supply-chain hole and a Chrome Web Store "no
-// remotely hosted code" violation; bundling closes it the same way
-// vite.config.js already bundles onnxruntime-web's WASM runtime (see the
-// ort-wasm rule there). offscreen.js points each model's `model_lib` at the
-// bundled copy via chrome.runtime.getURL("assets/model-libs/<file>").
-//
-// The URLs below still point at the mutable `main` branch (upstream publishes
-// no tags for these binaries), so the pinned SHA-256 hashes are what makes
-// this reproducible: if upstream ever changes a binary, the build fails loudly
-// instead of silently shipping different code.
-//
-// KEEP IN LOCKSTEP WITH @mlc-ai/web-llm: these kernels are compiled for the
-// runtime of the exact web-llm version in package.json (pinned, no ^ range).
-// When upgrading web-llm, re-derive MODEL_LIB_URL_PREFIX and the per-file
-// hashes from its new prebuiltAppConfig (grep `modelVersion` /
-// `modelLibURLPrefix` in node_modules/@mlc-ai/web-llm/lib/index.js);
-// ensureModelLibs() cross-checks the installed package's modelVersion and
-// fails the build on drift.
-
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -34,7 +11,6 @@ export const MODEL_LIB_CACHE_DIR = resolve(ROOT, ".model-libs-cache");
 const MODEL_LIB_URL_PREFIX =
   "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/";
 
-// sha256sum of each kernel as fetched on 2026-07-26.
 const MODEL_LIB_SHA256 = {
   "Qwen2-1.5B-Instruct-q4f16_1_cs1k-webgpu.wasm":
     "0fceb50bbaf47efdc31fce96b72c115dcb7f5221c85abe6a9fc02dda9d1d6fc3",
@@ -50,9 +26,6 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-// The kernels must match the installed web-llm's own modelVersion, or the
-// engine and the bundled libs drift apart (web-llm hard-errors, or worse,
-// subtly misbehaves, loading a kernel built for a different runtime).
 function assertModelVersionMatchesWebLLM() {
   const webllmSrc = readFileSync(
     resolve(ROOT, "node_modules/@mlc-ai/web-llm/lib/index.js"),
@@ -75,11 +48,6 @@ function assertModelVersionMatchesWebLLM() {
   }
 }
 
-/**
- * Ensures every WEBLLM_MODELS kernel exists in MODEL_LIB_CACHE_DIR with a
- * matching pinned hash, downloading any that are missing or corrupt.
- * Returns the list of { file, path } entries for the build to copy.
- */
 export async function ensureModelLibs() {
   assertModelVersionMatchesWebLLM();
   mkdirSync(MODEL_LIB_CACHE_DIR, { recursive: true });
@@ -122,8 +90,6 @@ export async function ensureModelLibs() {
   return libs;
 }
 
-// Runnable directly (`npm run fetch:model-libs`) to prefetch/verify the cache
-// without a full build, e.g. in CI or before going offline.
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href

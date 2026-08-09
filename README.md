@@ -76,6 +76,16 @@ defines real chapters, the summary follows those chapters instead. Sponsor
 reads and self-promotion are stripped from YouTube transcripts first (see the
 SponsorBlock note under Privacy).
 
+**Wikipedia** gets a dedicated extractor, because its articles are long in a
+particular way. On the World War II article the generic path pulled 169,014
+characters, of which 76,568 (45%) were See also, Notes, References, Further
+reading and External links, so nearly half the model passes went on citation
+lists. The extractor cuts everything from the first appendix heading, drops
+navboxes, infoboxes and the 506 inline citation markers, and re-emits the real
+section headings so long articles are chunked on their own boundaries rather
+than at blind character offsets. Same article, 85,659 characters in 17 chunks
+instead of 30. No network call: the page is already open in your tab.
+
 **Custom instructions** (Settings) let you add your own standing guidance, for
 example "Explain like I'm five", "Focus on the technical details", or "Answer
 in a formal tone", applied on top of Apogee's built-in prompt for every summary
@@ -104,7 +114,7 @@ worker.
 flowchart TD
     subgraph device["Your device"]
         subgraph page["Active tab"]
-            EX["Extractors, injected on demand<br/>Readability, YouTube, Bilibili,<br/>Gmail, Reddit, HN, GitHub"]
+            EX["Extractors, injected on demand<br/>Readability, YouTube, Bilibili, Wikipedia,<br/>Gmail, Reddit, HN, GitHub"]
             HL["Highlight overlay<br/>scrolls to the source passage"]
         end
 
@@ -306,7 +316,12 @@ all, plus a button that wipes all cached content on demand while keeping
 preferences.</li>
 <li><strong>Diagnostics</strong>: whether the AI engine records what it is doing
 while it loads and generates. Off by default; turn it on before reproducing a
-bug and the log panel above the summary collects the run.</li>
+bug and the log panel above the summary collects the run. With it on, a
+<strong>Copy diagnostics as Markdown</strong> button appears here that puts your
+settings and the captured logs on the clipboard, ready to paste into an issue.
+Your custom instructions and any non-loopback Ollama host are reported as a
+shape only (&quot;set (42 chars)&quot;, &quot;custom host, port 11434&quot;),
+never their contents.</li>
 <li><strong>Get in touch</strong>: opens the last page.</li>
 </ul>
 </td>

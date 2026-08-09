@@ -30,9 +30,6 @@ test("parseQuestions ignores empty lines and thinking blocks", () => {
 });
 
 test("parseQuestions does not eat leading digits from a real question", () => {
-  // The old regex (`[-*•\d.)]+` as a character class, not requiring the
-  // digits to be followed by "." or ")") stripped bare leading digits too,
-  // turning "2025 predictions?" into "predictions?".
   const output = "1. 2025 predictions?\n2. 3D printing uses?";
   assert.deepEqual(parseQuestions(output), [
     "2025 predictions?",

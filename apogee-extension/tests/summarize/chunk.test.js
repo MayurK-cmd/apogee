@@ -17,5 +17,5 @@ test("truncateForPrompt truncates correctly", () => {
   const text = "This is a long string";
   const result = truncateForPrompt(text, 10);
   assert.ok(result.includes("[...content truncated...]"));
-  assert.ok(result.length <= 10 + 28); // 10 chars + suffix length
+  assert.ok(result.length <= 10 + 28);
 });

@@ -19,7 +19,6 @@ test("findMatchingRange finds an exact match", () => {
 test("findMatchingRange tolerates whitespace differences (Readability-collapsed vs live DOM)", () => {
   const page =
     "Intro.\n\n  The   quick brown\nfox jumps over   the lazy dog.  \n\nOutro.";
-  // Readability's extraction collapsed the whitespace down to single spaces.
   const chunk = "The quick brown fox jumps over the lazy dog.";
   const result = findMatchingRange(page, chunk);
   assert.ok(result);
@@ -38,13 +37,6 @@ test("findMatchingRange is case-insensitive", () => {
 });
 
 test("findMatchingRange falls back to a shorter window when the full chunk isn't found", () => {
-  // findMatchingRange's prefix tier tries the chunk's own first
-  // PREFIX_WINDOW_CHARS (180) characters as one fixed window, it isn't a
-  // general "find any matching substring" search, so this test needs the
-  // page and chunk to genuinely share their first 180+ characters and only
-  // diverge after that point for the prefix tier (as opposed to the
-  // full-chunk or per-sentence tiers, both of which this is deliberately
-  // structured to fail) to be what actually succeeds.
   const sharedPrefix =
     "The quick brown fox jumps over the lazy dog while wandering through a meadow full of wildflowers and tall grass beneath a clear blue sky on a warm summer afternoon, listening to birds";
   assert.ok(
@@ -52,9 +44,6 @@ test("findMatchingRange falls back to a shorter window when the full chunk isn't
     "test fixture must exceed the prefix window",
   );
   const page = `Intro. ${sharedPrefix} but then the page continues with completely different unrelated content. Outro.`;
-  // One long run-on sentence (no period until the very end), so the
-  // per-sentence tier sees only one span, identical to the full chunk, and
-  // fails the same way.
   const chunk = `${sharedPrefix} but the chunk's own account of what happened next is entirely different and doesn't appear anywhere on this page at all.`;
   const result = findMatchingRange(page, chunk);
   assert.ok(result);
@@ -77,12 +66,8 @@ test("findMatchingRange returns null for empty inputs", () => {
 });
 
 test("findMatchingRange caps an oversized needle: skips the full match, falls back to a sentence", () => {
-  // A needle far longer than MAX_MATCH_TEXT_CHARS must not be turned into one
-  // giant regex; findMatchingRange should still locate a real sentence within
-  // it via its span-tier fallback (each sentence stays well under the cap).
   const target = "This exact sentence appears verbatim on the page.";
   const page = `Lead-in text. ${target} Trailing text.`;
-  // ~2800 chars total (over the cap), but split into individual sentences.
   const oversizedNeedle = "Filler sentence number one. ".repeat(100) + target;
   const result = findMatchingRange(page, oversizedNeedle);
   assert.ok(result, "should still find the embedded sentence");

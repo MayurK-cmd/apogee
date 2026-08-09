@@ -13,11 +13,10 @@ import {
 } from "../../lib/summarize/prompts.js";
 
 test("youtubeSummaryScale grows key-moment and gist targets with video length", () => {
-  const short = youtubeSummaryScale(3 * 60); // 3 min
-  const medium = youtubeSummaryScale(23 * 60); // 23 min
-  const long = youtubeSummaryScale(90 * 60); // 90 min
+  const short = youtubeSummaryScale(3 * 60);
+  const medium = youtubeSummaryScale(23 * 60);
+  const long = youtubeSummaryScale(90 * 60);
 
-  // A short clip gets a small, floor-bounded target; a long talk many more.
   assert.ok(
     short.minMoments >= 3 && short.maxMoments <= 6,
     "short stays small",
@@ -30,7 +29,6 @@ test("youtubeSummaryScale grows key-moment and gist targets with video length", 
     medium.minMoments >= 15,
     "a 23-min video still comfortably clears 15 moments",
   );
-  // Bounded so a multi-hour video doesn't produce an unusable wall.
   assert.ok(long.maxMoments <= 40, "capped for very long videos");
   assert.ok(long.summaryMax >= short.summaryMax, "gist grows with length too");
 });
@@ -81,7 +79,6 @@ test("resolveLanguageName maps codes to display names, null for auto/unknown", (
   assert.strictEqual(resolveLanguageName(undefined), null);
   assert.strictEqual(resolveLanguageName("not-a-code"), null);
   assert.strictEqual(resolveLanguageName("es"), "Spanish");
-  // Chinese variants resolve to their distinct display names.
   assert.strictEqual(resolveLanguageName("zh"), "Simplified Chinese");
   assert.strictEqual(resolveLanguageName("zh-hant"), "Traditional Chinese");
 });
@@ -101,13 +98,10 @@ test("buildDiscussionPrompt frames a thread synthesis, explains path notation, a
     "[1] <replies: 2> alice: point\n[1.1] {downvotes: 3} bob: reply",
     "bullets",
   );
-  // Discussion-oriented framing, not the article summarizer.
   assert.match(p, /discussion thread/i);
   assert.match(p, /disagree/i);
-  // Explains the extractor's path / replies / downvotes notation.
   assert.match(p, /path in the reply tree/i);
   assert.match(p, /downvotes/i);
-  // Still carries the mandatory selected style and the thread body.
   assert.match(p, /5-8 bullet points/);
   assert.match(p, /The SUMMARY STYLE is mandatory/);
   assert.match(p, /\[1\.1\] \{downvotes: 3\} bob: reply/);
@@ -130,12 +124,9 @@ test("withCustomInstructions is a no-op for blank/whitespace input", () => {
 
 test("withCustomInstructions appends the user's text under a subordinate, injection-resistant header", () => {
   const p = withCustomInstructions("BASE PROMPT", "Explain like I'm five.");
-  // Keeps the original prompt intact and adds the user's instructions after it.
   assert.match(p, /^BASE PROMPT/);
   assert.match(p, /ADDITIONAL INSTRUCTIONS FROM THE USER/);
   assert.match(p, /Explain like I'm five\./);
-  // The header must keep the grounding rules dominant so a hostile page can't
-  // smuggle instructions through this channel.
   assert.match(p, /grounding rules win/);
 });
 
@@ -147,7 +138,6 @@ test("buildYoutubeAssemblyPrompt emits YouTube-style unit-bearing jump links", (
     600,
     "bullets",
   );
-  // YouTube's time param carries the "s" unit: ...&t=252s
   assert.match(p, /watch\?v=abc12345678&t=SECONDSs/);
   assert.match(p, /watch\?v=abc12345678&t=252s/);
 });
@@ -160,7 +150,6 @@ test("buildYoutubeAssemblyPrompt emits Bilibili-style bare-second jump links", (
     600,
     "bullets",
   );
-  // Bilibili's time param is a bare integer second count (no "s" unit): ...?t=252
   assert.match(p, /BV1xx411c7mD\?t=SECONDS[^s]/);
   assert.match(p, /BV1xx411c7mD\?t=252[^s]/);
   assert.doesNotMatch(p, /t=252s/);

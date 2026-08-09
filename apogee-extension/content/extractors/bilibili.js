@@ -1,17 +1,3 @@
-// Bilibili video extractor, the second video platform Apogee special-cases
-// alongside YouTube (see content/extractors/youtube.js). Same shape: pull the
-// video's metadata + a timestamped transcript so lib/summarize/youtubeSummarize.js
-// can produce a summary with jump-to-moment deep links (Bilibili's are
-// `?t=<seconds>`, see videoTimestampParts in lib/summarize/prompts.js). Returns
-// `type: "bilibili"`, which isVideoType() routes down that same video pipeline.
-//
-// Helper names are bili-prefixed on purpose: these extractors are injected as
-// plain (non-module) scripts sharing one global scope with youtube.js, so a
-// bare `formatTimestamp` / `extractBalancedObject` would clobber YouTube's.
-
-// Brace-matched `{...}` substring starting at openIndex, respecting string
-// literals/escapes so a `}` inside a nested string doesn't end it early. Same
-// approach youtube.js uses for ytInitialPlayerResponse.
 function biliExtractBalancedObject(text, openIndex) {
   let depth = 0;
   let inString = false;
@@ -40,10 +26,6 @@ function biliExtractBalancedObject(text, openIndex) {
   return null;
 }
 
-// Bilibili embeds its page state as an inline `window.__INITIAL_STATE__={...}`
-// assignment. Content scripts run in an isolated world, so the page's own
-// global isn't reachable, but the raw <script> text is (shared DOM), same as
-// YouTube's ytInitialPlayerResponse.
 function getBiliInitialState() {
   for (const script of document.querySelectorAll("script")) {
     const text = script.textContent;
@@ -56,15 +38,11 @@ function getBiliInitialState() {
     if (!json) continue;
     try {
       return JSON.parse(json);
-    } catch {
-      // Malformed/partial script, keep scanning.
-    }
+    } catch {}
   }
   return null;
 }
 
-// "MM:SS", or "H:MM:SS" past the hour, matching the inline markers threaded
-// through the transcript below and what youtubeSummarize.js expects.
 function biliFormatTimestamp(totalSeconds) {
   const s = Math.max(0, Math.floor(totalSeconds));
   const h = Math.floor(s / 3600);
@@ -75,13 +53,8 @@ function biliFormatTimestamp(totalSeconds) {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-// One [MM:SS] marker roughly every 20s, same cadence/rationale as YouTube's:
-// fine enough to cite specific moments, coarse enough not to bloat the token
-// count with one marker per (often very short) caption line.
 const BILI_TIMESTAMP_MARKER_INTERVAL_SECONDS = 20;
 
-// Turns timed subtitle segments ([{ start, text }]) into a flat transcript
-// string with inline [MM:SS] markers the summarizer copies into jump links.
 function buildBiliTranscript(segments) {
   if (!segments.length) return "";
   let lastMarked = -Infinity;
@@ -96,9 +69,6 @@ function buildBiliTranscript(segments) {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
-// Light description cleanup: drop bare-URL lines and collapse blank runs.
-// Bilibili descriptions are far less ad-dense than YouTube's, so this stays
-// deliberately minimal rather than porting YouTube's promo-phrase heuristics.
 function cleanBiliDescription(description) {
   if (!description) return "";
   const urlOnlyLine = /^\s*(https?:\/\/|www\.)\S+\s*$/i;
@@ -111,9 +81,6 @@ function cleanBiliDescription(description) {
     .trim();
 }
 
-// Fetches the subtitle track via the service worker (MV3 CORS + auth-cookie
-// reasons, see fetchBilibiliSubtitles in background/service-worker.js). Returns
-// timed segments, or [] on any failure / context-invalidation.
 async function fetchBiliSubtitles({ aid, bvid, cid }) {
   try {
     const resp = await chrome.runtime.sendMessage({
@@ -132,9 +99,6 @@ async function fetchBiliSubtitles({ aid, bvid, cid }) {
   }
 }
 
-// Only real video watch pages carry a usable __INITIAL_STATE__.videoData;
-// anything else on bilibili.com (the homepage, a space/user page, a live room)
-// returns null so content.js falls through to the generic Readability path.
 async function extractBilibili() {
   const state = getBiliInitialState();
   const videoData = state?.videoData;
@@ -144,9 +108,6 @@ async function extractBilibili() {
   const channel = videoData.owner?.name || "";
   const description = videoData.desc || videoData.dynamic || "";
 
-  // A video can have multiple parts; the URL's ?p=N (1-based) picks the current
-  // one. Match the subtitle fetch to that part's cid, falling back to the
-  // top-level cid.
   const pages = Array.isArray(videoData.pages) ? videoData.pages : [];
   const partParam = Number(new URLSearchParams(location.search).get("p")) || 1;
   const currentPage = pages[partParam - 1] || pages[0] || null;
@@ -166,8 +127,6 @@ async function extractBilibili() {
     ? segments[segments.length - 1].start
     : 0;
 
-  // With a transcript the description is just context, so cap it short (same as
-  // the YouTube extractor).
   let cleanedDescription = cleanBiliDescription(description);
   if (transcript && cleanedDescription.length > 500) {
     cleanedDescription = `${cleanedDescription.slice(0, 500).trim()}…`;
@@ -186,7 +145,6 @@ async function extractBilibili() {
     title,
     url: location.href,
     content,
-    // Raw seconds for popup.js's time-saved badge, same as YouTube.
     durationSeconds,
   };
 }

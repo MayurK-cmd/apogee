@@ -1,6 +1,3 @@
-// Default character budget for a single chunk, also reused by
-// lib/sections.js's heading-aware chunker as its fallback limit so both paths
-// share one source of truth.
 export const MAX_CHUNK_CHARS = 6000;
 
 const MAX_SINGLE_PROMPT_CHARS = 8000;

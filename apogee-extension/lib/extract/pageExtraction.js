@@ -1,30 +1,12 @@
-// Page-content and PDF-text extraction, shared by popup.js (UI-triggered
-// summarize/ask) and background/service-worker.js (context-menu/keyboard-
-// shortcut-triggered summarize, which runs with no popup open, see
-// runBackgroundSummarize). Both functions are pure chrome.scripting/
-// chrome.runtime calls with no dependency on popup-only state (unlike
-// popup.js's getPageData, which layers in-memory reuse via currentPageData
-// on top of extractFromActiveTab and stays in popup.js).
-
-// Injects the site-specific/generic extractors into the active tab and
-// returns the extracted { title, url, content, type, isPdf } (or throws).
 export async function extractFromActiveTab(tab) {
   const tabId = tab.id;
 
-  // chrome://, edge://, about:, chrome-extension://, and similar
-  // browser-internal pages are off-limits to extensions by design;
-  // chrome.scripting.executeScript throws its own low-level "Cannot access
-  // a chrome:// URL" style message for these, surface something a user can
-  // actually act on instead of that raw error bubbling up as-is.
   if (!/^https?:|^file:/i.test(tab.url || "")) {
     throw new Error(
       "Apogee can't read this page. Browser-internal pages aren't accessible to extensions, try a regular webpage instead.",
     );
   }
 
-  // Inject the extractors once per page, re-injecting when the injected copy
-  // is from an older extension version, otherwise a tab left open across an
-  // update keeps running the stale extractor until manually refreshed.
   const expectedVersion = chrome.runtime.getManifest().version;
   let injectedVersion = null;
   try {
@@ -51,10 +33,10 @@ export async function extractFromActiveTab(tab) {
         "/content/extractors/hackernews.js",
         "/content/extractors/reddit.js",
         "/content/extractors/github.js",
+        "/content/extractors/wikipedia.js",
         "/content/content.js",
       ],
     });
-    // Stamp the version so the check above can detect staleness next time.
     await chrome.scripting.executeScript({
       target: { tabId },
       func: (v) => {
@@ -64,16 +46,10 @@ export async function extractFromActiveTab(tab) {
     });
   }
 
-  // Return the extractor's result directly. executeScript structured-clones
-  // the return value, so there's no need to round-trip it through a DOM
-  // attribute + JSON.parse (which also mutated the host page).
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     func: async () => {
       try {
-        // extractPageContent() is async (YouTube's extractor fetches the
-        // transcript), await it here so a rejection is caught below
-        // instead of leaking an unhandled promise rejection past executeScript.
         return await window.extractPageContent();
       } catch (e) {
         return { error: e?.message || String(e) };
@@ -86,18 +62,6 @@ export async function extractFromActiveTab(tab) {
   return pageData || null;
 }
 
-// Downloads the PDF and extracts its text, both client-side: the fetch runs
-// inside the tab (via activeTab) since the extension's own CSP/host_permissions
-// only allow localhost, then the bytes are handed to the service worker's
-// "extract-pdf" handler (lib/pdfExtract.js), which needs a real page context
-// for pdf.js's worker. Used for both providers now that summarization no
-// longer routes through a backend that could fetch the PDF itself.
-//
-// The bytes travel as base64, not a raw ArrayBuffer: Chromium serializes both
-// executeScript results and runtime messages as JSON, under which an
-// ArrayBuffer silently becomes `{}` (zero bytes on arrival), so every PDF
-// used to fail as "not a valid PDF" on Chrome/Edge. (Firefox structured-clones
-// both hops, which is why the raw-buffer version only ever worked there.)
 export async function extractPdfContent(tab) {
   const results = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
@@ -105,8 +69,6 @@ export async function extractPdfContent(tab) {
       const res = await fetch(window.location.href);
       if (!res.ok) throw new Error(`Failed to download PDF: ${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());
-      // Chunked fromCharCode: spreading multi-MB byte arrays into one call
-      // overflows the argument-count limit.
       let binary = "";
       const CHUNK = 0x8000;
       for (let i = 0; i < bytes.length; i += CHUNK) {
@@ -123,9 +85,6 @@ export async function extractPdfContent(tab) {
     action: "extract-pdf",
     payload: { pdfBase64 },
   });
-  // Surface the real failure ("password-protected", "not a valid PDF", ...)
-  // instead of flattening every error into the caller's generic
-  // "might be a scanned image" fallback for an empty result.
   if (response?.error) throw new Error(response.error);
   return response?.text || "";
 }

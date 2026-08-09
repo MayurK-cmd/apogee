@@ -1,6 +1,3 @@
-// Worked example 2 of 3: an async extractor that reads a site API instead of
-// the DOM. The page HTML barely matters here; the fetch stub is the fixture.
-
 import test from "node:test";
 import assert from "node:assert";
 import { loadExtractors, readJsonFixture } from "./helpers/extractorHarness.js";
@@ -9,8 +6,6 @@ const FILES = ["extractors/thread.js", "extractors/reddit.js"];
 const THREAD_URL =
   "https://www.reddit.com/r/programming/comments/abc123/what_finally_made_caching_click_for_you/";
 
-// Records the URL the extractor asked for, so a test can assert on it, and
-// replies with the saved JSON.
 function stubFetch(payload, { ok = true } = {}) {
   const calls = [];
   const fetchStub = async (url, options) => {
@@ -41,10 +36,7 @@ test("extractReddit summarizes a comment permalink from the JSON API", async () 
     result.content,
     /r\/programming \| u\/alice \| 842 points \| 3 comments \| \[Discussion\]/,
   );
-  // Post body keeps its line breaks; comments are collapsed to one line each.
   assert.match(result.content, /Post:\nI struggled with invalidation/);
-  // <replies: 1>, not 2: dave's [deleted] stub doesn't count as a reply, so the
-  // number matches the one reply actually rendered below it.
   assert.match(
     result.content,
     /\[1\] <replies: 1> \(score: 210\) bob: Thinking of a cache/,
@@ -81,14 +73,12 @@ test("extractReddit requests the same-origin JSON endpoint", async () => {
     ),
     `unexpected request URL: ${calls[0].url}`,
   );
-  // Reading the public JSON must not carry the user's session.
   assert.strictEqual(calls[0].options.credentials, "omit");
 });
 
 test("extractReddit returns null on a listing page", async () => {
   const { extractReddit } = load(
     "https://www.reddit.com/r/programming/",
-    // Never reached: the path check short-circuits before any request.
     undefined,
   );
 

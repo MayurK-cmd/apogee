@@ -21,6 +21,7 @@ Read the one closest to what you're building:
 | `hackernews.test.js` | Feeding the shared thread representation in `thread.js`   |
 | `reddit.test.js`     | An extractor that reads a site API, with `fetch` stubbed  |
 | `thread.test.js`     | Testing shared machinery directly, with no site extractor |
+| `wikipedia.test.js`  | Cutting a page down, and returning `null` to fall through |
 
 ## Writing a test
 

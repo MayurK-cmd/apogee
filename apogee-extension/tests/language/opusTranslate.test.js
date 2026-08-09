@@ -16,7 +16,6 @@ test("resolveOpusModel picks direct en->X pairs where they exist", () => {
     model: "Xenova/opus-mt-en-zh",
     token: "",
   });
-  // Japanese uses the "jap" model spelling.
   assert.deepStrictEqual(resolveOpusModel("en", "ja"), {
     model: "Xenova/opus-mt-en-jap",
     token: "",
@@ -24,7 +23,6 @@ test("resolveOpusModel picks direct en->X pairs where they exist", () => {
 });
 
 test("resolveOpusModel uses the grouped en-mul model (with token) for gap languages", () => {
-  // Estonian has no direct en-et model, but en-mul covers it via >>est<<.
   assert.deepStrictEqual(resolveOpusModel("en", "et"), {
     model: "Xenova/opus-mt-en-mul",
     token: ">>est<< ",
@@ -36,9 +34,9 @@ test("resolveOpusModel uses the grouped en-mul model (with token) for gap langua
 });
 
 test("resolveOpusModel returns null for uncovered languages (LLM fallback)", () => {
-  assert.strictEqual(resolveOpusModel("en", "sk"), null); // Slovak
-  assert.strictEqual(resolveOpusModel("en", "ko"), null); // Korean
-  assert.strictEqual(resolveOpusModel("en", "zh-hant"), null); // Traditional Chinese
+  assert.strictEqual(resolveOpusModel("en", "sk"), null);
+  assert.strictEqual(resolveOpusModel("en", "ko"), null);
+  assert.strictEqual(resolveOpusModel("en", "zh-hant"), null);
 });
 
 test("resolveOpusModel handles X->en (direct or mul-en catch-all) and no-op/foreign-pivot", () => {
@@ -46,13 +44,12 @@ test("resolveOpusModel handles X->en (direct or mul-en catch-all) and no-op/fore
     model: "Xenova/opus-mt-es-en",
     token: "",
   });
-  // A source with no direct X-en model still routes through mul-en.
   assert.deepStrictEqual(resolveOpusModel("sl", "en"), {
     model: "Xenova/opus-mt-mul-en",
     token: "",
   });
-  assert.strictEqual(resolveOpusModel("es", "es"), null); // same lang
-  assert.strictEqual(resolveOpusModel("es", "de"), null); // foreign<->foreign
+  assert.strictEqual(resolveOpusModel("es", "es"), null);
+  assert.strictEqual(resolveOpusModel("es", "de"), null);
 });
 
 test("splitTranslatablePrefix peels off bullets and timestamp-link prefixes", () => {
@@ -71,13 +68,10 @@ test("splitTranslatablePrefix peels off bullets and timestamp-link prefixes", ()
 });
 
 test("splitTranslatablePrefix peels heading markers and space-separated chapter links", () => {
-  // Plain section heading: marker preserved, label translated.
   assert.deepStrictEqual(splitTranslatablePrefix("## Summary"), {
     prefix: "## ",
     rest: "Summary",
   });
-  // Chaptered-brief heading: the jump-link (no trailing colon, space-separated)
-  // must be peeled off so the translator never touches its URL.
   assert.deepStrictEqual(
     splitTranslatablePrefix(
       "### [0:00](https://www.youtube.com/watch?v=x&t=0s) Intro",
@@ -101,7 +95,6 @@ test("translatePreservingStructure preserves a chapter heading's link across MT"
 });
 
 test("translatePreservingStructure keeps prefixes/blank lines and only translates prose", async () => {
-  // stand-in batched translateFn: array in, array out, in order.
   const upper = async (lines) => lines.map((s) => s.toUpperCase());
   const input = "- one\n\n[4:12](u): two";
   const out = await translatePreservingStructure(input, upper);
@@ -115,13 +108,12 @@ test("translatePreservingStructure batches lines and reports progress per batch"
     calls.push(lines);
     return lines.map((s) => s.toUpperCase());
   };
-  const input = "- a\n- b\n- c\n- d\n- e"; // 5 translatable lines
+  const input = "- a\n- b\n- c\n- d\n- e";
   const out = await translatePreservingStructure(input, batch, {
     batchSize: 2,
     onProgress: (done, total) => progress.push([done, total]),
   });
   assert.strictEqual(out, "- A\n- B\n- C\n- D\n- E");
-  // 5 lines at batchSize 2 -> batches of [2, 2, 1].
   assert.deepStrictEqual(
     calls.map((c) => c.length),
     [2, 2, 1],

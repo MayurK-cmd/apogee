@@ -1,13 +1,3 @@
-// WebLLM model catalog, smaller quantized models suited for browser inference.
-// The IDs must match entries in @mlc-ai/web-llm's prebuiltAppConfig.
-//
-// `lib` is the model-library WASM kernel bundled into the Chrome package
-// (downloaded + hash-verified at build time, see scripts/model-libs.mjs) so
-// web-llm never fetches executable code from raw.githubusercontent.com at
-// runtime; offscreen.js rewrites each model's `model_lib` to point at this
-// bundled copy. The filenames must match prebuiltAppConfig's own for the
-// pinned @mlc-ai/web-llm version.
-
 export const WEBLLM_MODELS = [
   {
     id: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
@@ -42,14 +32,6 @@ export const WEBLLM_MODELS = [
 
 const DEFAULT_WEBLLM_MODEL = WEBLLM_MODELS.find((m) => m.default).id;
 
-// Transformers.js (ONNX/WASM) model catalog, used only on Firefox as its
-// in-browser provider. Unlike WebLLM (WebGPU, needs an offscreen document
-// Firefox doesn't have) or wllama (needs a dedicated Worker Firefox's
-// background page won't allow), @huggingface/transformers's WASM backend
-// runs on the calling thread with no Worker at all (it hardcodes
-// ONNX_ENV.wasm.proxy = false), so it can run directly in Firefox's
-// background page. Repo/dtype/file sizes verified against the Hugging Face
-// API to exist.
 export const TRANSFORMERS_MODELS = [
   {
     id: "HuggingFaceTB/SmolLM2-360M-Instruct",
@@ -79,14 +61,6 @@ const DEFAULT_TRANSFORMERS_MODEL = TRANSFORMERS_MODELS.find(
   (m) => m.default,
 ).id;
 
-// Output-language catalog for summaries/answers/suggested questions. Mirrors
-// the Kagi Universal Summarizer's target-language set (codes kept identical
-// for familiarity). `name` is the English language name used in the
-// system/translate prompts (see resolveLanguageName in lib/prompts.js); "auto"
-// carries none and leaves output in the source language. Each generation runs
-// through the SAME multilingual LLM: one pass with a system-role language
-// directive, verified and (only on a slip) followed by a focused translate
-// pass, no separate per-language translation model (see lib/languageOutput.js).
 export const SUMMARY_LANGUAGES = [
   { code: "auto", label: "Same as article", name: null },
   { code: "en", label: "English", name: "English" },
@@ -125,49 +99,19 @@ export const SUMMARY_LANGUAGES = [
   { code: "id", label: "Indonesian", name: "Indonesian" },
 ];
 
-// Page `type`s (set by the site-specific extractors, see content/extractors/)
-// that are timestamped videos rather than text. They share one pipeline: a
-// transcript with inline [MM:SS] markers, summarized with jump-to-moment deep
-// links (see summarizeYoutube / videoTimestampParts in lib/summarize/). Adding
-// a platform here (plus its extractor + jump-link host) routes it through that
-// same video path instead of the plain-article one.
 const VIDEO_PAGE_TYPES = new Set(["youtube", "bilibili"]);
 
 export function isVideoType(type) {
   return VIDEO_PAGE_TYPES.has(type);
 }
 
-// English default: summaries come out in English regardless of the source
-// article's language. Users who prefer native-language summaries pick "auto".
 const DEFAULT_SUMMARY_LANGUAGE = "en";
 
-// Free-text "custom instructions" the user can add in Settings, injected into
-// every summary and Ask prompt on top of Apogee's built-in rules (see
-// withCustomInstructions in lib/summarize/prompts.js). Empty by default.
-// Capped so a runaway paste can't crowd out the page content in a small
-// model's context window; the popup enforces the same limit on input.
 export const CUSTOM_INSTRUCTIONS_MAX_CHARS = 2000;
 
-// How cross-language output is translated (see lib/languageOutput.js).
-// "llm" (default): the summarization model translates it itself (one pass with
-// a system directive, verified, with an LLM translate fallback), no extra
-// download. "opus": an opt-in dedicated Opus-MT translation model (Helsinki-NLP,
-// lazy-downloaded per language, ~80MB direct pairs / one grouped model for the
-// long tail; see lib/opusTranslate.js) does the translation instead, for higher
-// fidelity on low-resource languages. Only applies to the in-browser providers
-// (WebLLM/Transformers.js); Ollama always uses the LLM path.
 export const TRANSLATION_ENGINES = { LLM: "llm", OPUS: "opus" };
 const DEFAULT_TRANSLATION_ENGINE = TRANSLATION_ENGINES.LLM;
 
-// EXPERIMENTAL: request multi-threaded WASM for the Transformers.js engines
-// (translation + Firefox text-gen). Multi-threading could give a near-linear
-// speedup on CPU, but onnxruntime's WASM threads need SharedArrayBuffer, which
-// needs cross-origin isolation, something MV3 extension pages don't get out of
-// the box, and its pthread workers may hit the same worker-CSP wall that
-// blocked wllama. Off by default: flip to true, rebuild, reload, and read the
-// `[mt]` console diagnostics (see resolveWasmThreads in transformersEngine.js)
-// to learn whether isolation/threads are actually reachable here. When off (or
-// when isolation is absent) everything stays on the proven single-threaded path.
 export const EXPERIMENTAL_WASM_THREADS = false;
 
 export const LOCAL_MODELS = [
@@ -181,16 +125,6 @@ const DEFAULT_LOCAL_MODEL = "qwen3:8b";
 
 const isFirefox = process.env.TARGET_BROWSER === "firefox";
 
-// Firefox has no `browser.offscreen` API, so WebLLM (which needs an offscreen
-// document to access WebGPU) can't run there. Transformers.js takes its
-// place as the in-browser option on Firefox instead (see TRANSFORMERS_MODELS
-// above for why it, unlike wllama, actually works there).
-// Chrome/Edge offer BOTH in-browser engines: WebLLM (WebGPU, the default) and
-// Transformers.js (ONNX/WASM, CPU) as an opt-in for machines without WebGPU or
-// as an alternative to WebLLM. Both run in the offscreen document there (the
-// MV3 service worker can't reliably dynamic-import either, see lib/embeddings.js).
-// Firefox has no offscreen API/WebGPU, so it gets Transformers.js only, run in
-// its background page.
 export const PROVIDERS = isFirefox
   ? { TRANSFORMERS: "transformers", LOCAL: "local" }
   : { WEBLLM: "webllm", TRANSFORMERS: "transformers", LOCAL: "local" };
@@ -199,8 +133,6 @@ export const DEFAULT_PROVIDER = isFirefox
   ? PROVIDERS.TRANSFORMERS
   : PROVIDERS.WEBLLM;
 
-// Ollama's own default HTTP port. The extension talks to Ollama directly,
-// no intermediate backend server.
 export const DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434";
 
 export const DEFAULT_SETTINGS = {
@@ -210,27 +142,11 @@ export const DEFAULT_SETTINGS = {
   localModel: DEFAULT_LOCAL_MODEL,
   ollamaHost: DEFAULT_OLLAMA_HOST,
   responseFormat: "bullets",
-  // Extra user-authored instructions appended to summary/Ask prompts (see
-  // CUSTOM_INSTRUCTIONS_MAX_CHARS / withCustomInstructions). Empty = use
-  // Apogee's built-in prompts unchanged.
   customInstructions: "",
   summaryLanguage: DEFAULT_SUMMARY_LANGUAGE,
   translationEngine: DEFAULT_TRANSLATION_ENGINE,
   theme: "dark",
-  // When false, summaries/page content/Q&A are never written to disk (kept
-  // only in memory for the current popup session). Sensitive hosts (see
-  // isSensitiveUrl in popup.js) are always treated as non-persistable
-  // regardless of this setting.
   saveHistory: true,
-  // When true (default), YouTube summaries query the community SponsorBlock
-  // API (sponsor.ajay.app) for sponsor-segment timings so those reads can be
-  // skipped. It's the extension's only non-model third-party request; users
-  // who want a fully local footprint can turn it off, in which case Apogee
-  // falls back to its network-free phrase heuristic. See
-  // fetchSponsorBlockSegments in background/service-worker.js and PRIVACY.md.
   useSponsorBlock: true,
-  // Opt-in engine diagnostics. Flipped by the popup's "Show logs" panel and
-  // read by the engine hosts (see lib/util/log.js); off means model loading
-  // stays quiet in the console.
   debugLogs: false,
 };

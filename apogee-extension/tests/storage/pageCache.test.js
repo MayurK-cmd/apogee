@@ -12,8 +12,6 @@ import {
   MAX_CACHED_PAGES,
 } from "../../lib/storage/pageCache.js";
 
-// Same in-memory chrome.storage.local fake convention tests/attachToStream.test.js
-// establishes for chrome.runtime, backed by a plain object instead of ports.
 function installFakeStorage(initial = {}) {
   const data = { ...initial };
   globalThis.chrome = {
@@ -53,8 +51,6 @@ test("hashUrl is deterministic and distinguishes different URLs", async () => {
 });
 
 test("hashUrl keeps no readable trace of the url it came from", async () => {
-  // The whole point of hashing the key: a URL's query string can carry session
-  // tokens, so nothing recognizable from it may survive into storage.
   const hash = await hashUrl("https://example.com/reset?token=hunter2");
   assert.match(hash, /^[0-9a-f]{32}$/);
   assert.ok(!hash.includes("hunter2"));
@@ -64,9 +60,6 @@ test("hashUrl keeps no readable trace of the url it came from", async () => {
 test("cache key helpers embed the hashed url and are namespaced by kind", async () => {
   const url = "https://example.com/article";
   const hash = await hashUrl(url);
-  // Language segment defaults to "auto" when the caller omits it (older
-  // 3-arg call sites), and is embedded when supplied so a different output
-  // language is a distinct cache entry.
   assert.strictEqual(
     await getSummaryCacheKey(url, "bullets", "model-x"),
     `summary:bullets:auto:model-x:${hash}`,
@@ -120,12 +113,9 @@ test("persistSummary evicts the oldest entry once the FIFO cap is exceeded", asy
   }
 
   assert.strictEqual(data.cacheOrder.length, MAX_CACHED_PAGES);
-  // The very first entry (index 0) should have been evicted, both from the
-  // order index and its own stored keys.
   assert.ok(!data.cacheOrder.some((e) => e.s === "summary-key-0"));
   assert.strictEqual(data["summary-key-0"], undefined);
   assert.strictEqual(data["prompts-key-0"], undefined);
-  // The most recent entry should still be present.
   assert.strictEqual(
     data[`summary-key-${MAX_CACHED_PAGES}`],
     `text ${MAX_CACHED_PAGES}`,

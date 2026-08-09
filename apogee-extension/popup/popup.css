@@ -21,15 +21,14 @@
 
 :root,
 .theme-dark {
-  --bg-gradient: none;
   --bg-color: #0f0f14;
   --header-bg: rgba(15, 15, 20, 0.85);
   --border-color: rgba(255, 255, 255, 0.12);
-  --brand-color-gradient: linear-gradient(0deg, #f0f0f2, #f0f0f2);
+  --brand-color: #f0f0f2;
   --card-bg: #17171d;
   --card-border: rgba(255, 255, 255, 0.12);
   --card-title-color: #9a9aa6;
-  --summary-bg: #15151b;
+  --summary-bg: #16161f;
   --summary-border: none;
   --text-main: #f0f0f2;
   --text-muted: #c7c7d0;
@@ -59,21 +58,21 @@
   --radio-checked-color: #8886ff;
   --accent: #8886ff;
   --progress-track: rgba(255, 255, 255, 0.1);
-  --send-btn-bg: linear-gradient(135deg, #a7b5ff 0%, #827fff 100%);
-  --send-btn-hover-bg: linear-gradient(135deg, #c0caff 0%, #5855ff 100%);
+  --send-btn-bg: #5855ff;
+  --send-btn-hover-bg: #f0f0f2;
   --send-btn-text: #ffffff;
+  --send-btn-hover-text: #161616;
 }
 
 .theme-light {
-  --bg-gradient: none;
   --bg-color: #ffffff;
   --header-bg: #ffffff;
   --border-color: #e6e6e6;
-  --brand-color-gradient: linear-gradient(0deg, #161616, #161616);
+  --brand-color: #161616;
   --card-bg: #ffffff;
   --card-border: #e6e6e6;
   --card-title-color: #6b6b73;
-  --summary-bg: #fafafa;
+  --summary-bg: #f8f7ff;
   --summary-border: none;
   --text-main: #161616;
   --text-muted: #3a3a42;
@@ -103,9 +102,10 @@
   --radio-checked-color: #5855ff;
   --accent: #5855ff;
   --progress-track: rgba(0, 0, 0, 0.06);
-  --send-btn-bg: linear-gradient(135deg, #827fff 0%, #5855ff 100%);
-  --send-btn-hover-bg: linear-gradient(135deg, #5855ff 0%, #302dcd 100%);
+  --send-btn-bg: #5855ff;
+  --send-btn-hover-bg: #161616;
   --send-btn-text: #ffffff;
+  --send-btn-hover-text: #161616;
 }
 
 * {
@@ -128,10 +128,6 @@ button {
   display: none !important;
 }
 
-/* The view containers are focus targets, not controls: showOnlyView() focuses
-   the incoming view so it gets announced (see popup.js). That focus is always
-   programmatic, so a ring around the whole popup would be noise; every real
-   control keeps its own. */
 #homeView:focus,
 #summaryView:focus,
 #settingsView:focus,
@@ -139,9 +135,6 @@ button {
   outline: none;
 }
 
-/* Live-region text for screen readers (see announce() in popup.js). Clipped
-   rather than display:none / visibility:hidden, both of which stop the region
-   being announced at all. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -175,7 +168,6 @@ button {
 body {
   width: 342px;
   background: var(--bg-color);
-  background-image: var(--bg-gradient);
   background-attachment: fixed;
   font-family: var(--font-body);
   color: var(--text-main);
@@ -215,9 +207,6 @@ body {
   transform: rotate(15deg) scale(1.05);
 }
 
-/* On Home the brand is already the current view, so its click (a "go home"
-   shortcut, only meaningful from Summary) is a no-op. Drop the pointer cursor
-   and hover animation there so it doesn't imply an action that isn't. */
 #homeView .brand {
   cursor: default;
 }
@@ -230,10 +219,7 @@ body {
   font-family: var(--font-head);
   font-weight: 700;
   font-size: 23px;
-  background: var(--brand-color-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--brand-color);
   letter-spacing: -0.5px;
 }
 
@@ -265,9 +251,6 @@ body {
   transform: translateY(0) scale(0.95);
 }
 
-/* Duotone icons (popup/icons.js), the same construction the landing page uses:
-   an ink stroke layer over a soft accent fill, so a glyph takes the colour of
-   whatever text it sits next to instead of being tinted with a filter. */
 .ico {
   display: inline-flex;
   flex-shrink: 0;
@@ -284,9 +267,6 @@ body {
   stroke-linejoin: round;
 }
 
-/* The landing page fills at 0.22, which is tuned for its 42px feature-cell
-   icons; at the 13-18px this popup draws them, that wash disappears, so the
-   accent layer is carried heavier to keep the same duotone read. */
 .ico svg .f {
   fill: var(--accent);
   stroke: none;
@@ -305,14 +285,10 @@ body {
   flex-direction: column;
 }
 
-/* Boxes stack flush: each one is pulled up onto its neighbour's hairline so a
-   column of them reads as a single ruled block instead of floating cards. */
 .home-buttons > * + * {
   margin-top: -1px;
 }
 
-/* Ask is its own action rather than part of the summarize-and-format group, so
-   it breaks off the stack. */
 .home-buttons > .seg-row + .action-btn {
   margin-top: 12px;
 }
@@ -335,8 +311,6 @@ body {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Neighbours overlap by 1px, so a hovered box has to paint on top or its
-   highlighted border gets covered by the box below it. */
 .action-btn:hover,
 .prompt-card:hover,
 .past-summary-card:hover,
@@ -356,9 +330,6 @@ body {
   height: 21px;
 }
 
-/* Response format: the segmented row from the landing-page demo (docs/, .seg).
-   Three equal boxes on one line, hairlines collapsed into each other, and the
-   active one inverted to a filled block - no heading, no radio circles. */
 .seg-row {
   display: flex;
 }
@@ -374,8 +345,6 @@ body {
   margin-left: 0;
 }
 
-/* The radio keeps the state and fires the change handler; the span next to it
-   is the visible box, styled off :checked so the fill follows the selection. */
 .seg input[type="radio"] {
   position: absolute;
   opacity: 0;
@@ -403,9 +372,9 @@ body {
 }
 
 .seg input:checked + span {
-  background: var(--text-main);
-  border-color: var(--text-main);
-  color: var(--bg-color);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
   position: relative;
   z-index: 1;
 }
@@ -472,15 +441,10 @@ body {
   line-height: 1.5;
   color: var(--text-muted);
   white-space: pre-wrap;
-  /* pre-wrap alone won't break a long unbroken token (URL, hash, code span);
-     without this it runs past the card and gets clipped by body's
-     overflow-x: hidden. */
+
   overflow-wrap: break-word;
 }
 
-/* Highlight-in-page affordance (Chromium builds only, see
-   HIGHLIGHT_SUPPORTED in popup.js): clicking a bullet/line scrolls to and
-   highlights the matching passage in the live page. */
 .apogee-groundable li,
 .apogee-groundable p {
   cursor: pointer;
@@ -496,8 +460,6 @@ body {
   background: var(--btn-hover-bg);
 }
 
-/* Keyboard counterpart of the hover affordance above (the passages get
-   tabindex="0", see makeSummaryPassagesFocusable in popup.js). */
 .apogee-groundable li:focus-visible,
 .apogee-groundable p:focus-visible {
   outline: 2px solid var(--radio-checked-color);
@@ -526,10 +488,6 @@ body {
   margin-top: 12px;
 }
 
-/* Drop the top margin when the footer has nothing visible to show (e.g. a
-   summary error, where the time-saved badge and every action button are
-   hidden), so it doesn't leave a dangling gap under the text. The actions
-   wrapper is always present, so emptiness is tested on its buttons, not it. */
 .summary-footer:not(:has(.time-saved-badge:not(.hidden))):not(
     :has(.summary-footer-actions button:not(.hidden))
   ) {
@@ -566,12 +524,6 @@ body {
   cursor: default;
 }
 
-/* The ask/answer view's Cancel sits alone directly under the answer card,
-   unlike the summarize view's (which lives in the flex .summary-footer-actions
-   row). Without this it butts flush against the box and reads as orphaned;
-   give it the same top spacing and right-alignment so it matches the
-   summarize view's Cancel. width: fit-content keeps a block button
-   shrink-to-content so margin-left: auto can push it to the right. */
 #cancelAskBtn {
   display: block;
   width: fit-content;
@@ -705,10 +657,12 @@ body {
 }
 
 .section-title {
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -774,9 +728,7 @@ body {
 .past-summary-card {
   width: 100%;
   display: flex;
-  /* Top, not centre: an expanded card is many lines tall, and centring left
-     the copy button stranded halfway down the summary as if it belonged to
-     whichever bullet it happened to land beside. */
+
   align-items: flex-start;
   gap: 10px;
   text-align: left;
@@ -793,10 +745,6 @@ body {
   border-color: var(--btn-hover-border);
 }
 
-/* Recessed like the summary panel, and roomier, so an opened card reads as a
-   document rather than as a list row that grew. The card also has to sit above
-   its neighbours: the -1px margin above overlaps borders, and without a stacking
-   nudge the next card's border would cut across this one's bottom edge. */
 .past-summary-card.expanded {
   position: relative;
   z-index: 1;
@@ -825,14 +773,7 @@ body {
   margin-bottom: 3px;
 }
 
-/* Promoted to a heading for the opened card: full title, no ellipsis, since
-   there is room to wrap now. The hairline under it belongs to the body below,
-   which is full-bleed, so the rule crosses the whole card instead of stopping
-   under the copy button. */
 .past-summary-card.expanded .past-summary-title {
-  /* Only the title has to step around the copy/chevron column (which floats
-     out of flow below); the summary body underneath keeps the card's full
-     width instead of wrapping in a 50px-narrower gutter. */
   padding-right: 60px;
   font-size: 13px;
   line-height: 1.35;
@@ -862,17 +803,11 @@ body {
   line-height: 1.5;
 }
 
-/* Only when there is a title to divide it from: pre-title cache entries (no
-   `t`, see loadPastSummaries) render the body alone, and a rule along the top
-   of a card with nothing above it just looks like a stray border. */
 .past-summary-card.expanded .past-summary-title + .past-summary-preview {
   border-top: 1px solid var(--card-border);
   padding-top: 11px;
 }
 
-/* The global `* { margin: 0; padding: 0 }` reset strips every default, so the
-   markdown rendered into an expanded card has to restate its own rhythm; see
-   the matching #summaryText rules above, which this deliberately mirrors. */
 .past-summary-card.expanded .past-summary-preview > :last-child {
   margin-bottom: 0;
 }
@@ -898,8 +833,7 @@ body {
 .past-summary-card.expanded .past-summary-preview ul,
 .past-summary-card.expanded .past-summary-preview ol {
   margin: 0 0 10px;
-  /* Markers live inside the text column: `outside` would hang them into the
-     card's 14px padding and clip them against the border. */
+
   padding-left: 18px;
 }
 
@@ -930,8 +864,6 @@ body {
   color: var(--text-main);
 }
 
-/* Right-hand controls stay a fixed column so the text block below wraps to the
-   same width whether a card is open or closed. */
 .past-summary-actions {
   display: flex;
   align-items: center;
@@ -939,8 +871,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Untitled entries have no heading to carry the gutter, so their opening block
-   steps around the buttons instead; everything after it runs full width. */
 .past-summary-card.expanded
   .past-summary-text
   > .past-summary-preview:first-child
@@ -948,8 +878,6 @@ body {
   padding-right: 60px;
 }
 
-/* Pinned to the corner once open, so the body text below runs the full width
-   of the card rather than stopping short of an empty column. */
 .past-summary-card.expanded .past-summary-actions {
   position: absolute;
   top: 14px;
@@ -960,8 +888,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Chevron points down when collapsed and flips up on expand: the only visual
-   cue that these rows open at all. Decorative, the whole card is the control. */
 .past-summary-chevron {
   display: flex;
   align-items: center;
@@ -1078,15 +1004,14 @@ body {
 }
 
 .chat-box textarea {
-  transition:
-    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .chat-box textarea:focus {
   background: var(--input-bg);
   border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 3px var(--input-focus-glow);
+  outline: 1px solid var(--input-focus-border);
+  outline-offset: -2px;
 }
 
 .answer-box {
@@ -1129,8 +1054,6 @@ body {
   transform: scale(0.95);
 }
 
-/* Sits on the filled gradient button, so it inverts like the landing page's
-   filled actions do. */
 .send-btn .ico svg {
   color: var(--send-btn-text);
   width: 17px;
@@ -1223,8 +1146,7 @@ body {
   appearance: none;
   width: 16px;
   height: 16px;
-  /* Keep the circle from being squeezed into an oval when a long label
-     (e.g. the translation-engine options) wraps in the flex row. */
+
   flex-shrink: 0;
   border: 2px solid var(--radio-border);
   border-radius: 50%;
@@ -1243,9 +1165,6 @@ body {
   box-shadow: inset 0 0 0 3px var(--bg-color);
 }
 
-/* `appearance: none` + `outline: none` above removed the browser's default
-   focus ring entirely, leaving keyboard navigation through Settings with no
-   visible focus at all; restore one for keyboard (not mouse) focus. */
 .radio-option input[type="radio"]:focus-visible {
   outline: 2px solid var(--radio-checked-color);
   outline-offset: 2px;
@@ -1394,9 +1313,6 @@ body {
   color: var(--text-muted);
 }
 
-/* The trailing arrow on a row is an affordance, not a label, so it sits a step
-   smaller and quieter than the icon and text it points away from. Unstyled it
-   inherited --text-main and was the loudest mark in a row of muted ones. */
 .arrow-icon svg,
 .contact-arrow svg {
   width: 16px;
@@ -1445,9 +1361,6 @@ body {
   color: var(--text-muted);
 }
 
-/* Sits under the three contact cards, which are the whole view now: the
-   version line doubles as the "About" the blurb above it used to carry, and
-   it's what a bug report needs to quote anyway. */
 .contact-footer {
   margin-top: 28px;
   text-align: center;
@@ -1472,9 +1385,6 @@ body {
   gap: 5px;
 }
 
-/* The one inline link in the popup: credits the contributors graph on GitHub.
-   Underlined rather than colour-only so it reads as a link without relying on
-   hue alone. */
 .made-with-link {
   color: var(--accent);
   text-decoration: underline;
@@ -1526,24 +1436,20 @@ body {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
 }
 
 .status-dot.connected {
   background: #10b981;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
   animation: status-pulse 1.8s infinite ease-in-out;
 }
 
 @keyframes status-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
-  }
+  0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
   }
 }
 
@@ -1551,13 +1457,8 @@ body {
   background: #64748b;
 }
 
-/* Initial state while the connection probe is still in flight (which can take
-   a few seconds on a cold WebLLM start): amber + pulse, so it reads as "still
-   checking" rather than looking briefly disconnected. Swapped to
-   connected/disconnected by updateConnectionUI once the probe resolves. */
 .status-dot.checking {
   background: #f59e0b;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
   animation: status-pulse-checking 1.4s infinite ease-in-out;
 }
 
@@ -1581,9 +1482,6 @@ body {
   font-size: 13px;
 }
 
-/* The sparkle mark turning in place. Slower than a ring spinner would be: the
-   glyph is legible while it moves, and a lazy revolution reads as thinking
-   where a fast one reads as a stalled progress bar. */
 .apogee-spinner {
   animation: apogee-spin 1.6s linear infinite;
   transform-origin: center;
@@ -1638,10 +1536,6 @@ body {
     animation: none;
   }
 
-  /* Covers everything else: the hover translateY/scale transforms on
-     buttons/cards throughout this file, and any animation not already
-     special-cased above (near-instant instead of fully removed, so state
-     changes like the status dot's connect/disconnect swap still register). */
   * {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
@@ -1669,9 +1563,6 @@ body {
   font-size: 14px;
 }
 
-/* Uses the card surface, not --summary-bg: it stacks directly on the summary
-   card, which shares that background and (in light) has no border, so the two
-   otherwise read as a single panel with a stray rule through it. */
 .model-progress {
   margin: 16px 16px 0;
   padding: 13px 14px;
@@ -1699,12 +1590,6 @@ body {
   height: 100%;
 }
 
-/* web-llm reports progress as one long line ("Fetching param cache[13/38]:
-   900MB fetched. 34% completed, 12 secs elapsed."), far wider than the 342px
-   popup. A single ellipsised line cut it at "900...", hiding the shard count
-   and elapsed time, which are the only parts that tell a slow download from a
-   stuck one. Wrap instead; the cap is set high enough for the stalled-download
-   note offscreen.js appends, and only costs height when the text is long. */
 .model-progress-title {
   flex: 1;
   min-width: 0;
@@ -1713,10 +1598,7 @@ body {
   font-weight: 500;
   line-height: 1.35;
   color: var(--text-main);
-  /* -webkit-box + the prefixed clamp is still the only combination Firefox
-     and older Chrome honour; the unprefixed line-clamp lands the same cap in
-     engines that have shipped the standard property, and is ignored
-     elsewhere. Both are kept until the prefixed form stops being needed. */
+
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 5;
@@ -1901,9 +1783,6 @@ body {
   margin-left: 6px;
 }
 
-/* Freeze decorative motion (spinner rotation, hover transforms, hover/focus
-   transitions) for users who ask the OS for reduced motion. The spinner's
-   accompanying text label still conveys the loading state. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1912,4 +1791,29 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.copy-diagnostics-btn {
+  margin-top: 12px;
+  padding: 9px 14px;
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.copy-diagnostics-btn:hover {
+  background: var(--btn-hover-bg);
+  border-color: var(--btn-hover-border);
+}
+
+.copy-diagnostics-hint {
+  margin-top: 8px;
 }

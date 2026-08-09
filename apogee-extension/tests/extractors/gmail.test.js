@@ -1,6 +1,3 @@
-// Worked example 3 of 3: the simplest shape. Synchronous, DOM only, no shared
-// thread machinery. Start here if you're writing your first extractor test.
-
 import test from "node:test";
 import assert from "node:assert";
 import { loadExtractors } from "./helpers/extractorHarness.js";
@@ -36,12 +33,6 @@ test("extractGmail returns empty content when no thread is open", () => {
   const { extractGmail } = loadExtractors({
     files: ["extractors/gmail.js"],
     url: URL_INBOX,
-    // The inbox list has no .a3s message bodies. Returning empty content rather
-    // than null is deliberate: popup.js turns it into "nothing to summarize
-    // here yet" instead of falling through to Readability, which would dump the
-    // inbox chrome at the model.
-    // Inline HTML has to be well-formed: linkedom parses literally and won't
-    // synthesize <html>/<head> around a stray <title> the way a browser does.
     html: '<!doctype html><html><head><title>Inbox - Gmail</title></head><body><div class="ain"></div></body></html>',
   });
 
