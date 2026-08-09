@@ -564,7 +564,7 @@ function setLoadingIndicator(element, label) {
   wrapper.className = "apogee-loading";
   const spinner = document.createElement("span");
   spinner.className = "apogee-spinner ico";
-  spinner.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.sparkle}</svg>`;
+  spinner.innerHTML = ICONS.sparkle;
   const text = document.createElement("span");
   text.textContent = label;
   const dots = document.createElement("span");
