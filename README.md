@@ -4,9 +4,9 @@
 
 A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Runs on WebGPU, WebAssembly, or your own local Ollama.
 
-<a href="https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog"><img alt="Available in the Chrome Web Store" src="https://developer.chrome.com/static/docs/webstore/branding/image/UV4C4ybeBTsZt43U4xis.png" height="58"></a>
+<a href="https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog"><img alt="Available in the Chrome Web Store" src=".github/assets/chrome-web-store.png" width="206" height="58"></a>
 &nbsp;
-<a href="https://addons.mozilla.org/en-US/firefox/addon/apogeeext/"><img alt="Get the Add-on for Firefox" src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" height="53"></a>
+<a href="https://addons.mozilla.org/en-US/firefox/addon/apogeeext/"><img alt="Get the Add-on for Firefox" src=".github/assets/firefox-add-on.svg" width="152" height="53"></a>
 
 <a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="#how-it-works">How It Works</a> | <a href="#architecture">Architecture</a> | <a href="#screenshots">Screenshots</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
 
@@ -551,7 +551,7 @@ the LLM engine.
 
 ### Chrome, Edge, Brave, Opera, Vivaldi, Arc, Dia
 
-<a href="https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog"><img alt="Available in the Chrome Web Store" src="https://developer.chrome.com/static/docs/webstore/branding/image/UV4C4ybeBTsZt43U4xis.png" height="58"></a>
+<a href="https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog"><img alt="Available in the Chrome Web Store" src=".github/assets/chrome-web-store.png" width="206" height="58"></a>
 
 One click from the Chrome Web Store, and it works the same on every
 Chromium-based browser above.
@@ -593,7 +593,7 @@ afterward), so the initial build needs internet access.
 
 ### Firefox
 
-<a href="https://addons.mozilla.org/en-US/firefox/addon/apogeeext/"><img alt="Get the Add-on for Firefox" src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" height="53"></a>
+<a href="https://addons.mozilla.org/en-US/firefox/addon/apogeeext/"><img alt="Get the Add-on for Firefox" src=".github/assets/firefox-add-on.svg" width="152" height="53"></a>
 
 You can install Apogee directly from [Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/) or download the package from [Releases](https://github.com/darshi1337/apogee/releases).
 
