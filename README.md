@@ -4,8 +4,9 @@
 
 A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Runs on WebGPU, WebAssembly, or your own local Ollama.
 
-[![Get it on the Chrome Web Store](https://img.shields.io/badge/Chrome_%2F_Edge-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog)
-[![Get it on Firefox Add-ons](https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/)
+<a href="https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog"><img alt="Available in the Chrome Web Store" src="https://developer.chrome.com/static/docs/webstore/branding/image/UV4C4ybeBTsZt43U4xis.png" height="58"></a>
+&nbsp;
+<a href="https://addons.mozilla.org/en-US/firefox/addon/apogeeext/"><img alt="Get the Add-on for Firefox" src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" height="53"></a>
 
 <a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="#how-it-works">How It Works</a> | <a href="#architecture">Architecture</a> | <a href="#screenshots">Screenshots</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
 
@@ -550,8 +551,14 @@ the LLM engine.
 
 ### Chrome, Edge, Brave, Opera, Vivaldi, Arc, Dia
 
-These are all Chromium-based and use the same `dist/chrome` build and load
-steps; only the extensions-page URL differs slightly (`chrome://extensions`,
+<a href="https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog"><img alt="Available in the Chrome Web Store" src="https://developer.chrome.com/static/docs/webstore/branding/image/UV4C4ybeBTsZt43U4xis.png" height="58"></a>
+
+One click from the Chrome Web Store, and it works the same on every
+Chromium-based browser above.
+
+Prefer to load it yourself, or want a build that isn't on the store yet? These
+are all Chromium-based and use the same `dist/chrome` build and load steps;
+only the extensions-page URL differs slightly (`chrome://extensions`,
 `edge://extensions`, `brave://extensions`, `dia://extensions/`, etc.). The
 load steps are identical on **Windows, macOS, and Linux**; only the folder
 path you point "Load unpacked" at differs by OS.
@@ -585,6 +592,8 @@ afterward), so the initial build needs internet access.
    > Firefox target). macOS and Linux use the npm scripts as-is.
 
 ### Firefox
+
+<a href="https://addons.mozilla.org/en-US/firefox/addon/apogeeext/"><img alt="Get the Add-on for Firefox" src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" height="53"></a>
 
 You can install Apogee directly from [Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/) or download the package from [Releases](https://github.com/darshi1337/apogee/releases).
 
