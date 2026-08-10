@@ -14,12 +14,7 @@ A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Run
 
 </div>
 
-**Apogee** is an AI browser assistant for articles, videos, emails, and more.
-It runs **entirely in your browser**: on your GPU via WebGPU (Chrome, Edge,
-and other Chromium browsers) or on your CPU via WebAssembly, which now works
-everywhere. WebAssembly is the default on Firefox and an opt-in fallback on
-Chromium browsers, useful on machines without WebGPU. No backend, no API
-keys, no cloud. Just install the extension and go.
+**Apogee** is an AI browser assistant for articles, videos, emails, and more. It runs **entirely in your browser**: on your GPU via WebGPU (Chrome, Edge, and other Chromium browsers) or on your CPU via WebAssembly, which now works everywhere. WebAssembly is the default on Firefox and an opt-in fallback on Chromium browsers, useful on machines without WebGPU. No backend, no API keys, no cloud. Just install the extension and go.
 
 For power users, Apogee also connects directly to a local Ollama instance over `127.0.0.1` to run larger models.
 
@@ -37,77 +32,25 @@ Apogee fixes Orbit's architectural and privacy flaws by being fully local-first:
 
 ## How It Works
 
-Apogee runs quantized language models directly in your browser. On Chrome,
-Edge, and other Chromium browsers it defaults to
-[WebLLM](https://github.com/mlc-ai/web-llm), which executes models on your
-GPU via WebGPU. On Firefox, which has no WebGPU offscreen support, it
-defaults to [Transformers.js](https://github.com/huggingface/transformers.js)
-instead, which runs smaller ONNX models on your CPU via WebAssembly and
-performs well on a modern CPU. Transformers.js is also available as an
-opt-in alternative in Settings on Chrome and Edge, for machines without
-WebGPU or as a lighter-weight option. In every case the first use downloads
-the model weights (roughly 270 MB to 2.2 GB depending on the model) and
-caches them locally. After that, everything runs offline.
+Apogee runs quantized language models directly in your browser. On Chrome, Edge, and other Chromium browsers it defaults to [WebLLM](https://github.com/mlc-ai/web-llm), which executes models on your GPU via WebGPU. On Firefox, which has no WebGPU offscreen support, it defaults to [Transformers.js](https://github.com/huggingface/transformers.js) instead, which runs smaller ONNX models on your CPU via WebAssembly and performs well on a modern CPU. Transformers.js is also available as an opt-in alternative in Settings on Chrome and Edge, for machines without WebGPU or as a lighter-weight option. In every case the first use downloads the model weights (roughly 270 MB to 2.2 GB depending on the model) and caches them locally. After that, everything runs offline.
 
-Prefer larger models? Switch to Local Ollama mode and the extension talks
-directly to your own Ollama instance over `127.0.0.1`, with no separate
-backend to install or run.
+Prefer larger models? Switch to Local Ollama mode and the extension talks directly to your own Ollama instance over `127.0.0.1`, with no separate backend to install or run.
 
-**Ask** goes further than the summary itself: instead of blindly truncating
-long pages to the first few thousand characters, Apogee embeds the page
-locally (a small on-device model, same trust tier as the LLM weights above)
-and answers using only the passages most relevant to your question. This
-means asking about something buried deep in a long article, PDF, or video
-transcript still works, not just what fit in the opening truncated slice.
-(Retrieval currently runs on Chromium browsers; Firefox falls back to the
-plain truncated slice for now.)
+**Ask** goes further than the summary itself: instead of blindly truncating long pages to the first few thousand characters, Apogee embeds the page locally (a small on-device model, same trust tier as the LLM weights above) and answers using only the passages most relevant to your question. This means asking about something buried deep in a long article, PDF, or video transcript still works, not just what fit in the opening truncated slice. (Retrieval currently runs on Chromium browsers; Firefox falls back to the plain truncated slice for now.)
 
-**Highlight-in-page** lets you check the summary against the source: click
-any bullet (or line, in Sentences/Paragraphs mode) and Apogee finds the
-passage of the original page it's most likely grounded in using the same
-on-device retrieval Ask uses, then scrolls to and highlights it in the live
-page. Useful for spot-checking a claim without re-reading the whole article.
-Chromium-only for now, same constraint as Ask's retrieval above.
+**Highlight-in-page** lets you check the summary against the source: click any bullet (or line, in Sentences/Paragraphs mode) and Apogee finds the passage of the original page it's most likely grounded in using the same on-device retrieval Ask uses, then scrolls to and highlights it in the live page. Useful for spot-checking a claim without re-reading the whole article. Chromium-only for now, same constraint as Ask's retrieval above.
 
-**Videos** (YouTube and Bilibili) get their own treatment: Apogee pulls the
-video's timestamped transcript and produces a short written gist plus a "Key
-moments" timeline, sized to the video's length, where every entry is a
-clickable link that seeks the video to that moment. When a video's description
-defines real chapters, the summary follows those chapters instead. Sponsor
-reads and self-promotion are stripped from YouTube transcripts first (see the
-SponsorBlock note under Privacy).
+**Videos** (YouTube and Bilibili) get their own treatment: Apogee pulls the video's timestamped transcript and produces a short written gist plus a "Key moments" timeline, sized to the video's length, where every entry is a clickable link that seeks the video to that moment. When a video's description defines real chapters, the summary follows those chapters instead. Sponsor reads and self-promotion are stripped from YouTube transcripts first (see the SponsorBlock note under Privacy).
 
-**Wikipedia** gets a dedicated extractor, because its articles are long in a
-particular way. On the World War II article the generic path pulled 169,014
-characters, of which 76,568 (45%) were See also, Notes, References, Further
-reading and External links, so nearly half the model passes went on citation
-lists. The extractor cuts everything from the first appendix heading, drops
-navboxes, infoboxes and the 506 inline citation markers, and re-emits the real
-section headings so long articles are chunked on their own boundaries rather
-than at blind character offsets. Same article, 85,659 characters in 17 chunks
-instead of 30. No network call: the page is already open in your tab.
+**Wikipedia** gets a dedicated extractor, because its articles are long in a particular way. On the World War II article the generic path pulled 169,014 characters, of which 76,568 (45%) were See also, Notes, References, Further reading and External links, so nearly half the model passes went on citation lists. The extractor cuts everything from the first appendix heading, drops navboxes, infoboxes and the 506 inline citation markers, and re-emits the real section headings so long articles are chunked on their own boundaries rather than at blind character offsets. Same article, 85,659 characters in 17 chunks instead of 30. No network call: the page is already open in your tab.
 
-**Custom instructions** (Settings) let you add your own standing guidance, for
-example "Explain like I'm five", "Focus on the technical details", or "Answer
-in a formal tone", applied on top of Apogee's built-in prompt for every summary
-and answer. They sit under the grounding rules (a page can't use them to make
-the model invent things), and are capped at 2000 characters. Leave the box
-blank to use the defaults unchanged.
+**Custom instructions** (Settings) let you add your own standing guidance, for example "Explain like I'm five", "Focus on the technical details", or "Answer in a formal tone", applied on top of Apogee's built-in prompt for every summary and answer. They sit under the grounding rules (a page can't use them to make the model invent things), and are capped at 2000 characters. Leave the box blank to use the defaults unchanged.
 
 ## Architecture
 
-Apogee is four cooperating contexts: the popup you see, a service worker that
-routes every job and buffers its output, an inference host that actually runs
-the model, and extractors injected into the page you are reading. Nothing sits
-behind them: there is no backend, and the only bytes that ever leave your
-machine are model weights on first run plus two optional lookups noted below.
+Apogee is four cooperating contexts: the popup you see, a service worker that routes every job and buffers its output, an inference host that actually runs the model, and extractors injected into the page you are reading. Nothing sits behind them: there is no backend, and the only bytes that ever leave your machine are model weights on first run plus two optional lookups noted below.
 
-**Where inference happens** depends on the browser and your settings. Chromium
-browsers get an offscreen document (a real `Document` context, which MV3
-service workers are not, and which WebGPU and dynamic `import()` both need).
-Firefox has no offscreen API, so Transformers.js runs in the background page
-instead. Local Ollama mode skips both and streams over HTTP from the service
-worker.
+**Where inference happens** depends on the browser and your settings. Chromium browsers get an offscreen document (a real `Document` context, which MV3 service workers are not, and which WebGPU and dynamic `import()` both need). Firefox has no offscreen API, so Transformers.js runs in the background page instead. Local Ollama mode skips both and streams over HTTP from the service worker.
 
 ### Components and trust boundary
 
@@ -158,11 +101,7 @@ flowchart TD
     style device fill:#f7fdf9,stroke:#1e7e34,stroke-width:2px,stroke-dasharray:6 4,color:#12351f
 ```
 
-Green is on-device. Amber leaves the device, and it is only ever these two:
-public model weights fetched from Hugging Face once and cached forever after,
-and, on video pages, a SponsorBlock lookup by video ID (toggleable in Settings)
-or Bilibili's own subtitle API for the video you are already watching. Page
-content, summaries, and questions are never among them.
+Green is on-device. Amber leaves the device, and it is only ever these two: public model weights fetched from Hugging Face once and cached forever after, and, on video pages, a SponsorBlock lookup by video ID (toggleable in Settings) or Bilibili's own subtitle API for the video you are already watching. Page content, summaries, and questions are never among them.
 
 ### What happens when you hit Summarize
 
@@ -193,13 +132,7 @@ sequenceDiagram
     Note over SW,DB: Finalization lives in the worker, not the popup,<br/>so closing the popup mid-job never loses the result
 ```
 
-**Ask** takes the same path with one extra step: before prompting, the page is
-embedded on-device and only the passages closest to your question are sent to
-the model, so an answer buried deep in a long article or transcript is still
-reachable. **Highlight-in-page** reuses that same index in reverse, matching a
-summary bullet back to the sentence it was grounded in and scrolling the live
-page to it. Both need the embedding pipeline in the offscreen document, so both
-are Chromium-only for now; Firefox falls back to a plain truncated slice.
+**Ask** takes the same path with one extra step: before prompting, the page is embedded on-device and only the passages closest to your question are sent to the model, so an answer buried deep in a long article or transcript is still reachable. **Highlight-in-page** reuses that same index in reverse, matching a summary bullet back to the sentence it was grounded in and scrolling the live page to it. Both need the embedding pipeline in the offscreen document, so both are Chromium-only for now; Firefox falls back to a plain truncated slice.
 
 ## Screenshots
 
@@ -366,17 +299,9 @@ contributor graph.</li>
 
 That's it. No backend installation, no terminal commands.
 
-**Response format** (bullets, sentences, or paragraphs) sits right under the
-Summarize button on the home view, so you can switch it in place before
-summarizing rather than going through Settings.
+**Response format** (bullets, sentences, or paragraphs) sits right under the Summarize button on the home view, so you can switch it in place before summarizing rather than going through Settings.
 
-**Faster ways to summarize**: right-click anywhere on a page and pick
-**Summarize this page**, or use the keyboard shortcut (default `Alt+Shift+U`,
-remappable at `chrome://extensions/shortcuts`). Either works without opening
-the popup at all. A system notification lets you know when it's ready; click
-it (or open the popup) to see the result. If you open the popup while it's
-still generating, it shows the normal loading view instead of the default
-Home page.
+**Faster ways to summarize**: right-click anywhere on a page and pick **Summarize this page**, or use the keyboard shortcut (default `Alt+Shift+U`, remappable at `chrome://extensions/shortcuts`). Either works without opening the popup at all. A system notification lets you know when it's ready; click it (or open the popup) to see the result. If you open the popup while it's still generating, it shows the normal loading view instead of the default Home page.
 
 ### Two Ways to Use Apogee
 
@@ -408,27 +333,11 @@ Apogee offers two modes of operation to balance ease-of-use and raw capabilities
 | Qwen 2.5 0.5B          | ~480 MB       | Multilingual                      |
 | Llama 3.2 1B           | ~1.2 GB       | Stronger reasoning, slower on CPU |
 
-Runs via [Transformers.js](https://github.com/huggingface/transformers.js)
-(ONNX models on the WASM backend). Chosen specifically because it never
-spawns a Worker (onnxruntime-web's proxy mode is hardcoded off), unlike
-wllama (needs a `blob:`-URL Worker, which both Chrome's and Firefox's
-extension CSP block). On Firefox, which has no offscreen document or WebGPU,
-it runs directly in the background page and is the only in-browser option.
-On Chrome/Edge it runs in the same offscreen document WebLLM uses and is
-offered as an opt-in alternative in Settings, useful on machines without
-WebGPU. Its own WASM runtime ships bundled inside the extension package
-rather than being fetched from a CDN at runtime. Generation is
-single-threaded (extension pages aren't cross-origin-isolated, so no
-`SharedArrayBuffer`) and context is capped at 4096 tokens to keep latency
-reasonable on CPU. On a modern/fast CPU this still summarizes well with the
-default SmolLM2 360M model; on older or low-power hardware, expect noticeably
-slower generation, and consider switching to **Local Ollama** instead.
+Runs via [Transformers.js](https://github.com/huggingface/transformers.js) (ONNX models on the WASM backend). Chosen specifically because it never spawns a Worker (onnxruntime-web's proxy mode is hardcoded off), unlike wllama (needs a `blob:`-URL Worker, which both Chrome's and Firefox's extension CSP block). On Firefox, which has no offscreen document or WebGPU, it runs directly in the background page and is the only in-browser option. On Chrome/Edge it runs in the same offscreen document WebLLM uses and is offered as an opt-in alternative in Settings, useful on machines without WebGPU. Its own WASM runtime ships bundled inside the extension package rather than being fetched from a CDN at runtime. Generation is single-threaded (extension pages aren't cross-origin-isolated, so no `SharedArrayBuffer`) and context is capped at 4096 tokens to keep latency reasonable on CPU. On a modern/fast CPU this still summarizes well with the default SmolLM2 360M model; on older or low-power hardware, expect noticeably slower generation, and consider switching to **Local Ollama** instead.
 
 ## Supported Ollama Models
 
-Any model you've pulled shows up automatically in the extension's settings
-(see [Advanced: Local Ollama Mode](#advanced-local-ollama-mode)). These are
-just a starting point if you haven't pulled anything yet:
+Any model you've pulled shows up automatically in the extension's settings (see [Advanced: Local Ollama Mode](#advanced-local-ollama-mode)). These are just a starting point if you haven't pulled anything yet:
 
 | Model          | Size | Command to pull              | Recommended For               |
 | -------------- | ---- | ---------------------------- | ----------------------------- |
@@ -437,16 +346,11 @@ just a starting point if you haven't pulled anything yet:
 | Mistral Latest | ~7B  | `ollama pull mistral:latest` | General language capabilities |
 | Llama 3.1 8B   | ~8B  | `ollama pull llama3.1:8b`    | General reasoning & coding    |
 
-Summarization also adapts its chunking to the model you pick: larger-context
-models (e.g. `llama3.1`, `qwen2.5`, `gemma3`) get bigger chunks and fewer
-passes over long content, rather than the same fixed chunk size regardless
-of what the model can actually handle.
+Summarization also adapts its chunking to the model you pick: larger-context models (e.g. `llama3.1`, `qwen2.5`, `gemma3`) get bigger chunks and fewer passes over long content, rather than the same fixed chunk size regardless of what the model can actually handle.
 
 ## Browser Support
 
-Apogee ships two builds: a Chromium build (`dist/chrome`, Manifest V3 with an
-offscreen document for WebGPU) and a Firefox build (`dist/firefox`, no
-offscreen document). Anything Chromium-based accepts the same build.
+Apogee ships two builds: a Chromium build (`dist/chrome`, Manifest V3 with an offscreen document for WebGPU) and a Firefox build (`dist/firefox`, no offscreen document). Anything Chromium-based accepts the same build.
 
 | Browser          | WebLLM (In-Browser AI, WebGPU) | Transformers.js (In-Browser AI, WASM) | Local Ollama                                                                                                                                                            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ---------------- | ------------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -460,41 +364,18 @@ offscreen document). Anything Chromium-based accepts the same build.
 | Firefox 140+     | No                             | Yes, default                          | Yes                                                                                                                                                                     | Firefox's WebExtensions implementation has no `browser.offscreen` API, which WebLLM needs to run WebGPU outside a visible tab (a service worker can't access WebGPU directly). Transformers.js needs neither WebGPU nor a Worker, so it runs directly in Firefox's background page instead, and is the default in-browser provider there. The Firefox build declares `strict_min_version: 140.0` (needed for the manifest's `data_collection_permissions` key), older Firefox will refuse to install it rather than fail silently. |
 | Safari           | No                             | No                                    | Apogee doesn't currently build or ship a Safari extension (a separate packaging toolchain from Chrome/Firefox); not evaluated regardless of Safari's own WebGPU support |
 
-See MDN's [WebGPU API browser compatibility table](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API#browser_compatibility)
-for exact per-browser/per-OS WebGPU version support, it's a fast-moving target
-and a better source of truth than a number hardcoded here. A GPU with WebGPU
-support (most GPUs from the last several years) is required for the
-In-Browser (WebLLM) mode specifically. Local Ollama mode has no GPU
-requirement of its own beyond whatever Ollama itself needs.
+See MDN's [WebGPU API browser compatibility table](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API#browser_compatibility) for exact per-browser/per-OS WebGPU version support, it's a fast-moving target and a better source of truth than a number hardcoded here. A GPU with WebGPU support (most GPUs from the last several years) is required for the In-Browser (WebLLM) mode specifically. Local Ollama mode has no GPU requirement of its own beyond whatever Ollama itself needs.
 
 ## Translations
 
-Apogee can produce its summaries, Q&A answers, and suggested questions in a
-language other than the source page's. Pick an output language under
-**Settings, then Summary language**. The default is **English** (summaries come
-out in English no matter what language the page is in), and **"Same as
-article"** keeps the page's own language. 29 target languages are supported.
+Apogee can produce its summaries, Q&A answers, and suggested questions in a language other than the source page's. Pick an output language under **Settings, then Summary language**. The default is **English** (summaries come out in English no matter what language the page is in), and **"Same as article"** keeps the page's own language. 29 target languages are supported.
 
-Under the hood there are **two translation engines**, selectable under
-**Settings, then Translation engine**:
+Under the hood there are **two translation engines**, selectable under **Settings, then Translation engine**:
 
-- **LLM (default).** The summarization model translates as it writes: one
-  generation pass with a system-level "write in X" directive, the output is
-  language-checked, and only if the model slipped does an explicit translate
-  pass run. No extra download; it reuses the model already loaded for
-  summarizing. Works for every language, but small in-browser models get
-  weaker the further a language sits from English.
-- **Opus-MT (opt-in).** A dedicated [Helsinki-NLP Opus-MT](https://huggingface.co/Helsinki-NLP)
-  translation model. The summary is generated neutrally (in English), then
-  translated by a purpose-built model: deterministic, structure-preserving
-  (bullets and `[MM:SS](url)` timestamp links are kept intact), and noticeably
-  stronger on the low-resource long tail where the summarization LLM is
-  weakest. Each model is a small (~80&nbsp;MB) ONNX file downloaded from
-  Hugging Face on first use and then cached offline. Any language Opus-MT
-  can't reach automatically falls back to the LLM engine.
+- **LLM (default).** The summarization model translates as it writes: one generation pass with a system-level "write in X" directive, the output is language-checked, and only if the model slipped does an explicit translate pass run. No extra download; it reuses the model already loaded for summarizing. Works for every language, but small in-browser models get weaker the further a language sits from English.
+- **Opus-MT (opt-in).** A dedicated [Helsinki-NLP Opus-MT](https://huggingface.co/Helsinki-NLP) translation model. The summary is generated neutrally (in English), then translated by a purpose-built model: deterministic, structure-preserving (bullets and `[MM:SS](url)` timestamp links are kept intact), and noticeably stronger on the low-resource long tail where the summarization LLM is weakest. Each model is a small (~80&nbsp;MB) ONNX file downloaded from Hugging Face on first use and then cached offline. Any language Opus-MT can't reach automatically falls back to the LLM engine.
 
-Opus-MT is English-centric, so it uses one of three tiers per language. The
-table below is the **English-to-target** path used when translating a summary:
+Opus-MT is English-centric, so it uses one of three tiers per language. The table below is the **English-to-target** path used when translating a summary:
 
 | Language              | Opus-MT model (English-to-target) | Tier            | Recommended engine |
 | --------------------- | --------------------------------- | --------------- | ------------------ |
@@ -530,22 +411,11 @@ table below is the **English-to-target** path used when translating a summary:
 
 **How to read this:**
 
-- **Dedicated model**: a small, single-pair Opus-MT model (`opus-mt-en-<code>`),
-  the highest-quality tier. For well-resourced languages (Spanish, French,
-  German, Italian, Dutch, Russian, Chinese, Japanese) the default LLM engine is
-  already strong, so either engine works; for the rest, Opus is the better pick.
-- **Grouped model**: the multilingual `opus-mt-en-mul` model, steered to the
-  target with a `>>code<<` token. These are mostly the lower-resource languages
-  the summarization LLM handles least well, so **Opus is recommended**.
-- **No Opus model**: Slovak, Korean, and Traditional Chinese have no
-  English-to-target Opus-MT path, so they always use the **LLM** engine (choosing
-  Opus for these silently falls back to the LLM anyway).
+- **Dedicated model**: a small, single-pair Opus-MT model (`opus-mt-en-<code>`), the highest-quality tier. For well-resourced languages (Spanish, French, German, Italian, Dutch, Russian, Chinese, Japanese) the default LLM engine is already strong, so either engine works; for the rest, Opus is the better pick.
+- **Grouped model**: the multilingual `opus-mt-en-mul` model, steered to the target with a `>>code<<` token. These are mostly the lower-resource languages the summarization LLM handles least well, so **Opus is recommended**.
+- **No Opus model**: Slovak, Korean, and Traditional Chinese have no English-to-target Opus-MT path, so they always use the **LLM** engine (choosing Opus for these silently falls back to the LLM anyway).
 
-When translating the other direction (a non-English page summarized in
-English), Opus-MT uses the matching `opus-mt-<code>-en` dedicated models where
-they exist and the grouped `opus-mt-mul-en` catch-all otherwise.
-Non-English-to-non-English pairs aren't translated directly and fall back to
-the LLM engine.
+When translating the other direction (a non-English page summarized in English), Opus-MT uses the matching `opus-mt-<code>-en` dedicated models where they exist and the grouped `opus-mt-mul-en` catch-all otherwise. Non-English-to-non-English pairs aren't translated directly and fall back to the LLM engine.
 
 ## Install the Extension
 
@@ -553,15 +423,9 @@ the LLM engine.
 
 <a href="https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog"><img alt="Available in the Chrome Web Store" src=".github/assets/chrome-web-store.png" width="206" height="58"></a>
 
-One click from the Chrome Web Store, and it works the same on every
-Chromium-based browser above.
+One click from the Chrome Web Store, and it works the same on every Chromium-based browser above.
 
-Prefer to load it yourself, or want a build that isn't on the store yet? These
-are all Chromium-based and use the same `dist/chrome` build and load steps;
-only the extensions-page URL differs slightly (`chrome://extensions`,
-`edge://extensions`, `brave://extensions`, `dia://extensions/`, etc.). The
-load steps are identical on **Windows, macOS, and Linux**; only the folder
-path you point "Load unpacked" at differs by OS.
+Prefer to load it yourself, or want a build that isn't on the store yet? These are all Chromium-based and use the same `dist/chrome` build and load steps; only the extensions-page URL differs slightly (`chrome://extensions`, `edge://extensions`, `brave://extensions`, `dia://extensions/`, etc.). The load steps are identical on **Windows, macOS, and Linux**; only the folder path you point "Load unpacked" at differs by OS.
 
 1. Download the packaged extension `.zip` from [Releases](https://github.com/darshi1337/apogee/releases).
 2. Extract/unzip the downloaded `.zip` file on your machine.
@@ -571,10 +435,7 @@ path you point "Load unpacked" at differs by OS.
 
 #### Build from Source (Developer Option)
 
-**Prerequisites** (any OS): [Node.js](https://nodejs.org) 20.19+ or 22.12+ (CI
-builds on 22) and npm. The first Chrome build also downloads and SHA-256-verifies
-WebLLM's WASM kernels (~21 MB, cached in `apogee-extension/.model-libs-cache/`
-afterward), so the initial build needs internet access.
+**Prerequisites** (any OS): [Node.js](https://nodejs.org) 20.19+ or 22.12+ (CI builds on 22) and npm. The first Chrome build also downloads and SHA-256-verifies WebLLM's WASM kernels (~21 MB, cached in `apogee-extension/.model-libs-cache/` afterward), so the initial build needs internet access.
 
 1. Clone this repository.
 2. `cd apogee-extension && npm install && npm run build`
@@ -597,16 +458,11 @@ afterward), so the initial build needs internet access.
 
 You can install Apogee directly from [Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/) or download the package from [Releases](https://github.com/darshi1337/apogee/releases).
 
-Firefox works out of the box: in-browser AI runs via Transformers.js on
-WebAssembly (SmolLM2 360M by default, no setup needed). On older or
-low-power CPUs, generation can be slow, switch to **Local Ollama** mode in
-settings for faster results with larger models.
+Firefox works out of the box: in-browser AI runs via Transformers.js on WebAssembly (SmolLM2 360M by default, no setup needed). On older or low-power CPUs, generation can be slow, switch to **Local Ollama** mode in settings for faster results with larger models.
 
 ## Advanced: Local Ollama Mode
 
-If you prefer running larger models (8B+) locally through Ollama, Apogee talks
-to it **directly over HTTP**; there's no separate backend server to install
-or keep running.
+If you prefer running larger models (8B+) locally through Ollama, Apogee talks to it **directly over HTTP**; there's no separate backend server to install or keep running.
 
 ### 1. Install Ollama
 
@@ -622,21 +478,11 @@ ollama pull gemma3:4b   # and qwen3:8b, mistral:latest, llama3.1:8b
 
 ### 2. Point the extension at Ollama
 
-Open the extension, go to Settings, and select **Local Ollama**. The host
-field defaults to `http://127.0.0.1:11434` (Ollama's own default port),
-only change it if you've configured Ollama to listen elsewhere.
+Open the extension, go to Settings, and select **Local Ollama**. The host field defaults to `http://127.0.0.1:11434` (Ollama's own default port), only change it if you've configured Ollama to listen elsewhere.
 
-**No CORS or `OLLAMA_ORIGINS` setup is needed.** Apogee connects to Ollama
-directly: a bundled [declarativeNetRequest](apogee-extension/rules/ollama-cors.json)
-rule strips the `Origin` header from its `localhost` / `127.0.0.1` requests, so
-Ollama treats them as same-origin and serves them out of the box. Just start
-Ollama and go.
+**No CORS or `OLLAMA_ORIGINS` setup is needed.** Apogee connects to Ollama directly: a bundled [declarativeNetRequest](apogee-extension/rules/ollama-cors.json) rule strips the `Origin` header from its `localhost` / `127.0.0.1` requests, so Ollama treats them as same-origin and serves them out of the box. Just start Ollama and go.
 
-Once connected, the model list is populated live from whatever you've
-actually pulled (via Ollama's own `/api/tags`), not a fixed list, so any
-model you `ollama pull` shows up automatically. If Ollama isn't reachable
-yet, a small default list is shown instead so you can still pick a model
-before starting it.
+Once connected, the model list is populated live from whatever you've actually pulled (via Ollama's own `/api/tags`), not a fixed list, so any model you `ollama pull` shows up automatically. If Ollama isn't reachable yet, a small default list is shown instead so you can still pick a model before starting it.
 
 That's it: no `apogee-backend`, no separate server process to manage.
 
