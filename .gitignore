@@ -44,6 +44,10 @@ npm-debug.log*
 .eslintcache
 coverage/
 
+# Local working notes. Snapshots of the code at a point in time, so they go
+# stale the moment the lines they cite move; the findings live in issues.
+ERROR_AUDIT.md
+
 # Editor / OS
 .vscode/
 .idea/
