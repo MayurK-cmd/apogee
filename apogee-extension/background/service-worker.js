@@ -6,6 +6,7 @@ import {
 } from "../lib/language/languageOutput.js";
 import { makeOpusTranslateFn } from "../lib/language/opusTranslateEngine.js";
 import { chatStream, checkHealth } from "../lib/engines/ollamaClient.js";
+import { errorHelpUrl } from "../lib/util/errorHelp.js";
 import {
   buildAnswerPrompt,
   buildSuggestQuestionsPrompt,
@@ -560,7 +561,6 @@ async function runBackgroundSummarize(
     if (!pageData) {
       if (notifyOnFinish) {
         notifyNothingToSummarize(
-          tab,
           "Couldn't read this page. Try reloading it, or pick a different tab.",
         );
       }
@@ -569,7 +569,6 @@ async function runBackgroundSummarize(
     if (!pageData.isPdf && !pageData.content) {
       if (notifyOnFinish) {
         notifyNothingToSummarize(
-          tab,
           "Nothing to summarize here yet - open a page, email, or video first.",
         );
       }
@@ -590,7 +589,6 @@ async function runBackgroundSummarize(
     if (!content) {
       if (notifyOnFinish) {
         notifyNothingToSummarize(
-          tab,
           "Couldn't pull any text out of this PDF - it might be a scanned image.",
         );
       }
@@ -665,19 +663,19 @@ async function runBackgroundSummarize(
   });
 }
 
-function notifyJobFailed(err, tab) {
+function notifyJobFailed(err) {
   console.error("Background summarize failed:", err);
   if (typeof chrome.notifications === "undefined") return;
+  const message = err?.message || "Something went wrong summarizing this page.";
   const notificationId = `apogee-summary-error-${crypto.randomUUID()}`;
-  notificationTargets.set(notificationId, {
-    tabId: tab?.id,
-    windowId: tab?.windowId,
-  });
+  // A notification body cannot hold a link, so clicking it opens the
+  // explanation instead of focusing the tab.
+  notificationTargets.set(notificationId, { helpUrl: errorHelpUrl(message) });
   chrome.notifications.create(notificationId, {
     type: "basic",
     iconUrl: chrome.runtime.getURL("assets/icon-96.png"),
     title: "Summarize failed",
-    message: err?.message || "Something went wrong summarizing this page.",
+    message: `${message} Click to see what this means.`,
   });
 }
 
@@ -701,13 +699,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab) return;
   if (info.menuItemId === SUMMARIZE_CONTEXT_MENU_ID) {
     runBackgroundSummarize(tab, { notifyOnFinish: true }).catch((err) =>
-      notifyJobFailed(err, tab),
+      notifyJobFailed(err),
     );
   } else if (info.menuItemId === SUMMARIZE_SELECTION_CONTEXT_MENU_ID) {
     runBackgroundSummarize(tab, {
       notifyOnFinish: true,
       selectionText: info.selectionText,
-    }).catch((err) => notifyJobFailed(err, tab));
+    }).catch((err) => notifyJobFailed(err));
   }
 });
 
@@ -716,7 +714,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
   runBackgroundSummarize(tab, { notifyOnFinish: true }).catch((err) =>
-    notifyJobFailed(err, tab),
+    notifyJobFailed(err),
   );
 });
 
@@ -994,18 +992,15 @@ function notifyJobComplete({ title, tabId, windowId }) {
   });
 }
 
-function notifyNothingToSummarize(tab, message) {
+function notifyNothingToSummarize(message) {
   if (typeof chrome.notifications === "undefined") return;
   const notificationId = `apogee-summary-empty-${crypto.randomUUID()}`;
-  notificationTargets.set(notificationId, {
-    tabId: tab?.id,
-    windowId: tab?.windowId,
-  });
+  notificationTargets.set(notificationId, { helpUrl: errorHelpUrl(message) });
   chrome.notifications.create(notificationId, {
     type: "basic",
     iconUrl: chrome.runtime.getURL("assets/icon-96.png"),
     title: "Nothing to summarize",
-    message,
+    message: `${message} Click to see what this means.`,
   });
 }
 
@@ -1015,6 +1010,11 @@ if (typeof chrome.notifications !== "undefined") {
     notificationTargets.delete(notificationId);
     chrome.notifications.clear(notificationId);
     if (!target) return;
+
+    if (target.helpUrl) {
+      await chrome.tabs.create({ url: target.helpUrl });
+      return;
+    }
 
     try {
       if (target.windowId != null) {

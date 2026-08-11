@@ -1544,6 +1544,32 @@ body {
   }
 }
 
+.error-message {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--error-text);
+}
+
+.error-help-link,
+.webgpu-warning a {
+  display: inline-block;
+  margin-left: 6px;
+  color: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  opacity: 0.85;
+}
+
+.error-help-link:hover,
+.error-help-link:focus-visible,
+.webgpu-warning a:hover,
+.webgpu-warning a:focus-visible {
+  opacity: 1;
+}
+
 .webgpu-warning {
   margin: 0 16px 12px;
   padding: 12px;

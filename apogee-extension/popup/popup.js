@@ -30,6 +30,7 @@ import {
   formatDiagnosticSettings,
   formatDiagnosticsMarkdown,
 } from "../lib/util/diagnostics.js";
+import { errorHelpUrl, ERROR_HELP_LABEL } from "../lib/util/errorHelp.js";
 import {
   formatTimeSaved,
   formatVideoTimeSaved,
@@ -932,15 +933,41 @@ function hideCancelSummarizeButton() {
   modelProgress?.classList.add("hidden");
 }
 
-function renderSummaryError(error) {
-  console.error(error);
+function helpLink(message) {
+  const link = document.createElement("a");
+  link.className = "error-help-link";
+  link.href = errorHelpUrl(message);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = ERROR_HELP_LABEL;
+  return link;
+}
+
+// Every failure the user can see goes through here, so each one gets the alert
+// role, the error styling, and a link into ERROR.md.
+function renderError(target, message) {
   const p = document.createElement("p");
   p.setAttribute("role", "alert");
-  p.style.color = "var(--error-text)";
-  p.style.fontSize = "13px";
-  p.textContent = error.message;
-  summaryText.textContent = "";
-  summaryText.appendChild(p);
+  p.className = "error-message";
+  p.textContent = message;
+  p.appendChild(helpLink(message));
+
+  target.textContent = "";
+  target.appendChild(p);
+}
+
+// Same link, for the one-line status spans in Settings that have no room for a
+// paragraph.
+function renderStatusError(target, message) {
+  if (!target) return;
+  target.setAttribute("role", "alert");
+  target.textContent = `${message} `;
+  target.appendChild(helpLink(message));
+}
+
+function renderSummaryError(error) {
+  console.error(error);
+  renderError(summaryText, error.message);
 }
 
 function returnHomeAfterCancel(tabId) {
@@ -1100,13 +1127,17 @@ async function summarizeActivePage() {
     const pageData = await extractFromActiveTab(tab);
 
     if (!pageData) {
-      summaryText.textContent =
-        "Couldn't read this page, try reloading it, or pick a different tab.";
+      renderError(
+        summaryText,
+        "Couldn't read this page, try reloading it, or pick a different tab.",
+      );
       return;
     }
     if (!pageData.isPdf && !pageData.content) {
-      summaryText.textContent =
-        "Nothing to summarize here yet, open a page, email, or video first.";
+      renderError(
+        summaryText,
+        "Nothing to summarize here yet, open a page, email, or video first.",
+      );
       return;
     }
     currentPageData = pageData;
@@ -1146,8 +1177,10 @@ async function summarizeActivePage() {
       setLoadingIndicator(summaryText, "Extracting PDF");
       const pdfContent = await extractPdfContent(tab);
       if (!pdfContent) {
-        summaryText.textContent =
-          "Couldn't pull any text out of this PDF, it might be a scanned image.";
+        renderError(
+          summaryText,
+          "Couldn't pull any text out of this PDF, it might be a scanned image.",
+        );
         return;
       }
       pageData.content = pdfContent;
@@ -1219,7 +1252,7 @@ async function consumeAnswerStream(stream, { tab, question }) {
     answerBox.textContent = fullText.trimStart();
   }
   if (started) answerBox.innerHTML = renderMarkdown(answerBox.textContent);
-  else answerBox.textContent = EMPTY_ANSWER_MESSAGE;
+  else renderError(answerBox, EMPTY_ANSWER_MESSAGE);
 
   currentAnswerText = fullText;
   copyAnswerBtn.classList.toggle("hidden", !started);
@@ -1262,8 +1295,10 @@ async function submitQuestion(question) {
     });
     let pageData = await getPageData(tab);
     if (!pageData) {
-      answerBox.textContent =
-        "Couldn't read this page, try reloading it, or pick a different tab.";
+      renderError(
+        answerBox,
+        "Couldn't read this page, try reloading it, or pick a different tab.",
+      );
       return;
     }
     currentPageData = pageData;
@@ -1299,7 +1334,7 @@ async function submitQuestion(question) {
       returnToAskAfterCancel(activeTabId);
     } else {
       console.error(error);
-      answerBox.textContent = error.message;
+      renderError(answerBox, error.message);
     }
   } finally {
     hideCancelAskButton();
@@ -1325,6 +1360,7 @@ function updateLocalModelList(settings, status) {
       names.map((name) => ({ id: name, label: name })),
     );
     if (localModelStatus) {
+      localModelStatus.removeAttribute("role");
       localModelStatus.textContent =
         `${liveModels.length} model${liveModels.length === 1 ? "" : "s"} ` +
         "found on this Ollama instance.";
@@ -1332,11 +1368,14 @@ function updateLocalModelList(settings, status) {
   } else {
     buildLocalModelUI(settings.localModel, LOCAL_MODELS);
     if (localModelStatus) {
-      localModelStatus.textContent = status?.error
-        ? status.error
-        : status?.ready
-          ? "No models found on this Ollama instance, pull one with `ollama pull <model>`."
-          : "Showing default models, connect to Ollama to see yours.";
+      renderStatusError(
+        localModelStatus,
+        status?.error
+          ? status.error
+          : status?.ready
+            ? "No models found on this Ollama instance, pull one with `ollama pull <model>`."
+            : "Showing default models, connect to Ollama to see yours.",
+      );
     }
   }
 }
@@ -1449,7 +1488,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             returnToAskAfterCancel(tab.id);
           } else {
             console.error(error);
-            answerBox.textContent = error.message;
+            renderError(answerBox, error.message);
             await saveViewState(tab.id, { streamId: null });
           }
         } finally {
@@ -1476,7 +1515,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (currentAnswerText.trim()) {
             answerBox.innerHTML = renderMarkdown(currentAnswerText);
           } else {
-            answerBox.textContent = EMPTY_ANSWER_MESSAGE;
+            renderError(answerBox, EMPTY_ANSWER_MESSAGE);
           }
           copyAnswerBtn.classList.toggle("hidden", !currentAnswerText.trim());
           return;
@@ -1724,9 +1763,15 @@ clearDataBtn?.addEventListener("click", async () => {
     currentSummaryLanguage = null;
     updateResummarizeHint();
     await loadPastSummaries();
-    if (clearDataStatus) clearDataStatus.textContent = "Cached data cleared.";
+    if (clearDataStatus) {
+      clearDataStatus.removeAttribute("role");
+      clearDataStatus.textContent = "Cached data cleared.";
+    }
   } catch (err) {
-    if (clearDataStatus) clearDataStatus.textContent = `Error: ${err.message}`;
+    renderStatusError(
+      clearDataStatus,
+      `Error clearing cached data: ${err.message}`,
+    );
   } finally {
     clearDataBtn.disabled = false;
   }
@@ -1940,11 +1985,12 @@ async function updateDebugLogsUI() {
       const body =
         res.logs.join("\n") ||
         "No logs recorded. Try starting summary or chat.";
+      debugLogsContent.removeAttribute("role");
       debugLogsContent.textContent = `${await diagnosticHeader()}\n${body}`;
       debugLogsCard.scrollTop = debugLogsCard.scrollHeight;
     }
   } catch (err) {
-    debugLogsContent.textContent = `Error fetching logs: ${err.message}`;
+    renderStatusError(debugLogsContent, `Error fetching logs: ${err.message}`);
   }
 }
 
@@ -1975,9 +2021,10 @@ clearDebugLogsBtn?.addEventListener("click", async () => {
       target: "service-worker",
       action: "clear-offscreen-logs",
     });
+    debugLogsContent.removeAttribute("role");
     debugLogsContent.textContent = `${await diagnosticHeader()}\nNo logs recorded. Try starting summary or chat.`;
   } catch (err) {
-    debugLogsContent.textContent = `Error clearing logs: ${err.message}`;
+    renderStatusError(debugLogsContent, `Error clearing logs: ${err.message}`);
   }
 });
 
