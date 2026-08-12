@@ -107,3 +107,72 @@ Certify all three disclosures (no selling/transfer, no unrelated use, no creditw
 - Screenshots: at least 1, 1280x800 or 640x400, PNG without alpha or JPEG
 - Small promo tile (optional): 440x280
 - Marquee promo tile (optional): 1400x560
+
+### The images
+
+Every listing image is committed in `.github/assets/`, so what is submitted to each store is the same file that is reviewable here. They were built from HTML and CSS in the same design language as the marketing site (`docs/`): Mozilla Headline and Mozilla Text, `#5855ff` purple, the `#f7f7f7` and `#161616` grounds, the lilac card tints, and the four vertical hairlines.
+
+| File in `.github/assets/` | Size | Used for |
+| --- | --- | --- |
+| `apogee-deck-1280x800-1..5.png` | 1280x800 | Chrome Web Store screenshots |
+| `apogee-deck-2400x1800-1..5.png` | 2400x1800 | Firefox Add-ons screenshots |
+| `apogee-promo-tile-440x280.png` | 440x280 | Small promo tile |
+| `apogee-marquee-1400x560.png` | 1400x560 | Marquee promo tile |
+
+### The five screenshots
+
+Shown here at 1280x800, the size uploaded to the Chrome Web Store.
+
+**1. Cover.** Headline, one-paragraph pitch, install CTA, and the popup in its default state.
+
+![Cover slide](.github/assets/apogee-deck-1280x800-1.png)
+
+**2. Why apogee.** The usual summarizer versus apogee, side by side, over the strip of supported sites.
+
+![Why apogee slide](.github/assets/apogee-deck-1280x800-2.png)
+
+**3. How it works.** WebGPU, WebAssembly, and Ollama, next to a crop of the real AI Provider settings, above the four-step local pipeline.
+
+![How it works slide](.github/assets/apogee-deck-1280x800-3.png)
+
+**4. In the browser.** Three cropped screenshots as a numbered flow: trigger the summary, read it, then ask follow-up questions.
+
+![In the browser slide](.github/assets/apogee-deck-1280x800-4.png)
+
+**5. Get started.** Install CTA, the zero servers / 100% on device / MIT stats, and the outlined wordmark.
+
+![Get started slide](.github/assets/apogee-deck-1280x800-5.png)
+
+Slide 4 and the cover use crops of the popup captures in `.github/assets`. Crops are done in CSS from the 684px-wide originals via a `--y` offset in source pixels, so re-cropping is a one-number edit rather than an image edit. Each crop fades out at the bottom in the panel's own background color so a cut never lands mid-sentence.
+
+### Promo tiles
+
+Small tile, 440x280. Deliberately text-light, since the tile is often shown small.
+
+![Small promo tile](.github/assets/apogee-promo-tile-440x280.png)
+
+Marquee, 1400x560. The wider canvas has room for the popup alongside the pitch.
+
+![Marquee promo tile](.github/assets/apogee-marquee-1400x560.png)
+
+### Firefox Add-ons set
+
+The same five slides at 2400x1800, carrying the Firefox CTA instead of the Chrome one. Uploaded to AMO, not to the Chrome Web Store.
+
+![Cover slide, Firefox](.github/assets/apogee-deck-2400x1800-1.png)
+
+![Why apogee slide, Firefox](.github/assets/apogee-deck-2400x1800-2.png)
+
+![How it works slide, Firefox](.github/assets/apogee-deck-2400x1800-3.png)
+
+![In the browser slide, Firefox](.github/assets/apogee-deck-2400x1800-4.png)
+
+![Get started slide, Firefox](.github/assets/apogee-deck-2400x1800-5.png)
+
+### Notes on the two sizes
+
+One HTML file drives both aspect ratios: `1rem` is tied to `vmin`, so the type scale is identical at 2400x1800 and 1280x800 and only the columns get wider. The 2400x1800 set is captured at 1200x900 with device scale 2 rather than natively, so text renders at 2x.
+
+Each set carries only its own store's install CTA, so the Chrome screenshots never advertise Firefox or the reverse.
+
+Both tiles are captured at 2x and downsampled with Lanczos rather than rendered at 1:1, which is a visible difference in how cleanly the type reads at tile scale.
