@@ -14,11 +14,38 @@ export async function hashUrl(url) {
   return sha256Hex(url);
 }
 
-export async function getSummaryCacheKey(url, fmt, model, lang = "auto") {
-  return `summary:${fmt}:${lang}:${model}:${await hashUrl(url)}`;
+// Everything that changes the generated text has to be part of the key, or a
+// cached answer from the old settings comes back and the change looks ignored.
+// That means the url, the response format, the model, the output language, and
+// the custom instructions, which are folded into the prompt. Anything else that
+// starts feeding the prompt belongs here too.
+//
+// The instructions suffix is left off entirely when there are none, so keys for
+// the default settings keep the shape they had before custom instructions
+// existed and those cached summaries stay reachable.
+async function instructionsSuffix(customInstructions) {
+  const extra = (customInstructions || "").trim();
+  if (!extra) return "";
+  return `:i${(await sha256Hex(extra)).slice(0, 12)}`;
 }
-export async function getPromptsCacheKey(url, fmt, model, lang = "auto") {
-  return `suggested-prompts:${fmt}:${lang}:${model}:${await hashUrl(url)}`;
+
+export async function getSummaryCacheKey(
+  url,
+  fmt,
+  model,
+  lang = "auto",
+  customInstructions = "",
+) {
+  return `summary:${fmt}:${lang}:${model}:${await hashUrl(url)}${await instructionsSuffix(customInstructions)}`;
+}
+export async function getPromptsCacheKey(
+  url,
+  fmt,
+  model,
+  lang = "auto",
+  customInstructions = "",
+) {
+  return `suggested-prompts:${fmt}:${lang}:${model}:${await hashUrl(url)}${await instructionsSuffix(customInstructions)}`;
 }
 export async function getContentCacheKey(url) {
   return `content:${await hashUrl(url)}`;

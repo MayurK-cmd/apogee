@@ -79,6 +79,77 @@ test("cache key helpers embed the hashed url and are namespaced by kind", async 
   assert.strictEqual(await getContentCacheKey(url), `content:${hash}`);
 });
 
+test("cache keys change with the custom instructions that shaped the prompt", async () => {
+  const url = "https://example.com/article";
+  const base = await getSummaryCacheKey(url, "bullets", "model-x", "auto");
+  const withInstructions = await getSummaryCacheKey(
+    url,
+    "bullets",
+    "model-x",
+    "auto",
+    "Focus on the numbers",
+  );
+  const withOtherInstructions = await getSummaryCacheKey(
+    url,
+    "bullets",
+    "model-x",
+    "auto",
+    "Focus on the argument",
+  );
+
+  assert.notStrictEqual(base, withInstructions);
+  assert.notStrictEqual(withInstructions, withOtherInstructions);
+  assert.strictEqual(
+    withInstructions,
+    await getSummaryCacheKey(
+      url,
+      "bullets",
+      "model-x",
+      "auto",
+      "Focus on the numbers",
+    ),
+  );
+
+  assert.notStrictEqual(
+    await getPromptsCacheKey(
+      url,
+      "bullets",
+      "model-x",
+      "auto",
+      "Focus on the numbers",
+    ),
+    await getPromptsCacheKey(url, "bullets", "model-x", "auto"),
+  );
+});
+
+test("empty or whitespace-only instructions keep the pre-existing key shape", async () => {
+  const url = "https://example.com/article";
+  const hash = await hashUrl(url);
+
+  for (const instructions of [undefined, "", "   \n  "]) {
+    assert.strictEqual(
+      await getSummaryCacheKey(url, "bullets", "model-x", "auto", instructions),
+      `summary:bullets:auto:model-x:${hash}`,
+    );
+    assert.strictEqual(
+      await getPromptsCacheKey(url, "bullets", "model-x", "auto", instructions),
+      `suggested-prompts:bullets:auto:model-x:${hash}`,
+    );
+  }
+});
+
+test("cache keys keep no readable trace of the instructions they came from", async () => {
+  const key = await getSummaryCacheKey(
+    "https://example.com/article",
+    "bullets",
+    "model-x",
+    "auto",
+    "always mention hunter2",
+  );
+  assert.ok(!key.includes("hunter2"));
+  assert.match(key, /:i[0-9a-f]{12}$/);
+});
+
 test("isSensitiveUrl matches known webmail/messaging hosts and their subdomains", () => {
   assert.ok(isSensitiveUrl("https://mail.google.com/mail/u/0/"));
   assert.ok(isSensitiveUrl("https://web.whatsapp.com/"));

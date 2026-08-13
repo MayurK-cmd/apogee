@@ -1153,12 +1153,14 @@ async function summarizeActivePage() {
       settings.responseFormat,
       model,
       settings.summaryLanguage,
+      settings.customInstructions,
     );
     const promptsCacheKey = await getPromptsCacheKey(
       tab.url,
       settings.responseFormat,
       model,
       settings.summaryLanguage,
+      settings.customInstructions,
     );
     const finalize = {
       cacheKey,
@@ -1566,12 +1568,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       settings.responseFormat,
       model,
       settings.summaryLanguage,
+      settings.customInstructions,
     );
     const promptsCacheKey = await getPromptsCacheKey(
       tab.url,
       settings.responseFormat,
       model,
       settings.summaryLanguage,
+      settings.customInstructions,
     );
     const cached = await chrome.storage.local.get([cacheKey, promptsCacheKey]);
 
