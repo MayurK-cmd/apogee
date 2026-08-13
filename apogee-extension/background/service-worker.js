@@ -28,7 +28,7 @@ import {
   persistSummary,
   persistContent,
   shouldPersist,
-  isSensitiveUrl,
+  isPrivateUrl,
   CACHEABLE_PAGE_TYPES,
 } from "../lib/storage/pageCache.js";
 import {
@@ -618,7 +618,7 @@ async function runBackgroundSummarize(
     notifyOnFinish,
     language: settings.summaryLanguage,
     translationEngine: settings.translationEngine,
-    sensitive: isSensitiveUrl(tab.url),
+    sensitive: await isPrivateUrl(tab.url, settings),
     tabId: tab.id,
     windowId: tab.windowId,
   };

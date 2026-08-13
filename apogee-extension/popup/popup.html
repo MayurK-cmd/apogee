@@ -533,6 +533,23 @@
               <span>Don't save (this session only)</span>
             </label>
 
+            <p class="settings-hint">
+              Pages on known webmail and chat hosts are never saved. Add any
+              other host that should be treated the same way, one per line, e.g.
+              your own mail server or a patient portal. A host also covers its
+              subdomains.
+            </p>
+            <textarea
+              id="privateHostsInput"
+              class="settings-textarea"
+              rows="3"
+              maxlength="1000"
+              placeholder="mail.example.com&#10;portal.myclinic.org"
+            ></textarea>
+            <div class="settings-textarea-meta">
+              <span id="privateHostsCount" class="char-count">0 / 1000</span>
+            </div>
+
             <button id="clearDataBtn" class="clear-data-btn">
               <span class="ico" data-ico="trash" aria-hidden="true"></span>
               <span>Clear cached summaries &amp; page data</span>

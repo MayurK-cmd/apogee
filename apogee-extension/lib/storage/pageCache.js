@@ -131,8 +131,52 @@ export function isSensitiveUrl(url) {
   }
 }
 
+// The list above is fixed, and it can only ever cover the webmail and chat
+// hosts we thought of. A self-hosted mail server, a patient portal, or a
+// company wiki is just as private to the person reading it, so they can name
+// their own hosts. Entries are forgiving about how they are written: a pasted
+// url, a leading "*.", "www.", a trailing slash, and separators of newline,
+// comma, or space all normalize to a bare hostname.
+export function parsePrivateHosts(raw) {
+  return String(raw || "")
+    .split(/[\s,]+/)
+    .map((entry) => {
+      const trimmed = entry.trim().toLowerCase();
+      if (!trimmed) return "";
+      const withoutScheme = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//, "");
+      const hostOnly = withoutScheme.split(/[/?#]/)[0];
+      return hostOnly.replace(/^\*\./, "").replace(/^www\./, "");
+    })
+    .filter((host) => host && host.includes("."));
+}
+
+export function matchesPrivateHost(url, rawHosts) {
+  const hosts = parsePrivateHosts(rawHosts);
+  if (hosts.length === 0) return false;
+  let host;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  // A named host covers its subdomains, so "example.com" also means
+  // "mail.example.com", the way the built-in patterns behave.
+  return hosts.some((entry) => host === entry || host.endsWith(`.${entry}`));
+}
+
+/**
+ * Whether a url is private, by either the built-in list or the user's own.
+ * Pass settings when the caller already has them, to avoid a second read.
+ */
+export async function isPrivateUrl(url, settings = null) {
+  if (isSensitiveUrl(url)) return true;
+  const resolved = settings || (await getSettings());
+  return matchesPrivateHost(url, resolved.privateHosts);
+}
+
 export async function shouldPersist(url) {
   if (isSensitiveUrl(url)) return false;
   const settings = await getSettings();
+  if (matchesPrivateHost(url, settings.privateHosts)) return false;
   return settings.saveHistory !== false;
 }

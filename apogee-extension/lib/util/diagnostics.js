@@ -1,15 +1,20 @@
 import { DEFAULT_SETTINGS } from "../constants.js";
+import { parsePrivateHosts } from "../storage/pageCache.js";
 
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 
-// customInstructions is free text the user wrote and ollamaHost can name a
-// machine on their network. Neither belongs in something pasted into a public
-// issue, but both matter to a bug report, so report their shape instead of
-// their contents.
+// customInstructions is free text the user wrote, privateHosts names sites they
+// consider private (a clinic, an employer), and ollamaHost can name a machine on
+// their network. None belongs in something pasted into a public issue, but all
+// matter to a bug report, so report their shape instead of their contents.
 function redact(key, value) {
   if (key === "customInstructions") {
     const text = String(value || "");
     return text ? `set (${text.length} chars)` : "unset";
+  }
+  if (key === "privateHosts") {
+    const entries = parsePrivateHosts(value);
+    return entries.length ? `${entries.length} host(s)` : "unset";
   }
   if (key === "ollamaHost") {
     const host = String(value || "");

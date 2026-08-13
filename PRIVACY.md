@@ -9,7 +9,7 @@ Apogee is a private, in-browser AI assistant. It is designed so that the content
 **Nothing.** Apogee has no account system, no sign-in, and no server. We do not collect, transmit, sell, or share any user data.
 
 - **Page content** (article text, YouTube and Bilibili transcripts, PDF text) that you ask Apogee to summarize or answer questions about is read from the tab you are actively viewing, processed locally by an AI model running on your device, and then discarded. It is never uploaded.
-- **Local summary cache.** So that reopening a summary is instant and the same page is not re-processed needlessly, the summaries you generate (and, for plain articles and web pages only, the extracted page text) are cached in your browser's local extension storage. This data **stays on your device**, is keyed by a one-way hash of the page URL (the raw URL, which can contain session tokens, is not stored), and is evicted automatically over time. Content from YouTube, Bilibili, Gmail, Reddit, Hacker News, and GitHub pages is **not** cached. Clearing the extension's data (or the browser's site data for the extension) removes it.
+- **Local summary cache.** So that reopening a summary is instant and the same page is not re-processed needlessly, the summaries you generate (and, for plain articles and web pages only, the extracted page text) are cached in your browser's local extension storage. This data **stays on your device**, is keyed by a one-way hash of the page URL (the raw URL, which can contain session tokens, is not stored), and is evicted automatically over time. Content from YouTube, Bilibili, Gmail, Reddit, Hacker News, and GitHub pages is **not** cached. Nothing at all is cached for a page on a known webmail or chat host, or on a host you list yourself under **Settings**, in the **Privacy** section: those summaries are shown once and never written to disk. Clearing the extension's data (or the browser's site data for the extension) removes it.
 - **Your settings** (chosen AI provider and model, summary format, and other preferences) are stored locally in your browser via the extension storage API. They stay on your device.
 
 ## Network connections Apogee makes
@@ -32,9 +32,10 @@ We do not control Hugging Face, SponsorBlock, YouTube, Bilibili, Reddit, or GitH
 
 Recording engine logs is off by default. When you turn it on, **Copy diagnostics as Markdown** in Settings copies a report you can paste into a bug report. Nothing is sent anywhere: it goes to your clipboard, and only when you press the button.
 
-That report contains your extension version, browser user agent, whether WebGPU is available, and your settings. Two settings are deliberately reported as a shape rather than a value, because a bug report is usually public:
+That report contains your extension version, browser user agent, whether WebGPU is available, and your settings. Three settings are deliberately reported as a shape rather than a value, because a bug report is usually public:
 
 - **Custom instructions** appear as `set (42 chars)` or `unset`, never the text you wrote.
+- **Private sites** appear as `3 host(s)` or `unset`, never the hostnames you listed.
 - **Ollama host** appears verbatim only when it is a loopback address such as `http://127.0.0.1:11434`. Any other host becomes `custom host, port 11434`, so a machine name on your network is not disclosed.
 
 The engine logs themselves are recorded by the inference engine and are not scrubbed. Read them before you paste.

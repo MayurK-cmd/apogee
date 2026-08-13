@@ -8,6 +8,9 @@ import {
   getContentCacheKey,
   persistSummary,
   isSensitiveUrl,
+  isPrivateUrl,
+  parsePrivateHosts,
+  matchesPrivateHost,
   shouldPersist,
   MAX_CACHED_PAGES,
 } from "../../lib/storage/pageCache.js";
@@ -169,6 +172,60 @@ test("shouldPersist respects saveHistory for a non-sensitive host", async () => 
 test("shouldPersist is always false for a sensitive host, regardless of saveHistory", async () => {
   installFakeStorage({ settings: { saveHistory: true } });
   assert.strictEqual(await shouldPersist("https://mail.google.com/"), false);
+});
+
+test("parsePrivateHosts accepts the shapes people actually paste", () => {
+  assert.deepStrictEqual(
+    parsePrivateHosts("mail.example.com\nportal.myclinic.org"),
+    ["mail.example.com", "portal.myclinic.org"],
+  );
+  assert.deepStrictEqual(parsePrivateHosts("https://mail.example.com/inbox"), [
+    "mail.example.com",
+  ]);
+  assert.deepStrictEqual(parsePrivateHosts("*.example.com, www.example.org"), [
+    "example.com",
+    "example.org",
+  ]);
+  assert.deepStrictEqual(parsePrivateHosts("  \n  "), []);
+  assert.deepStrictEqual(parsePrivateHosts(undefined), []);
+  // A bare word is a typo, not a host, and must not match everything.
+  assert.deepStrictEqual(parsePrivateHosts("localhost\nexample"), []);
+});
+
+test("matchesPrivateHost covers subdomains but not lookalike hosts", () => {
+  const list = "example.com";
+  assert.ok(matchesPrivateHost("https://example.com/page", list));
+  assert.ok(matchesPrivateHost("https://mail.example.com/page", list));
+  assert.ok(!matchesPrivateHost("https://notexample.com/page", list));
+  assert.ok(!matchesPrivateHost("https://example.com.evil.test/", list));
+  assert.ok(!matchesPrivateHost("not a url", list));
+  assert.ok(!matchesPrivateHost("https://example.com/", ""));
+});
+
+test("shouldPersist is false for a host the user marked private", async () => {
+  installFakeStorage({
+    settings: { saveHistory: true, privateHosts: "myclinic.org" },
+  });
+  assert.strictEqual(
+    await shouldPersist("https://portal.myclinic.org/results"),
+    false,
+  );
+  assert.strictEqual(await shouldPersist("https://example.com/"), true);
+});
+
+test("isPrivateUrl covers both lists and takes settings when given", async () => {
+  installFakeStorage({ settings: { privateHosts: "myclinic.org" } });
+  assert.strictEqual(await isPrivateUrl("https://mail.google.com/"), true);
+  assert.strictEqual(await isPrivateUrl("https://portal.myclinic.org/"), true);
+  assert.strictEqual(await isPrivateUrl("https://example.com/"), false);
+
+  // Passing settings avoids a second storage read, and must behave the same.
+  assert.strictEqual(
+    await isPrivateUrl("https://portal.myclinic.org/", {
+      privateHosts: "myclinic.org",
+    }),
+    true,
+  );
 });
 
 test("persistSummary evicts the oldest entry once the FIFO cap is exceeded", async () => {

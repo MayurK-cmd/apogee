@@ -22,6 +22,7 @@ import {
   DEFAULT_OLLAMA_HOST,
   SUMMARY_LANGUAGES,
   CUSTOM_INSTRUCTIONS_MAX_CHARS,
+  PRIVATE_HOSTS_MAX_CHARS,
   isVideoType,
 } from "../lib/constants.js";
 import { getSettings } from "../lib/storage/settings.js";
@@ -92,6 +93,8 @@ const customInstructionsInput = document.getElementById(
 const customInstructionsCount = document.getElementById(
   "customInstructionsCount",
 );
+const privateHostsInput = document.getElementById("privateHostsInput");
+const privateHostsCount = document.getElementById("privateHostsCount");
 const summaryLanguageSelect = document.getElementById("summaryLanguageSelect");
 const translationEngineRadios = document.querySelectorAll(
   'input[name="translationEngine"]',
@@ -389,6 +392,11 @@ async function applySettingsToUI(settings) {
   if (customInstructionsInput) {
     customInstructionsInput.value = settings.customInstructions || "";
     updateCustomInstructionsCount();
+  }
+
+  if (privateHostsInput) {
+    privateHostsInput.value = settings.privateHosts || "";
+    updatePrivateHostsCount();
   }
 
   if (summaryLanguageSelect) {
@@ -1691,6 +1699,32 @@ if (customInstructionsInput) {
   customInstructionsInput.addEventListener("blur", () => {
     clearTimeout(customInstructionsSaveTimer);
     persistCustomInstructions();
+  });
+}
+
+function updatePrivateHostsCount() {
+  if (!privateHostsCount || !privateHostsInput) return;
+  const len = privateHostsInput.value.length;
+  privateHostsCount.textContent = `${len} / ${PRIVATE_HOSTS_MAX_CHARS}`;
+}
+
+if (privateHostsInput) {
+  let privateHostsSaveTimer = null;
+  const persistPrivateHosts = async () => {
+    const value = privateHostsInput.value
+      .slice(0, PRIVATE_HOSTS_MAX_CHARS)
+      .trim();
+    await saveSettings({ privateHosts: value });
+  };
+
+  privateHostsInput.addEventListener("input", () => {
+    updatePrivateHostsCount();
+    clearTimeout(privateHostsSaveTimer);
+    privateHostsSaveTimer = setTimeout(persistPrivateHosts, 500);
+  });
+  privateHostsInput.addEventListener("blur", () => {
+    clearTimeout(privateHostsSaveTimer);
+    persistPrivateHosts();
   });
 }
 

@@ -109,6 +109,8 @@ const DEFAULT_SUMMARY_LANGUAGE = "en";
 
 export const CUSTOM_INSTRUCTIONS_MAX_CHARS = 2000;
 
+export const PRIVATE_HOSTS_MAX_CHARS = 1000;
+
 export const TRANSLATION_ENGINES = { LLM: "llm", OPUS: "opus" };
 const DEFAULT_TRANSLATION_ENGINE = TRANSLATION_ENGINES.LLM;
 
@@ -147,6 +149,7 @@ export const DEFAULT_SETTINGS = {
   translationEngine: DEFAULT_TRANSLATION_ENGINE,
   theme: "dark",
   saveHistory: true,
+  privateHosts: "",
   useSponsorBlock: true,
   debugLogs: false,
 };
