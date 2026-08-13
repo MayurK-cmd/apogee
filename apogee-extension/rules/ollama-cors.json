@@ -8,6 +8,7 @@
     },
     "condition": {
       "requestDomains": ["localhost", "127.0.0.1"],
+      "excludedInitiatorDomains": ["localhost", "127.0.0.1"],
       "resourceTypes": ["xmlhttprequest"]
     }
   }
