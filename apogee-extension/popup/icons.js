@@ -14,7 +14,7 @@ export const ICONS = Object.fromEntries(
   ]),
 );
 
-export function applyIcons(root = document) {
+function applyIcons(root = document) {
   root.querySelectorAll("[data-ico]").forEach((el) => {
     const glyph = ICONS[el.getAttribute("data-ico")];
     if (glyph) {

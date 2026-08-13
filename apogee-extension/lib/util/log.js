@@ -4,10 +4,6 @@ export function setDebugLogging(on) {
   enabled = on === true;
 }
 
-export function isDebugLogging() {
-  return enabled;
-}
-
 export function debugLog(...args) {
   if (enabled) console.log(...args);
 }
