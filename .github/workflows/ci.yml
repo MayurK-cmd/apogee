@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# CI only reads the repo - it never writes to it, so the token stays read-only
+# instead of inheriting whatever the repository default happens to be.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: apogee-extension
