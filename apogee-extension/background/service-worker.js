@@ -25,7 +25,7 @@ import { initDebugLogging } from "../lib/util/log.js";
 import {
   getSummaryCacheKey,
   getPromptsCacheKey,
-  persistSummary,
+  persistSummaryIfAllowed,
   persistContent,
   shouldPersist,
   isPrivateUrl,
@@ -612,6 +612,7 @@ async function runBackgroundSummarize(
       settings.customInstructions,
     ),
     persist,
+    persistUrl: tab.url,
     isSelection,
     providerType,
     host: settings.ollamaHost,
@@ -864,6 +865,7 @@ async function runSuggestQuestionsJob(payload) {
   const {
     promptsCacheKey,
     persist = true,
+    persistUrl,
     providerType,
     host,
     title,
@@ -919,7 +921,9 @@ async function runSuggestQuestionsJob(payload) {
       questions = [];
     }
 
-    if (persist) {
+    // Generating the questions takes its own trip through the model, so the
+    // setting gets one more look before this write too.
+    if (persist && (await shouldPersist(persistUrl || url))) {
       await chrome.storage.local.set({ [promptsCacheKey]: questions });
     }
     chrome.runtime
@@ -940,6 +944,7 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
     cacheKey,
     promptsCacheKey,
     persist,
+    persistUrl,
     isSelection,
     providerType,
     host,
@@ -951,9 +956,20 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
     translationEngine,
   } = finalize;
 
-  if (persist) {
-    await persistSummary(cacheKey, promptsCacheKey, text, title);
-  } else if (isSelection) {
+  // `persist` is what was true when the job started. The write only happens if
+  // it is still true now, so turning history off mid-generation also excludes
+  // the summary that is running.
+  const persisted =
+    persist &&
+    (await persistSummaryIfAllowed(
+      persistUrl || url,
+      cacheKey,
+      promptsCacheKey,
+      text,
+      title,
+    ));
+
+  if (!persisted && isSelection) {
     await saveViewState(tabId, {
       view: "summaryView",
       subview: "summary",
@@ -965,7 +981,8 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
   }
   runSuggestQuestionsJob({
     promptsCacheKey,
-    persist,
+    persist: persisted,
+    persistUrl: persistUrl || url,
     providerType,
     host,
     title,

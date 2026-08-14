@@ -1174,6 +1174,7 @@ async function summarizeActivePage() {
       cacheKey,
       promptsCacheKey,
       persist: await shouldPersist(tab.url),
+      persistUrl: tab.url,
       providerType: getProviderType(settings),
       host: settings.ollamaHost,
       notifyOnFinish: false,

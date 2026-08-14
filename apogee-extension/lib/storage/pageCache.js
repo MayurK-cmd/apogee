@@ -180,3 +180,23 @@ export async function shouldPersist(url) {
   if (matchesPrivateHost(url, settings.privateHosts)) return false;
   return settings.saveHistory !== false;
 }
+
+/**
+ * Write a finished summary, unless it stopped being persistable while it ran.
+ *
+ * A summary can take a minute, and the answer to `shouldPersist` from when the
+ * job started is that stale by the time it lands. Someone who turns history off
+ * mid-generation means the page in front of them most of all, so the decision is
+ * taken again here, right before the write. Returns whether anything was saved.
+ */
+export async function persistSummaryIfAllowed(
+  url,
+  cacheKey,
+  promptsCacheKey,
+  text,
+  title,
+) {
+  if (!(await shouldPersist(url))) return false;
+  await persistSummary(cacheKey, promptsCacheKey, text, title);
+  return true;
+}

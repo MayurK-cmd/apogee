@@ -7,6 +7,7 @@ import {
   getPromptsCacheKey,
   getContentCacheKey,
   persistSummary,
+  persistSummaryIfAllowed,
   isSensitiveUrl,
   isPrivateUrl,
   parsePrivateHosts,
@@ -258,4 +259,61 @@ test("persistSummary re-persisting the same cacheKey doesn't duplicate its order
 
   assert.strictEqual(data.cacheOrder.length, 1);
   assert.strictEqual(data.k1, "updated");
+});
+
+test("persistSummaryIfAllowed writes while history is still on", async () => {
+  const data = installFakeStorage({ settings: { saveHistory: true } });
+
+  const saved = await persistSummaryIfAllowed(
+    "https://example.com/article",
+    "summary:k",
+    "suggested-prompts:k",
+    "Body",
+    "Title",
+  );
+
+  assert.strictEqual(saved, true);
+  assert.strictEqual(data["summary:k"], "Body");
+});
+
+test("persistSummaryIfAllowed drops the write when history goes off mid-job", async () => {
+  const data = installFakeStorage({ settings: { saveHistory: true } });
+  const url = "https://example.com/article";
+
+  // What the job captured when it started, a minute of generation ago.
+  assert.strictEqual(await shouldPersist(url), true);
+  // The user opens settings and turns history off while it is still running.
+  data.settings = { saveHistory: false };
+
+  const saved = await persistSummaryIfAllowed(
+    url,
+    "summary:k",
+    "suggested-prompts:k",
+    "Body",
+    "Title",
+  );
+
+  assert.strictEqual(saved, false);
+  assert.strictEqual(data["summary:k"], undefined);
+  assert.strictEqual(data.cacheOrder, undefined);
+});
+
+test("persistSummaryIfAllowed drops the write when the host is marked private mid-job", async () => {
+  const data = installFakeStorage({ settings: { saveHistory: true } });
+  const url = "https://portal.myclinic.org/results";
+
+  assert.strictEqual(await shouldPersist(url), true);
+  data.settings = { saveHistory: true, privateHosts: "myclinic.org" };
+
+  assert.strictEqual(
+    await persistSummaryIfAllowed(
+      url,
+      "summary:k",
+      "suggested-prompts:k",
+      "Body",
+      "Title",
+    ),
+    false,
+  );
+  assert.strictEqual(data["summary:k"], undefined);
 });
