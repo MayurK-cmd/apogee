@@ -1740,6 +1740,60 @@ body {
   color: var(--text-muted);
 }
 
+.history-wipe {
+  margin: 8px 0 4px;
+  padding: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.history-wipe-text {
+  margin: 0 0 9px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-main);
+}
+
+.history-wipe-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.history-wipe-btn {
+  flex: 1;
+  padding: 7px 9px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.history-wipe-btn:hover {
+  border-color: var(--text-secondary);
+}
+
+.history-wipe-btn.danger {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.16);
+  color: #ef4444;
+}
+
+.history-wipe-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.24);
+}
+
+.history-wipe-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .clear-data-btn {
   display: flex;
   align-items: center;

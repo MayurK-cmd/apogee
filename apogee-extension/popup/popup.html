@@ -530,8 +530,28 @@
 
             <label class="radio-option">
               <input type="radio" name="saveHistory" value="off" />
-              <span>Don't save (this session only)</span>
+              <span>Don't save, and delete what's already saved</span>
             </label>
+
+            <div id="historyWipeConfirm" class="history-wipe hidden">
+              <p id="historyWipeText" class="history-wipe-text"></p>
+              <div class="history-wipe-actions">
+                <button
+                  id="historyWipeCancelBtn"
+                  type="button"
+                  class="history-wipe-btn"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="historyWipeDeleteBtn"
+                  type="button"
+                  class="history-wipe-btn danger"
+                >
+                  Delete and turn off
+                </button>
+              </div>
+            </div>
 
             <p class="settings-hint">
               Pages on known webmail and chat hosts are never saved. Add any

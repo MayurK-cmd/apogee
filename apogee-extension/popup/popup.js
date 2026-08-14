@@ -38,7 +38,12 @@ import {
   timeSavedInputsFor,
   formatTimeSavedFromInputs,
 } from "../lib/util/readingTime.js";
-import { saveViewState, loadViewState } from "../lib/storage/viewState.js";
+import {
+  saveViewState,
+  loadViewState,
+  clearAllViewStates,
+  isViewStateKey,
+} from "../lib/storage/viewState.js";
 import {
   hashUrl,
   getSummaryCacheKey,
@@ -46,6 +51,8 @@ import {
   persistContent,
   getCachedContent,
   shouldPersist,
+  clearCachedPages,
+  isCachedPageKey,
   CACHEABLE_PAGE_TYPES,
 } from "../lib/storage/pageCache.js";
 import {
@@ -140,6 +147,10 @@ const sponsorBlockRadios = document.querySelectorAll(
 const debugLogsRadios = document.querySelectorAll('input[name="debugLogs"]');
 const clearDataBtn = document.getElementById("clearDataBtn");
 const clearDataStatus = document.getElementById("clearDataStatus");
+const historyWipeConfirm = document.getElementById("historyWipeConfirm");
+const historyWipeText = document.getElementById("historyWipeText");
+const historyWipeCancelBtn = document.getElementById("historyWipeCancelBtn");
+const historyWipeDeleteBtn = document.getElementById("historyWipeDeleteBtn");
 const versionText = document.getElementById("versionText");
 
 if (versionText) {
@@ -420,6 +431,7 @@ async function applySettingsToUI(settings) {
     `input[name="saveHistory"][value="${settings.saveHistory === false ? "off" : "on"}"]`,
   );
   if (historyRadio) historyRadio.checked = true;
+  hideHistoryWipeConfirm();
 
   const sponsorBlockRadio = document.querySelector(
     `input[name="useSponsorBlock"][value="${settings.useSponsorBlock === false ? "off" : "on"}"]`,
@@ -1749,10 +1761,78 @@ themeRadios.forEach((radio) => {
   });
 });
 
+function hideHistoryWipeConfirm() {
+  historyWipeConfirm?.classList.add("hidden");
+}
+
+function showHistoryWipeConfirm(summaryCount) {
+  if (!historyWipeConfirm) return;
+  const what =
+    summaryCount === 1
+      ? "the 1 summary"
+      : summaryCount > 0
+        ? `the ${summaryCount} summaries`
+        : "the page data";
+  const message = `This also deletes ${what} already saved on this device. Your settings are kept. There's no undo.`;
+  if (historyWipeText) historyWipeText.textContent = message;
+  historyWipeConfirm.classList.remove("hidden");
+  // Focus stays on the radio the user is still arrowing through. Pulling it
+  // onto a delete button would put a destructive action one stray Space away.
+  announce(message);
+}
+
+function checkSaveHistoryRadio(on) {
+  saveHistoryRadios.forEach((radio) => {
+    radio.checked = radio.value === (on ? "on" : "off");
+  });
+}
+
 saveHistoryRadios.forEach((radio) => {
   radio.addEventListener("change", async () => {
-    await saveSettings({ saveHistory: radio.value === "on" });
+    if (radio.value === "on") {
+      hideHistoryWipeConfirm();
+      await saveSettings({ saveHistory: true });
+      return;
+    }
+    // Turning history off deletes what is already saved, which is the whole
+    // point of the toggle and also not undoable. Nothing is written or removed
+    // until the second, deliberate click.
+    const stored = await storedHistoryStats();
+    if (!stored.any) {
+      await saveSettings({ saveHistory: false });
+      return;
+    }
+    showHistoryWipeConfirm(stored.summaries);
   });
+});
+
+historyWipeCancelBtn?.addEventListener("click", async () => {
+  hideHistoryWipeConfirm();
+  const settings = await getSettings();
+  checkSaveHistoryRadio(settings.saveHistory !== false);
+});
+
+historyWipeDeleteBtn?.addEventListener("click", async () => {
+  historyWipeDeleteBtn.disabled = true;
+  try {
+    // The setting goes first: a summary still generating re-checks it when it
+    // finishes, so from here on nothing new can land behind the wipe.
+    await saveSettings({ saveHistory: false });
+    await clearCachedData();
+    hideHistoryWipeConfirm();
+    if (clearDataStatus) {
+      clearDataStatus.removeAttribute("role");
+      clearDataStatus.textContent = "History off, saved summaries deleted.";
+    }
+    announce("History off, saved summaries deleted.");
+  } catch (err) {
+    renderStatusError(
+      clearDataStatus,
+      `Error clearing saved history: ${err.message}`,
+    );
+  } finally {
+    historyWipeDeleteBtn.disabled = false;
+  }
 });
 
 sponsorBlockRadios.forEach((radio) => {
@@ -1778,30 +1858,31 @@ debugLogsRadios.forEach((radio) => {
   });
 });
 
+// Both halves clear under their own module's lock, so a write landing at the
+// same moment can't leave an order index pointing at a deleted key.
 async function clearCachedData() {
+  const pages = await clearCachedPages();
+  const viewStates = await clearAllViewStates();
+  currentSummaryText = "";
+  currentSummaryLanguage = null;
+  updateResummarizeHint();
+  await loadPastSummaries();
+  return pages + viewStates;
+}
+
+/** What is on disk right now, for telling the user what a wipe would cost. */
+async function storedHistoryStats() {
   const all = await chrome.storage.local.get(null);
-  const keys = Object.keys(all).filter(
-    (k) =>
-      k.startsWith("summary:") ||
-      k.startsWith("suggested-prompts:") ||
-      k.startsWith("content:") ||
-      k.startsWith("popupViewState:") ||
-      k === "cacheOrder" ||
-      k === "contentCacheOrder" ||
-      k === "viewStateOrder",
-  );
-  if (keys.length > 0) await chrome.storage.local.remove(keys);
-  return keys.length;
+  return {
+    any: Object.keys(all).some((k) => isCachedPageKey(k) || isViewStateKey(k)),
+    summaries: (all.cacheOrder || []).length,
+  };
 }
 
 clearDataBtn?.addEventListener("click", async () => {
   clearDataBtn.disabled = true;
   try {
     await clearCachedData();
-    currentSummaryText = "";
-    currentSummaryLanguage = null;
-    updateResummarizeHint();
-    await loadPastSummaries();
     if (clearDataStatus) {
       clearDataStatus.removeAttribute("role");
       clearDataStatus.textContent = "Cached data cleared.";
