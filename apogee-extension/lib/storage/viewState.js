@@ -56,6 +56,27 @@ export async function loadViewState(tabId) {
   return stored[key] || null;
 }
 
+/** Whether a storage key holds popup view state rather than a setting. */
+export function isViewStateKey(key) {
+  return key.startsWith("popupViewState:") || key === "viewStateOrder";
+}
+
+/**
+ * Delete every tab's saved view state, along with its order index. Held under
+ * the same lock as the writers, for the reason `clearCachedPages` explains.
+ */
+export async function clearAllViewStates() {
+  const release = await acquireViewStateLock();
+  try {
+    const all = await chrome.storage.local.get(null);
+    const keys = Object.keys(all).filter(isViewStateKey);
+    if (keys.length > 0) await chrome.storage.local.remove(keys);
+    return keys.length;
+  } finally {
+    release();
+  }
+}
+
 export async function removeViewState(tabId) {
   if (tabId == null) return;
   const release = await acquireViewStateLock();

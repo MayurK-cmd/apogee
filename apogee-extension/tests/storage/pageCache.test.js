@@ -8,6 +8,8 @@ import {
   getContentCacheKey,
   persistSummary,
   persistSummaryIfAllowed,
+  persistContent,
+  clearCachedPages,
   isSensitiveUrl,
   isPrivateUrl,
   parsePrivateHosts,
@@ -259,6 +261,49 @@ test("persistSummary re-persisting the same cacheKey doesn't duplicate its order
 
   assert.strictEqual(data.cacheOrder.length, 1);
   assert.strictEqual(data.k1, "updated");
+});
+
+test("clearCachedPages removes stored history and leaves settings alone", async () => {
+  const settings = { saveHistory: true, responseFormat: "bullets" };
+  const data = installFakeStorage({ settings });
+
+  await persistSummary(
+    "summary:bullets:auto:m:abc",
+    "suggested-prompts:bullets:auto:m:abc",
+    "The board approved the merger.",
+    "Board notes",
+  );
+  await chrome.storage.local.set({
+    "suggested-prompts:bullets:auto:m:abc": ["What did they decide?"],
+  });
+  await persistContent("https://example.com/article", {
+    title: "Board notes",
+    content: "The board met on Tuesday.",
+    type: "article",
+  });
+
+  const removed = await clearCachedPages();
+
+  assert.ok(removed > 0);
+  assert.deepStrictEqual(
+    Object.keys(data).filter(
+      (k) =>
+        k.startsWith("summary:") ||
+        k.startsWith("suggested-prompts:") ||
+        k.startsWith("content:"),
+    ),
+    [],
+  );
+  assert.strictEqual(data.cacheOrder, undefined);
+  assert.strictEqual(data.contentCacheOrder, undefined);
+  assert.deepStrictEqual(data.settings, settings);
+});
+
+test("clearCachedPages on an empty store removes nothing", async () => {
+  const data = installFakeStorage({ settings: { saveHistory: true } });
+
+  assert.strictEqual(await clearCachedPages(), 0);
+  assert.deepStrictEqual(Object.keys(data), ["settings"]);
 });
 
 test("persistSummaryIfAllowed writes while history is still on", async () => {

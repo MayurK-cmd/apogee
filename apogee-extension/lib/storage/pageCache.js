@@ -108,6 +108,37 @@ export async function getCachedContent(url) {
   return { ...stored[contentKey], url };
 }
 
+const CACHED_PAGE_PREFIXES = ["summary:", "suggested-prompts:", "content:"];
+const CACHED_PAGE_INDEX_KEYS = ["cacheOrder", "contentCacheOrder"];
+
+/** Whether a storage key holds reading history rather than a setting. */
+export function isCachedPageKey(key) {
+  return (
+    CACHED_PAGE_PREFIXES.some((prefix) => key.startsWith(prefix)) ||
+    CACHED_PAGE_INDEX_KEYS.includes(key)
+  );
+}
+
+/**
+ * Delete every cached summary, suggested-prompts list, and page content entry,
+ * along with the two order indexes. Settings are left alone.
+ *
+ * This takes the same lock the writers do. Without it, a summary finishing at
+ * the same moment would re-add its entry to a `cacheOrder` it read before the
+ * wipe, leaving the list pointing at a key that no longer exists.
+ */
+export async function clearCachedPages() {
+  const release = await acquireIndexLock();
+  try {
+    const all = await chrome.storage.local.get(null);
+    const keys = Object.keys(all).filter(isCachedPageKey);
+    if (keys.length > 0) await chrome.storage.local.remove(keys);
+    return keys.length;
+  } finally {
+    release();
+  }
+}
+
 const SENSITIVE_HOST_PATTERNS = [
   /(^|\.)mail\.google\.com$/,
   /(^|\.)outlook\.(live|office|office365)\.com$/,

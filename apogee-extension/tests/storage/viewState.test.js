@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import { saveViewState, loadViewState } from "../../lib/storage/viewState.js";
+import {
+  saveViewState,
+  loadViewState,
+  clearAllViewStates,
+} from "../../lib/storage/viewState.js";
 import { hashUrl } from "../../lib/storage/pageCache.js";
 
 function installFakeStorage(initial = {}) {
@@ -90,6 +94,22 @@ test("view state scrubs page content when history is turned off", async () => {
   });
 
   assert.strictEqual(state.summaryText, undefined);
+});
+
+test("clearAllViewStates drops every tab's state and leaves settings alone", async () => {
+  const settings = { saveHistory: true };
+  const data = installFakeStorage({ settings });
+
+  await saveViewState(7, { ...CONTENT, url: "https://example.com/article" });
+  await saveViewState(9, { ...CONTENT, url: "https://example.com/other" });
+
+  const removed = await clearAllViewStates();
+
+  assert.strictEqual(removed, 3); // two tabs plus the order index
+  assert.strictEqual(await loadViewState(7), null);
+  assert.strictEqual(await loadViewState(9), null);
+  assert.strictEqual(data.viewStateOrder, undefined);
+  assert.deepStrictEqual(data.settings, settings);
 });
 
 test("view state stores a hash of the url, never the url itself", async () => {
