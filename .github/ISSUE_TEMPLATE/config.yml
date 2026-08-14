@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or help using Apogee
+    url: https://github.com/darshi1337/apogee/discussions/categories/q-a
+    about: Setup, model choice, Ollama config, or anything that isn't a bug yet. Ask here and we'll sort it out.
+  - name: Idea or feedback
+    url: https://github.com/darshi1337/apogee/discussions/categories/ideas
+    about: Half-formed ideas and general feedback. Open a feature request instead once it's a concrete ask.
+  - name: Report a security vulnerability
+    url: https://github.com/darshi1337/apogee/security/advisories/new
+    about: Please report privately rather than in a public issue. See SECURITY.md for what's in scope.
