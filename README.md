@@ -8,11 +8,13 @@ A **Private, In-Browser AI Summarizer** for your articles, videos, and PDFs. Run
 &nbsp;
 <a href="https://addons.mozilla.org/en-US/firefox/addon/apogeeext/"><img alt="Get the Add-on for Firefox" src=".github/assets/firefox-add-on.svg" width="152" height="53"></a>
 
-<a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="#how-it-works">How It Works</a> | <a href="#architecture">Architecture</a> | <a href="#screenshots">Screenshots</a> | <a href="#quick-start">Quick Start</a> | <a href="PRIVACY.md">Privacy</a> | <a href="LICENSE">License</a>
+<a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="#how-it-works">How It Works</a> | <a href="#architecture">Architecture</a> | <a href="#screenshots">Screenshots</a> | <a href="#quick-start">Quick Start</a> | <a href="ROADMAP.md">Roadmap</a> | <a href="PRIVACY.md">Privacy</a> | <a href="llms.txt">llms.txt</a> | <a href="LICENSE">License</a>
 
 <sub>An offline-first, privacy-respecting browser extension built with ❤︎ by <a href="https://github.com/darshi1337">darshi1337</a> and <a href="https://github.com/darshi1337/apogee/graphs/contributors">contributors</a></sub>
 
 </div>
+
+> **For AI Assistants and LLMs**: Read [llms.txt](llms.txt) for codebase structure, build scripts, test commands, and developer instructions.
 
 **Apogee** is an AI browser assistant for articles, videos, emails, and more. It runs **entirely in your browser**: on your GPU via WebGPU (Chrome, Edge, and other Chromium browsers) or on your CPU via WebAssembly, which now works everywhere. WebAssembly is the default on Firefox and an opt-in fallback on Chromium browsers, useful on machines without WebGPU. No backend, no API keys, no cloud. Just install the extension and go.
 
