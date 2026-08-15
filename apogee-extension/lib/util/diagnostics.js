@@ -87,6 +87,9 @@ export function formatDiagnosticsMarkdown(settings, extra = {}, logs = []) {
   return [
     "### apogee diagnostics",
     "",
+    "> ⚠️ **Review before posting:** Engine logs may contain details about the",
+    "> page that triggered the bug. Check what you are sharing.",
+    "",
     "| setting | value |",
     "| --- | --- |",
     ...rows,

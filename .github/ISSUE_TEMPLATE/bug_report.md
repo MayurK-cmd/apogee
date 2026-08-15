@@ -28,6 +28,9 @@ Settings, then Diagnostics, then "Record engine logs", reproduce the problem,
 and paste what the log panel (above the summary, with the model progress bar)
 collected. Recording is off by default, so switch it on before reproducing.
 
+⚠️ Engine logs may contain details about the page that triggered the bug.
+Review what you are pasting before submitting.
+
 **Additional context**
 Anything else that might help (console errors, screenshots, the page/site
 you were on if not sensitive).
