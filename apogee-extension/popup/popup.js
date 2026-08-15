@@ -1198,7 +1198,20 @@ async function summarizeActivePage() {
 
     if (pageData.isPdf) {
       setLoadingIndicator(summaryText, "Extracting PDF");
-      const pdfContent = await extractPdfContent(tab);
+      let pdfContent;
+      try {
+        pdfContent = await extractPdfContent(tab);
+      } catch (err) {
+        const msg = err?.message || String(err);
+        if (msg.startsWith("PDF_TOO_LARGE:")) {
+          renderError(
+            summaryText,
+            "This PDF is too large to process inside the extension. Try a shorter document.",
+          );
+          return;
+        }
+        throw err;
+      }
       if (!pdfContent) {
         renderError(
           summaryText,

@@ -112,13 +112,25 @@ export async function extractFromActiveTab(tab) {
   return pageData || null;
 }
 
+// Chrome extension messaging has an internal size ceiling. Base64 costs 1.33×
+// and the chunked String.fromCharCode loop holds a second full copy, so we cap
+// the raw PDF size well below the point where sendMessage would silently fail.
+const MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+
 export async function extractPdfContent(tab) {
   const results = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    func: async () => {
+    func: async (maxSize) => {
       const res = await fetch(window.location.href);
       if (!res.ok) throw new Error(`Failed to download PDF: ${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());
+      if (bytes.length > maxSize) {
+        throw new Error(
+          `PDF_TOO_LARGE: This PDF is ${Math.round(bytes.length / 1024 / 1024)} MB, ` +
+            `which exceeds the ${Math.round(maxSize / 1024 / 1024)} MB limit ` +
+            `for in-extension processing.`,
+        );
+      }
       let binary = "";
       const CHUNK = 0x8000;
       for (let i = 0; i < bytes.length; i += CHUNK) {
@@ -126,6 +138,7 @@ export async function extractPdfContent(tab) {
       }
       return btoa(binary);
     },
+    args: [MAX_PDF_SIZE_BYTES],
   });
   const pdfBase64 = results?.[0]?.result;
   if (!pdfBase64) throw new Error("Could not download PDF.");

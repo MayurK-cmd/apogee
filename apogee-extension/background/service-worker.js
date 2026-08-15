@@ -585,7 +585,20 @@ async function runBackgroundSummarize(
 
   let content = pageData.content;
   if (pageData.isPdf) {
-    content = await extractPdfContent(tab);
+    try {
+      content = await extractPdfContent(tab);
+    } catch (err) {
+      const msg = err?.message || String(err);
+      if (msg.startsWith("PDF_TOO_LARGE:")) {
+        if (notifyOnFinish) {
+          notifyNothingToSummarize(
+            "This PDF is too large to process inside the extension. Try a shorter document.",
+          );
+        }
+        return;
+      }
+      throw err;
+    }
     if (!content) {
       if (notifyOnFinish) {
         notifyNothingToSummarize(
