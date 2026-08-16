@@ -76,6 +76,7 @@ const copyAnswerBtn = document.getElementById("copyAnswerBtn");
 const cancelAskBtn = document.getElementById("cancelAskBtn");
 const pastSummariesSection = document.getElementById("pastSummariesSection");
 const pastSummariesList = document.getElementById("pastSummariesList");
+const pastSummariesFilter = document.getElementById("pastSummariesFilter");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsBtn2 = document.getElementById("settingsBtn2");
 const closeBtn = document.getElementById("closeBtn");
@@ -801,6 +802,7 @@ async function loadPastSummaries() {
     card.className = "past-summary-card";
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
+    card.dataset.title = (entry.t || "").toLowerCase();
     card.setAttribute("aria-expanded", "false");
 
     const textWrap = document.createElement("div");
@@ -859,10 +861,46 @@ async function loadPastSummaries() {
     pastSummariesList.appendChild(card);
   }
 
-  pastSummariesSection.classList.toggle(
-    "hidden",
-    pastSummariesList.children.length === 0,
-  );
+  const hasCards = pastSummariesList.children.length > 0;
+  pastSummariesSection.classList.toggle("hidden", !hasCards);
+
+  if (pastSummariesFilter) {
+    pastSummariesFilter.value = "";
+    pastSummariesFilter.classList.toggle("hidden", !hasCards);
+  }
+}
+
+function filterPastSummaries(query) {
+  const q = (query || "").toLowerCase().trim();
+  const cards = pastSummariesList.querySelectorAll(".past-summary-card");
+  let visibleCount = 0;
+  cards.forEach((card) => {
+    const title = card.dataset.title || "";
+    const preview =
+      card.querySelector(".past-summary-preview")?.textContent?.toLowerCase() ||
+      "";
+    const match = !q || title.includes(q) || preview.includes(q);
+    card.classList.toggle("hidden", !match);
+    if (match) visibleCount++;
+  });
+
+  const existing = pastSummariesList.querySelector(".past-summaries-empty");
+  if (visibleCount === 0 && q && cards.length > 0) {
+    if (!existing) {
+      const msg = document.createElement("div");
+      msg.className = "past-summaries-empty";
+      msg.textContent = "No matching summaries.";
+      pastSummariesList.appendChild(msg);
+    }
+  } else if (existing) {
+    existing.remove();
+  }
+}
+
+if (pastSummariesFilter) {
+  pastSummariesFilter.addEventListener("input", () => {
+    filterPastSummaries(pastSummariesFilter.value);
+  });
 }
 
 function showSummarizingContext() {
