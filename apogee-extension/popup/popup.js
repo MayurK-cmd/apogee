@@ -1726,7 +1726,30 @@ questionInput?.addEventListener("keydown", (e) => {
 
 providerRadios.forEach((radio) => {
   radio.addEventListener("change", async () => {
-    const settings = await saveSettings({ provider: radio.value });
+    // Persist the currently-selected model for the outgoing provider so
+    // switching back later restores it (issue #26).
+    const prev = await getSettings();
+    const modelPatch = {};
+    if (prev.provider === PROVIDERS.WEBLLM) {
+      const sel = webllmModelList.querySelector(
+        'input[name="webllmModel"]:checked',
+      );
+      if (sel) modelPatch.webllmModel = sel.value;
+    } else if (prev.provider === PROVIDERS.TRANSFORMERS) {
+      const sel = transformersModelList.querySelector(
+        'input[name="transformersModel"]:checked',
+      );
+      if (sel) modelPatch.transformersModel = sel.value;
+    } else if (prev.provider === PROVIDERS.LOCAL) {
+      const sel = localModelList.querySelector(
+        'input[name="localModel"]:checked',
+      );
+      if (sel) modelPatch.localModel = sel.value;
+    }
+    const settings = await saveSettings({
+      ...modelPatch,
+      provider: radio.value,
+    });
     await applySettingsToUI(settings);
     const status = await checkConnection();
     updateConnectionUI(status?.ready === true);
