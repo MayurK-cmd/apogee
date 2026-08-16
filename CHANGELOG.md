@@ -8,8 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Filter past summaries by title.** A search input above the past summaries list in the popup allows filtering stored summaries in real time by title or content preview. (#25)
 - **A Wikipedia extractor.** Wikipedia articles were going through the generic Readability path, which kept the whole citation apparatus. On the World War II article that was 169,014 characters in 30 chunks, of which 76,568 (45%) were See also, Notes, References, Further reading and External links. The extractor cuts from the first appendix heading, drops navboxes, infoboxes and the 506 inline citation markers, and re-emits the real section headings as Markdown so the heading-aware chunker can use them: the same article is now 85,659 characters in 17 chunks, and the section detector recognises 33 sections where it previously found 3. Article namespace only; anything else falls through to Readability. No network call.
 - **Copy diagnostics as Markdown.** With engine logs recording, Settings now offers a button that copies your settings and the captured logs as a Markdown report ready to paste into an issue, so a bug report says which configuration produced it. Custom instructions and non-loopback Ollama hosts are reported as a shape (`set (42 chars)`, `custom host, port 11434`) rather than their contents. Previously the log panel was only reachable from the model progress bar, so it disappeared once a model was cached.
+
+### Fixed
+
+- **Remember last selected model per provider.** Switching between AI providers (In-Browser GPU, In-Browser CPU, Local Ollama) in Settings preserves and restores the previously selected model for each provider instead of resetting. (#26)
 
 ### Changed
 
