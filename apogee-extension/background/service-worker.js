@@ -7,6 +7,7 @@ import {
 import { makeOpusTranslateFn } from "../lib/language/opusTranslateEngine.js";
 import { chatStream, checkHealth } from "../lib/engines/ollamaClient.js";
 import { errorHelpUrl } from "../lib/util/errorHelp.js";
+import { toUserMessage } from "../lib/util/userError.js";
 import {
   buildAnswerPrompt,
   buildSuggestQuestionsPrompt,
@@ -682,7 +683,7 @@ async function runBackgroundSummarize(
 function notifyJobFailed(err) {
   console.error("Background summarize failed:", err);
   if (typeof chrome.notifications === "undefined") return;
-  const message = err?.message || "Something went wrong summarizing this page.";
+  const message = toUserMessage(err);
   const notificationId = `apogee-summary-error-${crypto.randomUUID()}`;
   // A notification body cannot hold a link, so clicking it opens the
   // explanation instead of focusing the tab.

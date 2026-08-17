@@ -32,6 +32,7 @@ import {
   formatDiagnosticsMarkdown,
 } from "../lib/util/diagnostics.js";
 import { errorHelpUrl, ERROR_HELP_LABEL } from "../lib/util/errorHelp.js";
+import { toUserMessage } from "../lib/util/userError.js";
 import {
   formatTimeSaved,
   formatVideoTimeSaved,
@@ -1025,7 +1026,7 @@ function renderStatusError(target, message) {
 
 function renderSummaryError(error) {
   console.error(error);
-  renderError(summaryText, error.message);
+  renderError(summaryText, toUserMessage(error));
 }
 
 function returnHomeAfterCancel(tabId) {
@@ -1408,7 +1409,7 @@ async function submitQuestion(question) {
       returnToAskAfterCancel(activeTabId);
     } else {
       console.error(error);
-      renderError(answerBox, error.message);
+      renderError(answerBox, toUserMessage(error));
     }
   } finally {
     hideCancelAskButton();
@@ -1562,7 +1563,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             returnToAskAfterCancel(tab.id);
           } else {
             console.error(error);
-            renderError(answerBox, error.message);
+            renderError(answerBox, toUserMessage(error));
             await saveViewState(tab.id, { streamId: null });
           }
         } finally {

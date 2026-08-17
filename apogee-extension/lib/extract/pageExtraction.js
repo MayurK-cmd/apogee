@@ -1,3 +1,5 @@
+import { UserFacingError } from "../util/userError.js";
+
 // Pages the browser itself refuses to let extensions script, even though they
 // are ordinary https URLs. Without this the raw engine error ("The extensions
 // gallery cannot be scripted.") leaks into the popup.
@@ -51,7 +53,7 @@ export async function extractFromActiveTab(tab) {
   const tabId = tab.id;
 
   const blockedReason = unscriptableReason(tab.url);
-  if (blockedReason) throw new Error(blockedReason);
+  if (blockedReason) throw new UserFacingError(blockedReason);
 
   const expectedVersion = chrome.runtime.getManifest().version;
   let injectedVersion = null;
@@ -92,7 +94,7 @@ export async function extractFromActiveTab(tab) {
         args: [expectedVersion],
       });
     } catch (e) {
-      throw new Error(injectionErrorMessage(e), { cause: e });
+      throw new UserFacingError(injectionErrorMessage(e), { cause: e });
     }
   }
 
@@ -141,7 +143,7 @@ export async function extractPdfContent(tab) {
     args: [MAX_PDF_SIZE_BYTES],
   });
   const pdfBase64 = results?.[0]?.result;
-  if (!pdfBase64) throw new Error("Could not download PDF.");
+  if (!pdfBase64) throw new UserFacingError("Could not download PDF.");
 
   const response = await chrome.runtime.sendMessage({
     target: "service-worker",

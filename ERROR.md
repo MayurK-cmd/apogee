@@ -7,7 +7,7 @@ You do not have to find your message by hand. Every failure the popup shows carr
 Two more things worth knowing before reading the tables:
 
 - The popup and the desktop notification path keep separate copies of three messages, so the same failure is worded slightly differently depending on whether you clicked the toolbar icon or used the context menu or keyboard shortcut. Both wordings are listed together. Notification bodies also end with "Click to see what this means."
-- Any string not listed here is a raw error from the browser, from Ollama, or from a bundled library passed through unchanged. That is a known gap: nothing currently stops a third-party string from being rendered as user copy. If you see one, it is worth reporting.
+- Any error not listed here is mapped onto a generic fallback (e.g. "An unexpected error occurred. Try summarizing again.") rather than being shown verbatim. The original message is still logged to the console and included in the diagnostics buffer, so it appears in bug reports when you use Copy diagnostics.
 
 ## Reading the page
 

@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - **Remember last selected model per provider.** Switching between AI providers (In-Browser GPU, In-Browser CPU, Local Ollama) in Settings preserves and restores the previously selected model for each provider instead of resetting. (#26)
+- **Raw engine and browser error strings no longer reach users verbatim.** Errors thrown by pdf.js, WebLLM, Transformers.js, Ollama, or the browser itself were rendered as-is in the popup and in desktop notifications. A new `UserFacingError` class marks messages written for users; everything else is mapped by `toUserMessage()` onto one of six generic fallbacks (PDF, in-browser model, Ollama, stream/disconnect, page-reading, and a catch-all), while the original error is preserved in `console.error` and the diagnostics buffer for bug reports. (#18)
 
 ### Changed
 
@@ -24,6 +25,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Removed
 
 - **Four unused bundled fonts.** `Metropolis-{Regular,Medium,Bold}.otf` and `MozillaText-Bold.ttf` were referenced by nothing but were copied into every build, adding roughly 137 KB to the packaged extension.
+
+### Security
+
+- **Bumped `pdfjs-dist` from 6.1.200 to 6.2.108**, clearing GHSA-hq66-cqwq-w95j (arbitrary JavaScript execution upon opening a malicious PDF). The two existing mitigations (`isEvalSupported: false` and the extension CSP's lack of `unsafe-eval`) already blocked the exploit path, but a known-vulnerable dependency is flagged by `npm audit` and by store reviewers. `npm audit --omit=dev` now reports zero vulnerabilities. (#15)
 
 ## [0.2.0] - 2026-08-06
 

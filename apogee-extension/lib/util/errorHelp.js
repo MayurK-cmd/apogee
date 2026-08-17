@@ -13,12 +13,12 @@ const SECTIONS = [
   [/streamid|unknown .*(action|model)/i, "internal"],
   [/\bpdf\b/i, "pdfs"],
   [
-    /webgpu|offscreen|onnx|transformers\.js|model download|highlight-in-page|locate this passage/i,
+    /webgpu|offscreen|onnx|transformers\.js|model download|highlight-in-page|locate this passage|in-browser model/i,
     "in-browser-models",
   ],
   [/ollama/i, "local-ollama"],
   [
-    /stream|connection to (the )?(local )?model|no longer available|was cancelled/i,
+    /stream|connection.*(lost|drop|model)|no longer available|was cancelled/i,
     "streaming-cancelling-and-background-jobs",
   ],
   [/logs|clipboard|copy failed|cached data/i, "settings-cache-and-diagnostics"],

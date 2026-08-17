@@ -1,4 +1,6 @@
-class OllamaError extends Error {}
+import { UserFacingError } from "../util/userError.js";
+
+class OllamaError extends UserFacingError {}
 
 function connectError(host, err) {
   return new OllamaError(

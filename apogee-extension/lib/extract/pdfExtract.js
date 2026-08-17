@@ -1,4 +1,6 @@
-class PdfExtractionError extends Error {}
+import { UserFacingError } from "../util/userError.js";
+
+class PdfExtractionError extends UserFacingError {}
 
 let _pdfjs = null;
 
