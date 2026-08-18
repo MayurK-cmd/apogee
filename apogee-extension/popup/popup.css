@@ -223,6 +223,28 @@ body {
   letter-spacing: -0.5px;
 }
 
+.extractor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: var(--tag-bg);
+  border: 1px solid var(--tag-border);
+  color: var(--tag-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: capitalize;
+  margin-left: 4px;
+}
+
+.extractor-chip .ico svg {
+  width: 12px;
+  height: 12px;
+}
+
 .header-actions {
   display: flex;
   gap: 8px;

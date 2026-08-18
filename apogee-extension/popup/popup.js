@@ -461,6 +461,45 @@ async function updateWebgpuWarning(isWebllm) {
   }
 }
 
+const EXTRACTOR_INFO = {
+  youtube: { label: "YouTube", icon: "youtube" },
+  bilibili: { label: "Bilibili", icon: "bilibili" },
+  gmail: { label: "Gmail", icon: "mail" },
+  hackernews: { label: "Hacker News", icon: "hacker-news" },
+  reddit: { label: "Reddit", icon: "reddit" },
+  github: { label: "GitHub", icon: "github" },
+  wikipedia: { label: "Wikipedia", icon: "wikipedia" },
+  pdf: { label: "PDF", icon: "filetext" },
+};
+
+export function updateExtractorChip(pageData) {
+  const type = pageData?.isPdf ? "pdf" : pageData?.type;
+  const info = EXTRACTOR_INFO[type];
+  const chips = [
+    {
+      chip: document.getElementById("homeExtractorChip"),
+      iconEl: document.getElementById("homeExtractorIcon"),
+      labelEl: document.getElementById("homeExtractorLabel"),
+    },
+    {
+      chip: document.getElementById("summaryExtractorChip"),
+      iconEl: document.getElementById("summaryExtractorIcon"),
+      labelEl: document.getElementById("summaryExtractorLabel"),
+    },
+  ];
+
+  for (const { chip, iconEl, labelEl } of chips) {
+    if (!chip) continue;
+    if (info) {
+      if (iconEl) iconEl.innerHTML = ICONS[info.icon] || "";
+      if (labelEl) labelEl.textContent = info.label;
+      chip.classList.remove("hidden");
+    } else {
+      chip.classList.add("hidden");
+    }
+  }
+}
+
 async function getPageData(tab) {
   if (
     currentPageData &&
@@ -468,12 +507,14 @@ async function getPageData(tab) {
     (CACHEABLE_PAGE_TYPES.has(currentPageData.type) ||
       (currentPageData.isPdf && currentPageData.content))
   ) {
+    updateExtractorChip(currentPageData);
     return currentPageData;
   }
 
   const cached = await getCachedContent(tab.url);
   if (cached && CACHEABLE_PAGE_TYPES.has(cached.type)) {
     currentPageData = cached;
+    updateExtractorChip(cached);
     return cached;
   }
 
@@ -483,12 +524,15 @@ async function getPageData(tab) {
   }
   if (pageData) {
     currentPageData = pageData;
+    updateExtractorChip(pageData);
     if (
       CACHEABLE_PAGE_TYPES.has(pageData.type) &&
       (await shouldPersist(tab.url))
     ) {
       await persistContent(tab.url, pageData);
     }
+  } else {
+    updateExtractorChip(null);
   }
   return pageData;
 }
