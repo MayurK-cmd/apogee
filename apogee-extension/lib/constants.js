@@ -97,6 +97,9 @@ export const SUMMARY_LANGUAGES = [
     name: "Traditional Chinese",
   },
   { code: "id", label: "Indonesian", name: "Indonesian" },
+  { code: "hi", label: "Hindi", name: "Hindi" },
+  { code: "vi", label: "Vietnamese", name: "Vietnamese" },
+  { code: "th", label: "Thai", name: "Thai" },
 ];
 
 const VIDEO_PAGE_TYPES = new Set(["youtube", "bilibili"]);

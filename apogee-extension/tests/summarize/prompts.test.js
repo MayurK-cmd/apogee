@@ -81,6 +81,9 @@ test("resolveLanguageName maps codes to display names, null for auto/unknown", (
   assert.strictEqual(resolveLanguageName("es"), "Spanish");
   assert.strictEqual(resolveLanguageName("zh"), "Simplified Chinese");
   assert.strictEqual(resolveLanguageName("zh-hant"), "Traditional Chinese");
+  assert.strictEqual(resolveLanguageName("hi"), "Hindi");
+  assert.strictEqual(resolveLanguageName("vi"), "Vietnamese");
+  assert.strictEqual(resolveLanguageName("th"), "Thai");
 });
 
 test("buildLanguageSystemPrompt is null for auto/unknown, a forceful directive otherwise", () => {
