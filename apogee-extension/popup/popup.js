@@ -469,6 +469,7 @@ const EXTRACTOR_INFO = {
   reddit: { label: "Reddit", icon: "reddit" },
   github: { label: "GitHub", icon: "github" },
   wikipedia: { label: "Wikipedia", icon: "wikipedia" },
+  lobsters: { label: "Lobste.rs", icon: "globe" },
   pdf: { label: "PDF", icon: "filetext" },
 };
 

@@ -38,6 +38,11 @@ async function extractPageContent() {
     if (data) return { ...data, isPdf: false };
   }
 
+  if (isHost("lobste.rs")) {
+    const data = extractLobsters();
+    if (data) return { ...data, isPdf: false };
+  }
+
   if (isHost("github.com")) {
     const data = await extractGitHub();
     if (data) return { ...data, isPdf: false };
