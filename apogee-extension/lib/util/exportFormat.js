@@ -1,6 +1,29 @@
-export function formatSummaryAsMarkdown({ title, url, summary }) {
+export function formatSummaryAsMarkdown({
+  title,
+  url,
+  summary,
+  date,
+  model,
+  format,
+  language,
+  includeFrontmatter = false,
+}) {
+  const parts = [];
+
+  if (includeFrontmatter) {
+    const frontmatterLines = ["---"];
+    if (title) frontmatterLines.push(`title: ${JSON.stringify(title)}`);
+    if (url) frontmatterLines.push(`url: ${JSON.stringify(url)}`);
+    if (date) frontmatterLines.push(`date: ${JSON.stringify(date)}`);
+    if (model) frontmatterLines.push(`model: ${JSON.stringify(model)}`);
+    if (format) frontmatterLines.push(`format: ${JSON.stringify(format)}`);
+    if (language) frontmatterLines.push(`language: ${JSON.stringify(language)}`);
+    frontmatterLines.push("---");
+    parts.push(frontmatterLines.join("\n"));
+  }
+
   const heading = title ? `# ${title}` : "# Summary";
-  const parts = [heading];
+  parts.push(heading);
   if (url) parts.push(`Source: ${url}`);
   parts.push(summary || "");
   return parts.join("\n\n").trim() + "\n";
