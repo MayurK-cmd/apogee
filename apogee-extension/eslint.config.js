@@ -49,6 +49,7 @@ export default [
         extractBilibili: "readonly",
         extractHackerNews: "readonly",
         extractReddit: "readonly",
+        extractLobsters: "readonly",
         extractGitHub: "readonly",
         extractWikipedia: "readonly",
       },
@@ -77,6 +78,7 @@ export default [
     files: [
       "content/extractors/hackernews.js",
       "content/extractors/reddit.js",
+      "content/extractors/lobsters.js",
       "content/extractors/github.js",
     ],
     languageOptions: {

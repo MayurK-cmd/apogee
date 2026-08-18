@@ -53,6 +53,14 @@ test("formatSummaryAsMarkdown includes YAML frontmatter when includeFrontmatter 
     language: "English",
     includeFrontmatter: true,
   });
-  assert.ok(result.startsWith("---\ntitle: \"Obsidian Note\"\nurl: \"https://example.com/obsidian\"\ndate: \"2026-08-18\"\nmodel: \"Qwen 2.5 1.5B\"\nformat: \"bullets\"\nlanguage: \"English\"\n---"));
-  assert.ok(result.includes("# Obsidian Note\n\nSource: https://example.com/obsidian\n\n- Important point\n"));
+  assert.ok(
+    result.startsWith(
+      '---\ntitle: "Obsidian Note"\nurl: "https://example.com/obsidian"\ndate: "2026-08-18"\nmodel: "Qwen 2.5 1.5B"\nformat: "bullets"\nlanguage: "English"\n---',
+    ),
+  );
+  assert.ok(
+    result.includes(
+      "# Obsidian Note\n\nSource: https://example.com/obsidian\n\n- Important point\n",
+    ),
+  );
 });

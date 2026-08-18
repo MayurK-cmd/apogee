@@ -61,7 +61,10 @@ test("extractLobsters renders the comment tree in path notation", () => {
     content,
     /\[1\] <replies: 1> bob: Great overview of cache invalidation\./,
   );
-  assert.match(content, /\[1\.1\] carol: Agreed, specially the section on TTLs\./);
+  assert.match(
+    content,
+    /\[1\.1\] carol: Agreed, specially the section on TTLs\./,
+  );
 });
 
 test("extractLobsters returns null off a non-story page", () => {

@@ -17,7 +17,8 @@ export function formatSummaryAsMarkdown({
     if (date) frontmatterLines.push(`date: ${JSON.stringify(date)}`);
     if (model) frontmatterLines.push(`model: ${JSON.stringify(model)}`);
     if (format) frontmatterLines.push(`format: ${JSON.stringify(format)}`);
-    if (language) frontmatterLines.push(`language: ${JSON.stringify(language)}`);
+    if (language)
+      frontmatterLines.push(`language: ${JSON.stringify(language)}`);
     frontmatterLines.push("---");
     parts.push(frontmatterLines.join("\n"));
   }

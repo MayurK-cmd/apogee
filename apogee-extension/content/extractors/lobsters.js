@@ -63,8 +63,7 @@ function extractLobsters() {
   const points =
     document.querySelector(".story .score")?.innerText.trim() || "";
   const author =
-    document.querySelector(".story .byline a.u-author")?.innerText.trim() ||
-    "";
+    document.querySelector(".story .byline a.u-author")?.innerText.trim() || "";
 
   const storyText =
     document.querySelector(".story_text")?.innerText.trim() || "";
@@ -74,11 +73,7 @@ function extractLobsters() {
   );
   const nodes = buildThreadNodes(lobstersCommentItems(commentLis));
   const eligible = (n) => n.text && n.depth <= LOBSTERS_MAX_DEPTH;
-  const comments = selectThreadComments(
-    nodes,
-    eligible,
-    LOBSTERS_MAX_COMMENTS,
-  );
+  const comments = selectThreadComments(nodes, eligible, LOBSTERS_MAX_COMMENTS);
 
   let content = `Lobste.rs discussion\n\nTitle: ${title}\n`;
   if (isExternalLink) content += `Links to: ${domain || linkHref}\n`;
