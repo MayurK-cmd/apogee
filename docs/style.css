@@ -344,7 +344,7 @@ h4 { font-size: 1.75rem; }
   object-fit: contain;
 }
 
-.fcard::after {
+.fcard:last-child::after {
   content: "";
   position: absolute;
   z-index: -1;
