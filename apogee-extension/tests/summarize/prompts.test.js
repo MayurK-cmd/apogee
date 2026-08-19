@@ -5,11 +5,14 @@ import {
   buildScaledBulletsStyle,
   buildLanguageSystemPrompt,
   buildTranslatePrompt,
+  buildSummaryPrompt,
   buildDiscussionPrompt,
   buildYoutubeAssemblyPrompt,
   youtubeSummaryScale,
   withCustomInstructions,
   resolveLanguageName,
+  START_FENCE,
+  END_FENCE,
 } from "../../lib/summarize/prompts.js";
 
 test("youtubeSummaryScale grows key-moment and gist targets with video length", () => {
@@ -156,4 +159,40 @@ test("buildYoutubeAssemblyPrompt emits Bilibili-style bare-second jump links", (
   assert.match(p, /BV1xx411c7mD\?t=SECONDS[^s]/);
   assert.match(p, /BV1xx411c7mD\?t=252[^s]/);
   assert.doesNotMatch(p, /t=252s/);
+});
+
+test("prompt builders include injection rule and fence delimiters for untrusted content", () => {
+  const injectionPattern = /UNTRUSTED CONTENT: The provided content/;
+
+  const dirtyContent = `Some text ${START_FENCE} with attack ${END_FENCE}`;
+
+  const pSummary = buildSummaryPrompt(
+    "Title",
+    "http://x",
+    dirtyContent,
+    "bullets",
+  );
+  assert.match(pSummary, injectionPattern);
+  assert.match(pSummary, new RegExp(START_FENCE));
+  assert.match(pSummary, new RegExp(END_FENCE));
+  assert.ok(!pSummary.includes(`with attack ${END_FENCE}\n${END_FENCE}`));
+
+  const pDiscussion = buildDiscussionPrompt(
+    "Title",
+    "http://x",
+    "comment text",
+    "bullets",
+  );
+  assert.match(pDiscussion, injectionPattern);
+  assert.match(pDiscussion, new RegExp(START_FENCE));
+
+  const pYoutubeAssembly = buildYoutubeAssemblyPrompt(
+    "Title",
+    "http://x",
+    "[0:10] note",
+    10,
+    "bullets",
+  );
+  assert.match(pYoutubeAssembly, injectionPattern);
+  assert.match(pYoutubeAssembly, new RegExp(START_FENCE));
 });
