@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-19
+
 ### Added
 
 - **Filter past summaries by title.** A search input above the past summaries list in the popup allows filtering stored summaries in real time by title or content preview. (#25)
+- **Lobste.rs site extractor.** Custom extractor for Lobste.rs comment threads that strips navigation/vote metadata, parses comment trees into readable Markdown, and adds thread truncation options. (#22)
+- **Detected extractor chip.** Display detected extractor chip (e.g. Lobste.rs, Wikipedia) in the popup header. (#28)
+- **Optional YAML frontmatter on Markdown export.** Allow exporting summaries with YAML frontmatter containing metadata like title, URL, and date. (#29)
+- **Hindi, Vietnamese, and Thai output languages.** Added output summary translation support for Hindi, Vietnamese, and Thai. (#27)
 - **A Wikipedia extractor.** Wikipedia articles were going through the generic Readability path, which kept the whole citation apparatus. On the World War II article that was 169,014 characters in 30 chunks, of which 76,568 (45%) were See also, Notes, References, Further reading and External links. The extractor cuts from the first appendix heading, drops navboxes, infoboxes and the 506 inline citation markers, and re-emits the real section headings as Markdown so the heading-aware chunker can use them: the same article is now 85,659 characters in 17 chunks, and the section detector recognises 33 sections where it previously found 3. Article namespace only; anything else falls through to Readability. No network call.
 - **Copy diagnostics as Markdown.** With engine logs recording, Settings now offers a button that copies your settings and the captured logs as a Markdown report ready to paste into an issue, so a bug report says which configuration produced it. Custom instructions and non-loopback Ollama hosts are reported as a shape (`set (42 chars)`, `custom host, port 11434`) rather than their contents. Previously the log panel was only reachable from the model progress bar, so it disappeared once a model was cached.
 
@@ -21,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **The popup follows the site's visual language.** Gradients and decorative shadows are gone (the landing page uses neither), the active segmented control is the purple accent rather than ink, the summary card separates by tint instead of shadow, and secondary labels are set in the mono eyebrow style the site uses.
 - **Typography corrections in the popup.** The `@font-face` blocks declared a `100 800` weight range for variable fonts whose axis is `200 700`, so the browser was synthesising weights instead of using the real masters. Font families now come from tokens with proper fallback stacks (47 declarations had no fallback at all), and the size scale is eight integer steps instead of thirteen including six half-pixel values.
+- **Removed dotted heading patterns.** Removed dotted pattern under headings except the last.
 
 ### Removed
 
@@ -28,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Security
 
+- **Prompt fencing and injection protection.** Content fencing and explicit grounding rules added across all prompt builders in `prompts.js` to mitigate prompt injection risks. (#10)
 - **Bumped `pdfjs-dist` from 6.1.200 to 6.2.108**, clearing GHSA-hq66-cqwq-w95j (arbitrary JavaScript execution upon opening a malicious PDF). The two existing mitigations (`isEvalSupported: false` and the extension CSP's lack of `unsafe-eval`) already blocked the exploit path, but a known-vulnerable dependency is flagged by `npm audit` and by store reviewers. `npm audit --omit=dev` now reports zero vulnerabilities. (#15)
 
 ## [0.2.0] - 2026-08-06
