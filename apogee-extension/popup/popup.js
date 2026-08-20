@@ -56,6 +56,7 @@ import {
   isCachedPageKey,
   CACHEABLE_PAGE_TYPES,
 } from "../lib/storage/pageCache.js";
+import { searchPastSummaries } from "../lib/retrieval/pastSummariesSearch.js";
 import {
   extractFromActiveTab,
   extractPdfContent,
@@ -849,6 +850,7 @@ async function loadPastSummaries() {
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
     card.dataset.title = (entry.t || "").toLowerCase();
+    card.dataset.cacheKey = entry.s;
     card.setAttribute("aria-expanded", "false");
 
     const textWrap = document.createElement("div");
@@ -916,19 +918,39 @@ async function loadPastSummaries() {
   }
 }
 
-function filterPastSummaries(query) {
-  const q = (query || "").toLowerCase().trim();
+async function filterPastSummaries(query) {
+  const q = (query || "").trim();
+  const { cacheOrder = [] } = await chrome.storage.local.get("cacheOrder");
+  const recent = cacheOrder.slice(-PAST_SUMMARIES_SHOWN).reverse();
+  const stored = await chrome.storage.local.get(recent.map((e) => e.s));
+
+  const searchResults = await searchPastSummaries({
+    query: q,
+    cacheOrder: recent,
+    storedSummaries: stored,
+  });
+
+  const matchingKeys = new Set(searchResults.map((e) => e.s));
+
   const cards = pastSummariesList.querySelectorAll(".past-summary-card");
   let visibleCount = 0;
   cards.forEach((card) => {
-    const title = card.dataset.title || "";
-    const preview =
-      card.querySelector(".past-summary-preview")?.textContent?.toLowerCase() ||
-      "";
-    const match = !q || title.includes(q) || preview.includes(q);
+    const key = card.dataset.cacheKey;
+    const match = !q || matchingKeys.has(key);
     card.classList.toggle("hidden", !match);
     if (match) visibleCount++;
   });
+
+  if (q && searchResults.length > 0) {
+    const cardMap = new Map();
+    cards.forEach((card) => {
+      if (card.dataset.cacheKey) cardMap.set(card.dataset.cacheKey, card);
+    });
+    searchResults.forEach((item) => {
+      const card = cardMap.get(item.s);
+      if (card) pastSummariesList.appendChild(card);
+    });
+  }
 
   const existing = pastSummariesList.querySelector(".past-summaries-empty");
   if (visibleCount === 0 && q && cards.length > 0) {
@@ -944,8 +966,14 @@ function filterPastSummaries(query) {
 }
 
 if (pastSummariesFilter) {
+  let filterTimeout = null;
   pastSummariesFilter.addEventListener("input", () => {
-    filterPastSummaries(pastSummariesFilter.value);
+    clearTimeout(filterTimeout);
+    filterTimeout = setTimeout(() => {
+      filterPastSummaries(pastSummariesFilter.value).catch((err) =>
+        console.error("Past summaries filter error:", err),
+      );
+    }, 150);
   });
 }
 

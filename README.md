@@ -165,7 +165,7 @@ here rather than in Settings so you can change it in place before summarizing.</
 <li><strong>Ask Apogee a question</strong>: jumps straight to the question box,
 skipping the summary, for when you already know what you want to ask.</li>
 <li><strong>Past Summaries</strong>: the eight most recent cached summaries, newest
-first. Each card shows the page title and the first line of the summary; click a
+first, with a live search input for on-device semantic vector search across titles and summary bodies (powered by <code>all-MiniLM-L6-v2</code> embeddings). Each card shows the page title and the first line of the summary; click a
 card to expand it in place, or use the copy button on the right to copy it
 without expanding. The section is hidden entirely when nothing is cached, and
 stays empty if you've turned history off under Settings, Privacy.</li>

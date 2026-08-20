@@ -11,6 +11,7 @@ Apogee is an offline-first, private browser extension for Chrome, Edge, and Fire
 - `apogee-extension/lib/extract/`: Article and video text extractors (`pageExtraction.js`, site extractors).
 - `apogee-extension/lib/extract/pdfExtract.js`: Client-side PDF text extraction using pdf.js.
 - `apogee-extension/lib/retrieval/rag.js`: Embedding generation, vector similarity retrieval (Ask), and grounding logic.
+- `apogee-extension/lib/retrieval/pastSummariesSearch.js`: On-device semantic vector search across past saved summaries.
 - `apogee-extension/lib/util/userError.js`: `UserFacingError` class and `toUserMessage()` fallback mapper for sanitizing raw engine/browser errors before they reach users.
 - `apogee-extension/offscreen/`: Offscreen document environment for WebGPU, WASM, and embedding execution on Chromium.
 - `apogee-extension/tests/`: Node-based test suite, extractor tests, and HTML fixtures.

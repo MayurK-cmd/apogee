@@ -256,11 +256,28 @@ test("persistSummary evicts the oldest entry once the FIFO cap is exceeded", asy
 test("persistSummary re-persisting the same cacheKey doesn't duplicate its order entry", async () => {
   const data = installFakeStorage();
 
-  await persistSummary("k1", "p1", "first", "Title");
-  await persistSummary("k1", "p1", "updated", "Title");
+  await persistSummary("k1", "p1", "first", "Title", null, {
+    embedTextsFn: null,
+  });
+  await persistSummary("k1", "p1", "updated", "Title", null, {
+    embedTextsFn: null,
+  });
 
   assert.strictEqual(data.cacheOrder.length, 1);
   assert.strictEqual(data.k1, "updated");
+});
+
+test("persistSummary stores vector embedding if provided or generated", async () => {
+  const data = installFakeStorage();
+  const fakeEmbed = async (_texts) => [[0.1, 0.2, 0.3]];
+
+  await persistSummary("k1", "p1", "summary text", "Title 1", [0.5, 0.6]);
+  assert.deepStrictEqual(data.cacheOrder[0].v, [0.5, 0.6]);
+
+  await persistSummary("k2", "p2", "summary text 2", "Title 2", null, {
+    embedTextsFn: fakeEmbed,
+  });
+  assert.deepStrictEqual(data.cacheOrder[1].v, [0.1, 0.2, 0.3]);
 });
 
 test("clearCachedPages removes stored history and leaves settings alone", async () => {

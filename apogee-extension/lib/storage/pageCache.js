@@ -1,6 +1,7 @@
 import { getSettings } from "./settings.js";
 import { sha256Hex } from "../util/hash.js";
 import { createLock } from "../util/mutex.js";
+import { embedTexts as defaultEmbedTexts } from "../engines/embeddings.js";
 
 const acquireIndexLock = createLock();
 
@@ -53,12 +54,33 @@ export async function getContentCacheKey(url) {
 
 export const MAX_CACHED_PAGES = 50;
 
-export async function persistSummary(cacheKey, promptsCacheKey, text, title) {
+export async function persistSummary(
+  cacheKey,
+  promptsCacheKey,
+  text,
+  title,
+  vector = null,
+  { embedTextsFn = defaultEmbedTexts } = {},
+) {
   const release = await acquireIndexLock();
   try {
+    let v = vector;
+    if (!v && embedTextsFn && typeof embedTextsFn === "function" && text) {
+      try {
+        const embs = await embedTextsFn([text]);
+        if (Array.isArray(embs) && embs[0]) {
+          v = Array.from(embs[0]);
+        }
+      } catch {
+        v = null;
+      }
+    }
+
     const { cacheOrder = [] } = await chrome.storage.local.get("cacheOrder");
     const order = cacheOrder.filter((e) => e && e.s !== cacheKey);
-    order.push({ s: cacheKey, p: promptsCacheKey, t: title || "" });
+    const entry = { s: cacheKey, p: promptsCacheKey, t: title || "" };
+    if (v) entry.v = v;
+    order.push(entry);
 
     const removeKeys = [];
     while (order.length > MAX_CACHED_PAGES) {
@@ -226,8 +248,10 @@ export async function persistSummaryIfAllowed(
   promptsCacheKey,
   text,
   title,
+  vector = null,
+  options = {},
 ) {
   if (!(await shouldPersist(url))) return false;
-  await persistSummary(cacheKey, promptsCacheKey, text, title);
+  await persistSummary(cacheKey, promptsCacheKey, text, title, vector, options);
   return true;
 }
