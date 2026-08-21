@@ -15,6 +15,7 @@ Read the one closest to what you're building:
 | File                 | Shows                                                     |
 | -------------------- | --------------------------------------------------------- |
 | `gmail.test.js`      | The simplest shape: synchronous, DOM only                 |
+| `github.test.js`     | Landing page, issues, and fetching diffs for pull requests |
 | `hackernews.test.js` | Feeding the shared thread representation in `thread.js`   |
 | `reddit.test.js`     | An extractor that reads a site API, with `fetch` stubbed  |
 | `thread.test.js`     | Testing shared machinery directly, with no site extractor |
