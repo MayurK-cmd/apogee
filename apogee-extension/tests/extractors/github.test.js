@@ -99,7 +99,10 @@ test("extractGitHub extracts issue title, state, description, and comments", asy
     result.content,
     /Description \(by alice\):\nParser fails on empty strings\./,
   );
-  assert.match(result.content, /Comments:\n- bob: I can reproduce this behavior\./);
+  assert.match(
+    result.content,
+    /Comments:\n- bob: I can reproduce this behavior\./,
+  );
 });
 
 test("extractGitHub extracts pull request metadata and fetches unified diff", async () => {
