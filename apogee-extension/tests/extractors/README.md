@@ -12,16 +12,17 @@ npm test
 
 Read the one closest to what you're building:
 
-| File                 | Shows                                                                  |
-| -------------------- | ---------------------------------------------------------------------- |
-| `gmail.test.js`      | The simplest shape: synchronous, DOM only                              |
-| `github.test.js`     | Landing page, issues, and fetching diffs for pull requests             |
-| `hackernews.test.js` | Feeding the shared thread representation in `thread.js`                |
-| `lobsters.test.js`   | Another thread-based extractor, same shape as Hacker News              |
-| `reddit.test.js`     | An extractor that reads a site API, with `fetch` stubbed               |
-| `thread.test.js`     | Testing shared machinery directly, with no site extractor              |
-| `wikipedia.test.js`  | Cutting a page down, and returning `null` to fall through              |
-| `youtube.test.js`    | Caption URL security checks, transcript parsing, and `chrome` stubbing |
+| File                 | Shows                                                                   |
+| -------------------- | ----------------------------------------------------------------------- |
+| `bilibili.test.js`   | Subtitle fetch via `chrome` stub, multi-part page selection, null cases |
+| `gmail.test.js`      | The simplest shape: synchronous, DOM only                               |
+| `github.test.js`     | Landing page, issues, and fetching diffs for pull requests              |
+| `hackernews.test.js` | Feeding the shared thread representation in `thread.js`                 |
+| `lobsters.test.js`   | Another thread-based extractor, same shape as Hacker News               |
+| `reddit.test.js`     | An extractor that reads a site API, with `fetch` stubbed                |
+| `thread.test.js`     | Testing shared machinery directly, with no site extractor               |
+| `wikipedia.test.js`  | Cutting a page down, and returning `null` to fall through               |
+| `youtube.test.js`    | Caption URL security checks, transcript parsing, and `chrome` stubbing  |
 
 ## Writing a test
 
