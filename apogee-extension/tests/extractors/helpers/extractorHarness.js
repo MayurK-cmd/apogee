@@ -76,6 +76,8 @@ export function loadExtractors({
         sendMessage: refuseNetwork("chrome.runtime.sendMessage()", "chrome"),
       },
     },
+    DOMParser: window.DOMParser,
+    navigator: window.navigator || { language: "en" },
   };
   sandbox.globalThis = sandbox;
   sandbox.self = sandbox;
