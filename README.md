@@ -60,7 +60,7 @@ Apogee is four cooperating contexts: the popup you see, a service worker that ro
 flowchart TD
     subgraph device["Your device"]
         subgraph page["Active tab"]
-            EX["Extractors, injected on demand<br/>Readability, YouTube, Bilibili, Wikipedia,<br/>Gmail, Reddit, HN, GitHub"]
+            EX["Extractors, injected on demand<br/>Readability, YouTube, Bilibili, Wikipedia,<br/>Gmail, Reddit, HN, GitHub, Lobsters"]
             HL["Highlight overlay<br/>scrolls to the source passage"]
         end
 
