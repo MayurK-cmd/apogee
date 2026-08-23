@@ -55,9 +55,19 @@ Content
 - Run `npm test` and `npm run lint` before submitting changes.
 - Extractor changes must include or update Node-based HTML fixtures and tests.
 
-## Documentation
+## Documentation Sitemap
 
-- [README](./README.md): Project overview, features, and architecture diagrams.
+- [README](./README.md): Project landing page, quick start, browser matrix, comparison, and features.
+- [Architecture](ARCHITECTURE.md): System architecture, 4 contexts, sequence diagrams, and trust boundaries.
+- [Models](MODELS.md): WebLLM, WASM, Ollama models, benchmarks, and context windows.
+- [Browser Support](BROWSERS.md): Browser compatibility matrix, WebGPU vs WebAssembly execution, and Ollama support.
+- [Local Ollama Guide](OLLAMA.md): Local Ollama setup for macOS, Windows, and Linux.
+- [Translation Reference](TRANSLATION.md): 29-language matrix and Opus-MT model tiers.
+- [Privacy Policy](PRIVACY.md): Detailed privacy, network connections, and permission sandboxing.
+- [Error Messages Guide](ERROR.md): Complete catalog of user-facing messages, cause breakdowns, and diagnostic steps.
+- [Developer Setup](DEVELOPMENT.md): Build environment, scripts, test suite, and contributing guidelines.
 - [Contributing](./CONTRIBUTING.md): Development setup, PR rules, and issue claiming guidelines.
-- [Roadmap](./ROADMAP.md): Project goals and planned feature roadmap.
-- [Privacy](./PRIVACY.md): Published privacy statement and security model.
+- [Roadmap](./ROADMAP.md): Project goals, completed releases, and planned feature roadmap.
+- [Changelog](./CHANGELOG.md): Comprehensive release history and detailed version changes.
+- [Security Policy](./SECURITY.md): Security vulnerability reporting guidelines and policies.
+- [Code of Conduct](./CODE_OF_CONDUCT.md): Community standards of conduct and guidelines.

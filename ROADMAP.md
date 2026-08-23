@@ -4,8 +4,6 @@ Apogee is a private, in-browser AI summarizer for articles, videos (YouTube and 
 
 This document outlines current work, upcoming priorities, and long-term goals for Apogee.
 
----
-
 ## Now
 
 - **Extractor Expansion**:
@@ -20,8 +18,6 @@ This document outlines current work, upcoming priorities, and long-term goals fo
   - Keep WebLLM and Transformers.js model libraries updated with small models (SmolLM2, Qwen 2.5, Llama 3.2).
   - Reduce cold-start memory usage and download sizes.
 
----
-
 ## Next
 
 - **Extractor Generator**:
@@ -33,8 +29,6 @@ This document outlines current work, upcoming priorities, and long-term goals fo
 - **Ollama and Custom Host Settings**:
   - Allow custom host settings for self-hosted LLM endpoints with proper CORS handling.
 
----
-
 ## Later
 
 - **Safari Support**:
@@ -44,15 +38,11 @@ This document outlines current work, upcoming priorities, and long-term goals fo
 - **Custom Extractor Plugin API**:
   - Allow users to load custom extractors directly in settings without editing core source code.
 
----
-
 ## Non-Goals
 
 - **Cloud Backends**: Apogee will not send, store, or process page text on remote servers.
 - **Tracking**: No user tracking, analytics SDKs, or external monitoring.
 - **API Keys**: In-browser execution remains free and keyless by default.
-
----
 
 ## How to Contribute
 

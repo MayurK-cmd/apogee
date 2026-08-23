@@ -1,66 +1,55 @@
-# Apogee Privacy Policy
+# Apogee Privacy and Security Architecture
 
-_Last updated: 2026-08-01_
+Privacy is the core pillar of Apogee. The key guarantee is simple: your page content and the summaries or answers generated from it are never sent to any cloud service or third party. Inference happens on your own device via WebGPU or WebAssembly, or on your own machine via local loopback to Ollama (`http://127.0.0.1`). The details below are precise about the few network requests that do occur and what is kept on disk.
 
-Apogee is a private, in-browser AI assistant. It is designed so that the content you summarize or ask questions about is processed **entirely on your own device** and is **never sent to us or to any third-party server**. We do not operate any backend, we have no servers that receive your data, and we collect no analytics or telemetry of any kind.
+## Where Inference Happens
 
-## What we collect
+- **In-Browser mode**: Tokenization and inference run entirely on your local device, on the GPU via WebGPU (WebLLM, default on Chrome and Edge) or on the CPU via WebAssembly (Transformers.js, default on Firefox and available as an opt-in on Chrome and Edge). Your page content and summaries are never transmitted anywhere.
+- **Local Ollama mode**: Page content travels exclusively over local loopback (`http://127.0.0.1`) directly to your own Ollama instance HTTP API, never to the cloud. There is no intermediate backend process in the path; the extension is Ollama only client-side hop.
 
-**Nothing.** Apogee has no account system, no sign-in, and no server. We do not collect, transmit, sell, or share any user data.
+## Outbound Network Connection Details
 
-- **Page content** (article text, YouTube and Bilibili transcripts, PDF text) that you ask Apogee to summarize or answer questions about is read from the tab you are actively viewing, processed locally by an AI model running on your device, and then discarded. It is never uploaded.
-- **Local summary cache.** So that reopening a summary is instant and the same page is not re-processed needlessly, the summaries you generate (and, for plain articles and web pages only, the extracted page text) are cached in your browser's local extension storage. To support local semantic search across past summaries, summary texts are embedded locally on-device (`all-MiniLM-L6-v2`) and saved alongside the cache index. This data **stays on your device**, is keyed by a one-way hash of the page URL (the raw URL, which can contain session tokens, is not stored), and is evicted automatically over time. Content from YouTube, Bilibili, Gmail, Reddit, Hacker News, and GitHub pages is **not** cached. Nothing at all is cached for a page on a known webmail or chat host, or on a host you list yourself under **Settings**, in the **Privacy** section: those summaries are shown once and never written to disk. Clearing the extension's data (or the browser's site data for the extension) removes it.
-- **Your settings** (chosen AI provider and model, summary format, and other preferences) are stored locally in your browser via the extension storage API. They stay on your device.
+Apogee makes only a minimal set of outbound network requests:
 
-## Network connections Apogee makes
+- **Model Weight Downloads**: Model weights are downloaded once from Hugging Face in in-browser mode, or pulled by Ollama in local mode, then cached and reused offline. This transfers no page content, only the model weight files themselves.
+- **YouTube Transcripts**: On a YouTube page, the extractor fetches that video caption track from YouTube or Google endpoints (`youtube.com`, `google.com`, or `googlevideo.com`), which is the site you are already on, to feed the transcript to the model. It is restricted strictly to genuine YouTube and Google hosts.
+- **Bilibili Subtitles**: On a Bilibili page, the extractor fetches that video subtitle track from Bilibili own endpoints (`api.bilibili.com` and the `hdslb.com` subtitle CDN), which is the site you are already on. Unlike the YouTube caption fetch, this request is sent with your Bilibili session cookies because Bilibili only exposes subtitle URLs to a signed-in session. It carries only the video own IDs. A video with no subtitles falls back to a description-only summary.
+- **YouTube Sponsor Segment Lookup (SponsorBlock)**: When summarizing a YouTube video, Apogee asks the crowdsourced SponsorBlock API (`sponsor.ajay.app`) which parts of the video are sponsor reads or self-promotion, so they can be stripped from the transcript. This uses SponsorBlock privacy-preserving k-anonymity endpoint where only the first 4 hex characters of the SHA-256 hash of the video ID are sent (never the video ID, URL, or any page content), and the matching entry is picked out locally. If the lookup fails or the video has no SponsorBlock data, a local phrase heuristic runs instead, with no network call at all. The lookup is on by default and can be switched off under Settings under Privacy ("Stay fully local"), in which case no request is made and the local heuristic does the stripping on its own.
+- **Enforced Connection Allow-List**: There are no other external calls. See the content security policy `connect-src` in `manifest.json` for the exact allow-list this is enforced against, and `ALLOWED_OLLAMA_HOSTS` in `background/service-worker.js`, which rejects any Local Ollama host setting that is not plain `http://127.0.0.1` or `http://localhost`.
 
-Apogee is offline-first, but a few features require specific, limited network connections. None of them transmit your page content or summaries to a third party.
+## Executable Code and WASM Runtime Security
 
-1. **Model weight downloads (first run).** The first time you use an in-browser model, Apogee downloads the model's weight files from Hugging Face (`huggingface.co` and related hosts) and caches them locally. This is a one-time download of the model itself; no information about the pages you visit is included. As with any file download, Hugging Face sees your IP address and which model you fetched, and nothing more. After caching, in-browser AI runs fully offline. Model weight files are not cryptographically pinned, but they are loaded only as data inside the browser's sandboxed WebAssembly/WebGPU runtime: a model cannot execute code on your machine or read your data; at worst a tampered model could produce a lower-quality summary.
+Every piece of executable code, JavaScript and WebAssembly alike, ships inside the extension package. That includes the `onnxruntime-web` WASM runtime (used by Ask local embedding model and the Transformers.js engine) and WebLLM per-model WASM kernels, which are downloaded and SHA-256 verified at build time (see `apogee-extension/scripts/model-libs.mjs`) rather than fetched from a CDN or GitHub at runtime. Only model weights (data files, not executable code) are fetched at runtime from Hugging Face as described above.
 
-2. **Local Ollama (optional).** If you opt into Local Ollama mode, Apogee connects to an Ollama instance running on your own machine at `http://127.0.0.1` or `http://localhost`. This traffic stays on your device and never leaves it.
+## Client-Side PDF Text Parsing
 
-3. **SponsorBlock (YouTube only).** When summarizing a YouTube video, Apogee queries the community SponsorBlock API (`sponsor.ajay.app`) for sponsor-segment timings so it can skip sponsor reads and self-promotion when summarizing the transcript. The full video ID is never sent: Apogee sends only the first four characters of its SHA-256 hash, a prefix shared by many videos, and filters the returned segments locally (the same k-anonymity scheme the official SponsorBlock clients use). SponsorBlock therefore sees your IP address and that a YouTube summary is happening, but not which video. Apart from the model download in section 1, this is the only request Apogee makes to a service other than the one whose page you are already on (sections 4 and 5 cover those), and you can turn it off under **Settings**, in the **Privacy** section, via **"Stay fully local (don't contact SponsorBlock)"**. When it's disabled, Apogee makes no request to SponsorBlock at all. Whether it's off, a video has no SponsorBlock data, or the request fails, Apogee falls back to a local, network-free phrase heuristic instead.
+PDF text extraction runs fully client-side using `pdf.js` bundled directly into the extension. The PDF is downloaded straight into the browser tab using that tab own network context and parsed there. Only the extracted text is ever handed to the model; the file itself never passes through any other process.
 
-4. **Fetching the content of the page you are summarizing.** For a few sites, Apogee reads the material to summarize from that site's own public endpoint rather than only scraping the rendered page: the caption/transcript track for a YouTube video (from `youtube.com` / `googlevideo.com`), a Reddit thread's public JSON (from `reddit.com`, the same site you are on), and a GitHub pull request's diff (from GitHub's public API, `api.github.com`). These requests are sent **without your cookies or login session**, go to the same service whose page you are already viewing, and carry no information about your other browsing. The fetched content is summarized on your device and never uploaded anywhere else.
+## Local Ollama Connection Architecture
 
-5. **Bilibili subtitles.** On a Bilibili video, Apogee fetches that video's subtitle track from Bilibili's own endpoints (`api.bilibili.com` and the `hdslb.com` subtitle CDN, the same service whose page you are viewing). Unlike the cookie-less fetches above, this one **is sent with your Bilibili cookies**, because Bilibili only exposes subtitle URLs to a logged-in session; the request carries only the video's own IDs, no information about your other browsing. The subtitles are summarized on your device and never uploaded anywhere else. When a video has no subtitles (or the request fails), Apogee falls back to summarizing the video's description alone.
+To reach Ollama, Apogee strips the `Origin` header from its `localhost` and `127.0.0.1` requests via a bundled `declarativeNetRequest` rule (scoped exclusively to those loopback hosts), so Ollama accepts them without requiring any `OLLAMA_ORIGINS` environment variable configuration. The rule also excludes `localhost` and `127.0.0.1` as an initiator, so it only ever touches Apogee own requests. A page you have open from a local development server keeps its `Origin` header, and the CSRF defenses of your other local services are left intact. This is a local on-device request path, not a data transmission path to any third party. Ollama itself only binds to `127.0.0.1` by default, so it is never reachable from your network regardless.
 
-We do not control Hugging Face, SponsorBlock, YouTube, Bilibili, Reddit, or GitHub; their own privacy policies govern the requests described above.
+## Telemetry and Analytics Policy
 
-## Diagnostics you choose to share
+Apogee includes no Google Analytics, Mixpanel, crash-reporting SDKs, or telemetry of any kind. No usage data or performance metrics are collected.
 
-Recording engine logs is off by default. When you turn it on, **Copy diagnostics as Markdown** in Settings copies a report you can paste into a bug report. Nothing is sent anywhere: it goes to your clipboard, and only when you press the button.
+## Local Data Storage Controls
 
-That report contains your extension version, browser user agent, whether WebGPU is available, and your settings. Three settings are deliberately reported as a shape rather than a value, because a bug report is usually public:
+- **Cached Summaries and Page Text**: To make reopening the popup instant, Apogee caches summaries, suggested prompts, extracted page text for articles, and your recent questions and answers in local extension storage (`chrome.storage.local`). This data is never transmitted, is capped in size, and is keyed by a truncated SHA-256 of the URL, so URLs with session tokens in their query strings are not stored in plaintext keys, and the key cannot be walked back to the URL it came from.
+- **Sensitive Sites Exclusion List**: Sensitive sites are never cached. Pages on known webmail and messaging hosts (Gmail, Outlook, Proton Mail, Yahoo Mail, Google Messages, WhatsApp Web, Telegram Web, Slack, Discord, Microsoft Teams) are always treated as ephemeral regardless of your settings. This is a fixed list, not content detection. Under Settings under Privacy, you can name your own hosts (one per line) to be treated the same way, such as a bank, a health portal, your own mail server, or a smaller webmail provider. A host you add also covers its subdomains. Anything on neither list is cached like any other page unless you switch to "Don't save".
+- **Session-Only Storage and On-Demand Clearing**: Under Settings under Privacy, you can switch to "Don't save (this session only)" so nothing page-derived is written to disk, and clicking "Clear cached summaries & page data" wipes all cached content on demand while preserving your preferences.
+- **Model Weights Storage**: Model weights are stored locally in standard browser cache structures and are never transmitted.
 
-- **Custom instructions** appear as `set (42 chars)` or `unset`, never the text you wrote.
-- **Private sites** appear as `3 host(s)` or `unset`, never the hostnames you listed.
-- **Ollama host** appears verbatim only when it is a loopback address such as `http://127.0.0.1:11434`. Any other host becomes `custom host, port 11434`, so a machine name on your network is not disclosed.
+## Browser Permission Sandboxing
 
-The engine logs themselves are recorded by the inference engine and are not scrubbed. Read them before you paste.
+Apogee requests a precise set of browser permissions to enforce security sandboxes:
 
-## Data sharing
-
-We do not sell or transfer user data to third parties, we do not use or transfer user data for any purpose unrelated to the extension's single purpose, and we do not use user data to determine creditworthiness or for lending purposes.
-
-## Permissions
-
-Apogee requests only the permissions needed for on-device summarization and question-answering of the page you are viewing (reading the active tab on your action, running a local AI model, storing your settings, and showing results).
-
-It holds standing access to exactly three kinds of host, and nothing else:
-
-- `http://127.0.0.1` and `http://localhost`, the loopback address used for your own local Ollama server (section 2 above).
-- `*.bilibili.com` and `*.hdslb.com`, needed to read the subtitle track of a Bilibili video you are watching (section 5 above). This is the one request Apogee sends with a site's cookies, because Bilibili only exposes subtitle URLs to a logged-in session.
-
-Every other page is read only at the moment you invoke Apogee on it, through the `activeTab` permission, which grants access to the single tab you are looking at and only for that action. Apogee never requests access to all websites.
-
-## Open source
-
-Apogee is free and open source under the MIT license. You can inspect exactly what it does, including every network request, in the source code:
-
-https://github.com/darshi1337/apogee
-
-## Contact
-
-Questions or concerns: please open an issue at https://github.com/darshi1337/apogee/issues
+- **`activeTab` and `scripting`**: Apogee cannot read your browsing history or inspect other open tabs. It reads the currently active tab only when you click Summarize or Ask, right-click and choose "Summarize this page", or use the keyboard shortcut.
+- **`storage`**: Holds your preferences plus the local cache described above.
+- **`unlimitedStorage`**: Lifts the default quota on `chrome.storage.local` so cached summaries and page text are not evicted under normal storage pressure. It does not grant access to anything beyond that cache.
+- **`offscreen` (Chrome and Edge only)**: Runs the in-browser WebLLM engine in a hidden document, since a service worker cannot access WebGPU directly, and also runs the Transformers.js engine there when selected, since a service worker cannot reliably load it either. Not used, and not requested, in the Firefox build, where Transformers.js runs directly in the background page instead.
+- **`alarms`**: Schedules the housekeeping timers that close the idle in-browser model and clean up finished request buffers. These timers survive the background worker being suspended between uses. No user data is involved.
+- **`declarativeNetRequestWithHostAccess`**: Backs the single bundled rule that strips the `Origin` header from loopback Ollama requests. The rule is scoped to `127.0.0.1` and `localhost` only, excludes requests initiated by local pages so it cannot weaken another local service, and grants header rewriting exclusively on hosts the extension already has access to.
+- **Host Permissions**: Apogee holds standing access to exactly two kinds of hosts: `http://127.0.0.1` and `http://localhost` for your own Ollama, and `*.bilibili.com` and `*.hdslb.com` for the subtitle fetch described above. Every other site is read only at the moment you invoke Apogee on it through `activeTab`. There is no `<all_urls>` standing access.
+- **`contextMenus`**: Adds the "Summarize this page" right-click context menu entry. It does not grant any visibility into your browsing beyond the page you right-clicked on, which `activeTab` already covers.
+- **`notifications`**: Shows a local OS notification when a summary triggered by right-click or keyboard shortcut finishes or fails, so you know it is ready without needing to keep the popup open. Purely local UI; no data leaves your device to show it.

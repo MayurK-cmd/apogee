@@ -4,8 +4,6 @@ Version-controlled copy of the Apogee CWS submission fields. Update alongside ea
 
 Packaging: upload a ZIP of the Chromium build (`dist/chrome`), not a CRX. The store repacks and signs it. `npm run package` produces the release ZIP.
 
----
-
 ## Product details
 
 - **Title:** Apogee
@@ -51,13 +49,9 @@ OPEN SOURCE
 
 Apogee is free and open source (MIT licensed). Source, issues, and releases: https://github.com/darshi1337/apogee
 
----
-
 ## Single purpose description
 
 Apogee summarizes the web page, video, or PDF the user is currently viewing and answers questions about it, using an AI model that runs entirely on the user's own device: in-browser via WebGPU or WebAssembly, or through a local Ollama instance. Every permission and feature serves this one purpose: on-device summarization and question-answering of the content the user is actively looking at. No content is sent to any remote server.
-
----
 
 ## Permission justifications
 
@@ -83,23 +77,17 @@ Apogee summarizes the web page, video, or PDF the user is currently viewing and 
 
 **Host permission justification** (`*://*.bilibili.com/*`, `*://*.hdslb.com/*`) When the user summarizes a Bilibili video, Apogee fetches that video's subtitle track from Bilibili's own API (`api.bilibili.com`) and subtitle CDN (`hdslb.com`) so it can summarize the transcript. Bilibili only serves subtitle URLs to a signed-in session, so this request must carry the user's existing Bilibili cookies; it sends only the video's own IDs and no other browsing information, and the fetched subtitles are summarized on-device and never uploaded. These permissions are used only on Bilibili video pages. Apart from these and the loopback addresses above, Apogee requests no website or third-party host permissions.
 
----
-
 ## Remote code
 
 **No, I am not using Remote code.**
 
 Rationale: the WASM runtimes ship bundled in the package (Transformers.js's WASM is bundled; WebLLM's WASM kernels are downloaded and SHA-256-verified at build time and included in `dist/`, not fetched at runtime). The only runtime downloads are model weight files from Hugging Face, which are data, not JS or Wasm. No `eval`, no external `<script>` tags, no remotely-hosted modules.
 
----
-
 ## Data usage
 
 Check no data-collection boxes. Google defines "collect" as transferring data off the device; Apogee processes all page content locally and transmits none of it. (Reviewers occasionally expect "Website content" to be checked because the extension reads page content. Leaving it unchecked is honest for a local-only tool and is explained by the privacy policy.)
 
 Certify all three disclosures (no selling/transfer, no unrelated use, no creditworthiness use). All true.
-
----
 
 ## Graphic assets checklist
 
