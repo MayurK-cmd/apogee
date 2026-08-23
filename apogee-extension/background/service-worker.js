@@ -334,9 +334,7 @@ async function startOllamaStream(
 
   const translateFn =
     translationEngine === TRANSLATION_ENGINES.OPUS
-      ? makeOpusTranslateFn((p) =>
-          reportProgress(p.text),
-        )
+      ? makeOpusTranslateFn((p) => reportProgress(p.text))
       : undefined;
 
   try {
