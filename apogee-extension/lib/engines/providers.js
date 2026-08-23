@@ -230,7 +230,16 @@ class DirectOllamaProvider {
     this.host = (host || DEFAULT_OLLAMA_HOST).replace(/\/+$/, "");
   }
 
-  summarize({ title, url, content, mode, type, finalize, language }) {
+  summarize({
+    title,
+    url,
+    content,
+    mode,
+    type,
+    finalize,
+    language,
+    translationEngine,
+  }) {
     return startOllamaStream("summarize", {
       title,
       url,
@@ -241,10 +250,11 @@ class DirectOllamaProvider {
       host: this.host,
       finalize,
       language,
+      translationEngine,
     });
   }
 
-  ask({ title, url, content, question, language }) {
+  ask({ title, url, content, question, language, translationEngine }) {
     return startOllamaStream("ask", {
       title,
       url,
@@ -253,6 +263,7 @@ class DirectOllamaProvider {
       model: this.model,
       host: this.host,
       language,
+      translationEngine,
     });
   }
 

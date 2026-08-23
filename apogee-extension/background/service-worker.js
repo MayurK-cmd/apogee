@@ -301,6 +301,7 @@ async function startOllamaStream(
     question,
     finalize,
     language,
+    translationEngine,
   },
 ) {
   const { stream, finish, emitChunk } = createBufferedStream(streamId, {
@@ -331,6 +332,13 @@ async function startOllamaStream(
       .catch(() => {});
   };
 
+  const translateFn =
+    translationEngine === TRANSLATION_ENGINES.OPUS
+      ? makeOpusTranslateFn((p) =>
+          reportProgress(p.text),
+        )
+      : undefined;
+
   try {
     let generator;
     if (action === "summarize") {
@@ -348,6 +356,7 @@ async function startOllamaStream(
           signal: stream.controller.signal,
         },
         {
+          translateFn,
           onProgress: (p) => {
             if (p.stage === "truncated") {
               longNote = "Long page - summarizing the key parts. ";
@@ -376,7 +385,7 @@ async function startOllamaStream(
         chat,
         prompt,
         await resolveEffectiveLanguage(content, language),
-        { signal: stream.controller.signal },
+        { signal: stream.controller.signal, translateFn },
       );
     } else {
       throw new Error(`Unknown ollama-stream action: ${action}`);
