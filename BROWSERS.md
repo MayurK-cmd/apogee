@@ -7,7 +7,7 @@ Apogee ships two builds: a Chromium build (`dist/chrome`, Manifest V3 with an of
 The table below outlines supported feature sets, runtime engine availability, and testing status across web browsers.
 
 | Browser | WebLLM (In-Browser AI, WebGPU) | Transformers.js (In-Browser AI, WASM) | Local Ollama | Notes |
-| | | | | |
+| --- | --- | --- | --- | --- |
 | Chrome 113+ | Yes, default | Yes, opt-in in Settings | Yes | Primary target, most tested |
 | Edge 113+ | Yes, default | Yes, opt-in in Settings | Yes | Chromium based, same engine as Chrome |
 | Dia | Yes, default | Yes, opt-in in Settings | Yes | Chromium based |

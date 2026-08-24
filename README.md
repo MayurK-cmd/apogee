@@ -39,7 +39,7 @@ Apogee fixes Orbit's architectural and privacy flaws by being fully local-first:
 The table below provides a side by side comparison between Apogee, typical cloud based AI extensions, and Mozilla discontinued Orbit project.
 
 | Feature or Architecture | Apogee | Cloud AI Extensions | Mozilla Orbit Project |
-| | | | |
+| --- | --- | --- | --- |
 | Local On-Device Inference | Yes (WebGPU, WASM, and Ollama) | No (Requires cloud API endpoints) | No (Relied on remote Mistral 7B servers) |
 | Zero API Key Requirement | Yes (No keys, subscriptions, or accounts) | No (Requires API keys or paid tiers) | Yes |
 | Offline Functionality | Yes (Works offline after initial weight cache) | No (Requires active internet connection) | No (Failed without server connection) |

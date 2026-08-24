@@ -14,7 +14,7 @@ Under the hood there are two translation engines, selectable under Settings, the
 Opus-MT is English-centric, so it uses one of three tiers per language. The table below is the English-to-target path used when translating a summary:
 
 | Target Language | Opus-MT Model (English-to-Target) | Tier | Recommended Engine |
-| | | | |
+| --- | --- | --- | --- |
 | Spanish | `opus-mt-en-es` | Dedicated model | Opus (Default) |
 | French | `opus-mt-en-fr` | Dedicated model | Opus (Default) |
 | German | `opus-mt-en-de` | Dedicated model | Opus (Default) |
