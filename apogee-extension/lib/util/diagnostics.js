@@ -65,12 +65,16 @@ export function formatDiagnosticsMarkdown(settings, extra = {}, logs = []) {
 
   for (const [key, value] of Object.entries(extra)) {
     if (value !== undefined && value !== null && value !== "") {
-      rows.push(`| ${key} | ${String(value).replace(/\|/g, "\\|")} |`);
+      rows.push(
+        `| ${key} | ${String(value).replace(/\\/g, "\\\\").replace(/\|/g, "\\|")} |`,
+      );
     }
   }
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     const value = settings?.[key];
-    const shown = String(redact(key, value)).replace(/\|/g, "\\|");
+    const shown = String(redact(key, value))
+      .replace(/\\/g, "\\\\")
+      .replace(/\|/g, "\\|");
     const isDefault = value === DEFAULT_SETTINGS[key];
     rows.push(`| ${key} | ${shown}${isDefault ? " _(default)_" : ""} |`);
   }
