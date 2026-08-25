@@ -487,6 +487,7 @@ const EXTRACTOR_INFO = {
   wikipedia: { label: "Wikipedia", icon: "wikipedia" },
   lobsters: { label: "Lobste.rs", icon: "globe" },
   mastodon: { label: "Mastodon", icon: "globe" },
+  stackoverflow: { label: "Stack Overflow", icon: "globe" },
   "multi-tab": { label: "Multi-Tab", icon: "lines" },
   pdf: { label: "PDF", icon: "filetext" },
 };

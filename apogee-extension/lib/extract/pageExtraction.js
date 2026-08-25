@@ -86,6 +86,7 @@ export async function extractFromActiveTab(tab) {
           "/content/extractors/wikipedia.js",
           "/content/extractors/arxiv.js",
           "/content/extractors/mastodon.js",
+          "/content/extractors/stackoverflow.js",
           "/content/content.js",
         ],
       });
