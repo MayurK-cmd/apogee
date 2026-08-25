@@ -7,8 +7,8 @@ This document outlines current work, upcoming priorities, and long-term goals fo
 ## Now
 
 - **Extractor Expansion**:
-  - Add page extractors for more platforms (Stack Overflow, Mastodon, Lemmy, Discourse, GitLab, Dev.to, Bluesky).
-  - Shipped extractors: YouTube, Bilibili, Wikipedia, Gmail, Reddit, Hacker News, GitHub, Lobsters, arXiv.
+  - Add page extractors for more platforms (Stack Overflow, Lemmy, Discourse, GitLab, Dev.to, Bluesky).
+  - Shipped extractors: YouTube, Bilibili, Wikipedia, Gmail, Reddit, Hacker News, GitHub, Lobsters, arXiv, Mastodon.
   - Keep extractor creation simple so contributors can write unit-tested extractors in Node without running a browser.
 - **Test Coverage**:
   - Expand test suites for existing extractors (Bilibili) and untested library modules (diagnostics, hash, timestamps, mapReduce, viewState).
@@ -34,7 +34,7 @@ This document outlines current work, upcoming priorities, and long-term goals fo
 - **Safari Support**:
   - Explore packaging requirements for Safari support.
 - **Multi-Tab Context**:
-  - Summarize and compare across multiple open tabs or reading lists.
+  - Summarize and compare across multiple open tabs or reading lists via multi-select right-click context menu ("Summarize with Apogee"). (#116)
 - **Custom Extractor Plugin API**:
   - Allow users to load custom extractors directly in settings without editing core source code.
 
