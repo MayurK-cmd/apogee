@@ -486,6 +486,7 @@ const EXTRACTOR_INFO = {
   github: { label: "GitHub", icon: "github" },
   wikipedia: { label: "Wikipedia", icon: "wikipedia" },
   lobsters: { label: "Lobste.rs", icon: "globe" },
+  mastodon: { label: "Mastodon", icon: "globe" },
   pdf: { label: "PDF", icon: "filetext" },
 };
 

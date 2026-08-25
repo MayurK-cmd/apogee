@@ -53,6 +53,7 @@ export default [
         extractGitHub: "readonly",
         extractWikipedia: "readonly",
         extractArxiv: "readonly",
+        extractMastodon: "readonly",
       },
     },
   },
@@ -81,6 +82,7 @@ export default [
       "content/extractors/reddit.js",
       "content/extractors/lobsters.js",
       "content/extractors/github.js",
+      "content/extractors/mastodon.js",
     ],
     languageOptions: {
       globals: {

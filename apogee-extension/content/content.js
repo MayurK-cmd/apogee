@@ -58,6 +58,9 @@ async function extractPageContent() {
     if (data) return { ...data, isPdf: false };
   }
 
+  const mastodonData = extractMastodon();
+  if (mastodonData) return { ...mastodonData, isPdf: false };
+
   const data = extractGeneric();
   return { ...data, isPdf: false };
 }
