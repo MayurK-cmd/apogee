@@ -59,6 +59,7 @@ function formatThreadComments(nodes) {
     if (n.directReplies) line += ` <replies: ${n.directReplies}>`;
     if (n.downvotes) line += ` {downvotes: ${n.downvotes}}`;
     if (typeof n.score === "number") line += ` (score: ${n.score})`;
+    if (n.accepted) line += ` [accepted]`;
     line += ` ${n.author}: ${n.text}`;
     lines.push(line);
   }

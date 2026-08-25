@@ -12,6 +12,24 @@ function loadThread() {
 
 const hasText = (n) => !!n.text;
 
+test("formatThreadComments marks accepted answers", () => {
+  const { buildThreadNodes, formatThreadComments } = loadThread();
+  const nodes = buildThreadNodes([
+    {
+      depth: 0,
+      author: "carol",
+      text: "use decimal",
+      score: 5,
+      accepted: true,
+    },
+  ]);
+
+  assert.match(
+    formatThreadComments(nodes),
+    /\[1\] \(score: 5\) \[accepted\] carol: use decimal/,
+  );
+});
+
 test("directReplies counts only replies that survive eligibility", () => {
   const { buildThreadNodes, selectThreadComments, formatThreadComments } =
     loadThread();

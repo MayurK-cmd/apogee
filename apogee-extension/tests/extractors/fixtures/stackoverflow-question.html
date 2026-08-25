@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>When should I use a decimal? - Stack Overflow</title>
+  </head>
+  <body>
+    <div id="content">
+      <div id="question-header">
+        <h1 itemprop="name">
+          <a href="/questions/4/when-should-i-use-a-decimal" class="question-hyperlink">When should I use a decimal?</a>
+        </h1>
+      </div>
+
+      <div id="question" class="question" data-questionid="4">
+        <div class="js-voting-container">
+          <div class="js-vote-count" data-value="42">42</div>
+        </div>
+        <div class="postcell">
+          <div class="s-prose js-post-body" itemprop="text">
+            <p>I need to store currency. Should the field be decimal or double?</p>
+          </div>
+          <div class="post-taglist">
+            <a href="/questions/tagged/c%23" class="s-tag post-tag">c#</a>
+            <a href="/questions/tagged/floating-point" class="s-tag post-tag">floating-point</a>
+          </div>
+          <div class="post-signature owner">
+            <div class="user-info">
+              <div class="user-details">
+                <a href="/users/2/alice">alice</a>
+              </div>
+            </div>
+          </div>
+          <div class="comments">
+            <ul class="comments-list">
+              <li class="comment">
+                <div class="comment-body">
+                  <span class="comment-copy">What range of values do you need?</span>
+                  <a href="/users/3/bob" class="comment-user">bob</a>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div id="answers">
+        <div id="answer-7" class="answer accepted-answer" data-answerid="7" itemprop="acceptedAnswer">
+          <div class="js-voting-container">
+            <div class="js-vote-count" data-value="5">5</div>
+          </div>
+          <div class="answercell">
+            <div class="s-prose js-post-body" itemprop="text">
+              <p>Use decimal for currency so you do not accumulate binary rounding error.</p>
+            </div>
+            <div class="user-info">
+              <div class="user-details">
+                <a href="/users/1/carol">carol</a>
+              </div>
+            </div>
+            <div class="comments">
+              <ul class="comments-list">
+                <li class="comment">
+                  <div class="comment-body">
+                    <span class="comment-copy">This is the right default for money.</span>
+                    <a href="/users/4/dave" class="comment-user">dave</a>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div id="answer-8" class="answer" data-answerid="8">
+          <div class="js-voting-container">
+            <div class="js-vote-count" data-value="100">100</div>
+          </div>
+          <div class="answercell">
+            <div class="s-prose js-post-body" itemprop="text">
+              <p>Double is faster, but the extra precision is rarely worth the rounding surprises.</p>
+            </div>
+            <div class="user-info">
+              <div class="user-details">
+                <a href="/users/5/erin">erin</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="answer-9" class="answer" data-answerid="9">
+          <div class="js-voting-container">
+            <div class="js-vote-count" data-value="12">12</div>
+          </div>
+          <div class="answercell">
+            <div class="s-prose js-post-body" itemprop="text">
+              <p>Integers of cents avoid the question entirely.</p>
+            </div>
+            <div class="user-info">
+              <div class="user-details">
+                <a href="/users/6/frank">frank</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

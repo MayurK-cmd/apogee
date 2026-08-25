@@ -66,7 +66,8 @@ export async function* summarizeText(
     return;
   }
 
-  const isDiscussion = type === "hackernews" || type === "reddit";
+  const isDiscussion =
+    type === "hackernews" || type === "reddit" || type === "stackoverflow";
   const buildPrompt = isDiscussion ? buildDiscussionPrompt : buildSummaryPrompt;
 
   const postExcerpt = isDiscussion ? discussionPostExcerpt(text) : "";
