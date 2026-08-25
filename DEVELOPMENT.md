@@ -89,7 +89,7 @@ The `lib/` folder contains pure JavaScript logic split into clean functional sub
 
 #### `lib/util/` (Shared Helper Utilities)
 
-- **What it Contains**: `userError.js` (sanitized user-facing error mapping), execution mutex locks, and reading time saved calculation functions.
+- **What it Contains**: `userError.js` (sanitized user-facing error mapping), `permissions.js` (dynamic host permissions checking and on-demand origin prompting), execution mutex locks, and reading time saved calculation functions.
 - **How to Contribute**: Add friendly user error mappers or general utility functions used across extension background scripts and popups.
 
 ### 3. `background/` (Service Worker Architecture)
@@ -132,7 +132,7 @@ Before submitting a pull request, run the complete suite of tests and quality ch
   npm test
   ```
 
-  Executes all 244+ unit tests across extractors, engines, retrieval, storage, prompts, chunking, and error handlers.
+  Executes all 270+ unit tests across extractors, engines, retrieval, storage, prompts, chunking, permissions, and error handlers.
 
 - **Run Linter Checks**:
 

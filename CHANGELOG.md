@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **On-demand permission prompts for optional host permissions.** Added dynamic permission check and request workflows (`ensurePermissionsForUrl`) in the popup UI when summarizing site surfaces requiring cross-origin host access (Bilibili, YouTube, SponsorBlock). (#94, #115)
 - **arXiv abstract extractor.** Custom extractor for arXiv abstract pages (`/abs/*`) that parses paper titles, authors, subjects, arXiv ID, PDF link, and abstract into structured Markdown. (#93)
 - **On-device semantic search for past summaries.** Real-time vector search across saved summary titles and content bodies powered by `all-MiniLM-L6-v2` embeddings, automatically stored and capped alongside cached summaries in local storage. (#9)
 - **Keyboard shortcut to open extension popup.** Added user-configurable keyboard shortcut support for opening the extension popup.
@@ -18,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **Domain permissions refactored to `optional_host_permissions`.** Replaced static cross-origin host permissions in `manifest.json` with strict `activeTab` access by default, moving site-specific cross-origin domains (`*.bilibili.com`, `*.hdslb.com`, `*.youtube.com`, `sponsor.ajay.app`) to `optional_host_permissions`. (#94, #115)
 - **Translation engine cache identity.** Included translation engine in cached summary identity keys to prevent cache collisions between LLM and Opus-MT translation outputs. (#100, #101)
 - **Stream expiry summary recovery.** Restored ability to view completed summaries when reopening popup after stream expiry.
 

@@ -785,6 +785,12 @@ const SPONSORBLOCK_CATEGORIES = ["sponsor", "selfpromo", "interaction"];
 async function fetchSponsorBlockSegments(videoId) {
   if (!/^[A-Za-z0-9_-]{11}$/.test(videoId || "")) return [];
 
+  const hasPerm = await hasHostPermissions([
+    "*://*.youtube.com/*",
+    "https://sponsor.ajay.app/*",
+  ]);
+  if (!hasPerm) return [];
+
   const bytes = new TextEncoder().encode(videoId);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const hashHex = [...new Uint8Array(digest)]

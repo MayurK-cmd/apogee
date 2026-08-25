@@ -4,6 +4,8 @@ import assert from "node:assert";
 import {
   hasHostPermissions,
   requestHostPermissions,
+  getOptionalOriginsForUrl,
+  ensurePermissionsForUrl,
 } from "../../lib/util/permissions.js";
 
 test("hasHostPermissions returns true when chrome.permissions is undefined", async () => {
@@ -63,3 +65,53 @@ test("requestHostPermissions calls chrome.permissions.request and returns grante
     globalThis.chrome = originalChrome;
   }
 });
+
+test("getOptionalOriginsForUrl returns required origins for bilibili and youtube URLs", () => {
+  assert.deepStrictEqual(
+    getOptionalOriginsForUrl("https://www.bilibili.com/video/BV1xx411c7mD"),
+    ["*://*.bilibili.com/*", "*://*.hdslb.com/*"],
+  );
+  assert.deepStrictEqual(
+    getOptionalOriginsForUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+    ["*://*.youtube.com/*", "https://sponsor.ajay.app/*"],
+  );
+  assert.deepStrictEqual(
+    getOptionalOriginsForUrl("https://youtu.be/dQw4w9WgXcQ"),
+    ["*://*.youtube.com/*", "https://sponsor.ajay.app/*"],
+  );
+  assert.deepStrictEqual(
+    getOptionalOriginsForUrl("https://en.wikipedia.org/wiki/Main_Page"),
+    [],
+  );
+});
+
+test("ensurePermissionsForUrl requests permissions on-demand when not already granted", async () => {
+  const originalChrome = globalThis.chrome;
+  let requestedOrigins = null;
+
+  globalThis.chrome = {
+    permissions: {
+      contains(_opts, callback) {
+        callback(false);
+      },
+      request({ origins }, callback) {
+        requestedOrigins = origins;
+        callback(true);
+      },
+    },
+  };
+
+  try {
+    const result = await ensurePermissionsForUrl(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
+    assert.strictEqual(result, true);
+    assert.deepStrictEqual(requestedOrigins, [
+      "*://*.youtube.com/*",
+      "https://sponsor.ajay.app/*",
+    ]);
+  } finally {
+    globalThis.chrome = originalChrome;
+  }
+});
+

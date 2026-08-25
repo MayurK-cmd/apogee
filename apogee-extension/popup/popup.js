@@ -62,6 +62,7 @@ import {
   extractFromActiveTab,
   extractPdfContent,
 } from "../lib/extract/pageExtraction.js";
+import { ensurePermissionsForUrl } from "../lib/util/permissions.js";
 import { icon, ICONS } from "./icons.js";
 
 const summarizeBtn = document.getElementById("summarizeBtn");
@@ -534,6 +535,9 @@ async function getPageData(tab) {
     return cached;
   }
 
+  if (tab?.url) {
+    await ensurePermissionsForUrl(tab.url);
+  }
   const pageData = await extractFromActiveTab(tab);
   if (pageData?.isPdf) {
     pageData.content = await extractPdfContent(tab);
@@ -1302,6 +1306,9 @@ async function summarizeActivePage() {
     const model = getModelForSettings(settings);
     currentSummaryLanguage = settings.summaryLanguage;
     currentTranslationEngine = settings.translationEngine;
+    if (tab?.url) {
+      await ensurePermissionsForUrl(tab.url);
+    }
     const pageData = await extractFromActiveTab(tab);
 
     if (!pageData) {

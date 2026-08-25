@@ -16,7 +16,12 @@
     "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
-  "optional_host_permissions": ["*://*.bilibili.com/*", "*://*.hdslb.com/*"],
+  "optional_host_permissions": [
+    "*://*.bilibili.com/*",
+    "*://*.hdslb.com/*",
+    "*://*.youtube.com/*",
+    "https://sponsor.ajay.app/*"
+  ],
   "declarative_net_request": {
     "rule_resources": [
       {
