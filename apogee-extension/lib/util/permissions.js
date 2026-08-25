@@ -74,4 +74,3 @@ export async function ensurePermissionsForUrl(url) {
   if (granted) return true;
   return await requestHostPermissions(origins);
 }
-

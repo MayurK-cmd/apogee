@@ -114,4 +114,3 @@ test("ensurePermissionsForUrl requests permissions on-demand when not already gr
     globalThis.chrome = originalChrome;
   }
 });
-
