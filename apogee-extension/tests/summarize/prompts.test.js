@@ -7,6 +7,7 @@ import {
   buildTranslatePrompt,
   buildSummaryPrompt,
   buildDiscussionPrompt,
+  buildMultiTabSummaryPrompt,
   buildYoutubeAssemblyPrompt,
   youtubeSummaryScale,
   withCustomInstructions,
@@ -195,4 +196,26 @@ test("prompt builders include injection rule and fence delimiters for untrusted 
   );
   assert.match(pYoutubeAssembly, injectionPattern);
   assert.match(pYoutubeAssembly, new RegExp(START_FENCE));
+});
+
+test("buildMultiTabSummaryPrompt formats multi-tab content into a synthesized prompt", () => {
+  const tabs = [
+    {
+      title: "Tab 1 Title",
+      url: "https://example.com/1",
+      content: "Content of tab 1",
+    },
+    {
+      title: "Tab 2 Title",
+      url: "https://example.com/2",
+      content: "Content of tab 2",
+    },
+  ];
+  const prompt = buildMultiTabSummaryPrompt(tabs, "bullets");
+  assert.match(prompt, /summarizing multiple tabs simultaneously/i);
+  assert.match(prompt, /--- TAB 1: Tab 1 Title ---/);
+  assert.match(prompt, /Content of tab 1/);
+  assert.match(prompt, /--- TAB 2: Tab 2 Title ---/);
+  assert.match(prompt, /Content of tab 2/);
+  assert.match(prompt, /5-8 bullet points/);
 });

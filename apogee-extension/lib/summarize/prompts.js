@@ -221,6 +221,38 @@ export function buildSynthesisPrompt(title, url, notes, mode, styleOverride) {
   ].join("\n");
 }
 
+export function buildMultiTabSummaryPrompt(tabsData, mode, styleOverride) {
+  const style = styleOverride || SUMMARY_STYLES[mode] || SUMMARY_STYLES.bullets;
+  const tabsFormatted = (tabsData || [])
+    .map(
+      (tab, idx) =>
+        `--- TAB ${idx + 1}: ${tab.title || "Untitled Tab"} ---\nURL: ${tab.url || ""}\n\n${fenceContent(tab.content)}`,
+    )
+    .join("\n\n");
+
+  return [
+    "You are Apogee, a strict factual browser assistant summarizing multiple tabs simultaneously.",
+    "",
+    "Your task is to synthesize the information across all the provided open tabs into one clear, high-level summary and overview.",
+    "",
+    "IMPORTANT RULES:",
+    INJECTION_RULE,
+    "- Do NOT invent information that is not in the provided tab contents.",
+    "- State key findings, common themes, and distinct points across the open tabs.",
+    "- Clearly attribute notable facts or differences to their respective source tab title when helpful.",
+    "- Stay grounded in the provided tab contents.",
+    "- Summarize as a neutral third party.",
+    "",
+    "SUMMARY STYLE:",
+    style,
+    "",
+    "The SUMMARY STYLE is mandatory. Follow it exactly.",
+    "",
+    "OPEN TABS TO SUMMARIZE:",
+    tabsFormatted,
+  ].join("\n");
+}
+
 export function buildDiscussionPrompt(
   title,
   url,

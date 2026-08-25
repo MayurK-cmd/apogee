@@ -10,6 +10,7 @@ export const CACHEABLE_PAGE_TYPES = new Set([
   "article",
   "generic",
   "wikipedia",
+  "multi-tab",
 ]);
 
 export async function hashUrl(url) {

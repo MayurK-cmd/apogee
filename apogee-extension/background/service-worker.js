@@ -12,6 +12,7 @@ import { hasHostPermissions } from "../lib/util/permissions.js";
 import {
   buildAnswerPrompt,
   buildSuggestQuestionsPrompt,
+  buildMultiTabSummaryPrompt,
   withCustomInstructions,
 } from "../lib/summarize/prompts.js";
 import { truncateForPrompt } from "../lib/summarize/chunk.js";
@@ -1516,6 +1517,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         }
 
+        case "summarize-multi-tab": {
+          let targetTabs = message.payload?.tabs;
+          if (!targetTabs && typeof chrome.tabs?.query === "function") {
+            targetTabs = await chrome.tabs.query({
+              highlighted: true,
+              currentWindow: true,
+            });
+          }
+          const res = await summarizeMultiTab(targetTabs || []);
+          sendResponse(res || { error: "Could not summarize selected tabs." });
+          break;
+        }
+
         default:
           sendResponse({ error: `Unknown action: ${message.action}` });
       }
@@ -1527,3 +1541,150 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handler();
   return true;
 });
+
+export function setupContextMenus() {
+  if (typeof chrome === "undefined" || !chrome.contextMenus) return;
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "apogee-summarize-tabs",
+      title: "Summarize with Apogee",
+      contexts: ["page", "selection", "tab", "action"],
+    });
+  });
+}
+
+if (typeof chrome !== "undefined" && chrome.runtime?.onInstalled) {
+  chrome.runtime.onInstalled.addListener(() => {
+    setupContextMenus();
+  });
+}
+setupContextMenus();
+
+export async function summarizeMultiTab(tabsToSummarize) {
+  const extractedResults = [];
+  for (const tab of tabsToSummarize) {
+    try {
+      if (!tab?.url) continue;
+      let pageData = await extractFromActiveTab(tab);
+      if (pageData?.isPdf) {
+        pageData.content = await extractPdfContent(tab);
+      }
+      if (pageData && pageData.content && pageData.content.trim()) {
+        extractedResults.push({
+          title: pageData.title || tab.title || "Untitled Tab",
+          url: tab.url,
+          content: pageData.content.trim(),
+          type: pageData.type || "article",
+        });
+      }
+    } catch {
+      // Gracefully ignore unscriptable tabs
+    }
+  }
+
+  if (extractedResults.length === 0) {
+    if (typeof chrome !== "undefined" && chrome.notifications) {
+      chrome.notifications.create("apogee-multitab-error", {
+        type: "basic",
+        iconUrl:
+          chrome.runtime.getURL("assets/icon.png") || "assets/icon-48.png",
+        title: "Apogee",
+        message: "Could not extract content from the selected tab(s).",
+      });
+    }
+    return null;
+  }
+
+  const notificationId = `apogee-multitab-${Date.now()}`;
+  if (typeof chrome !== "undefined" && chrome.notifications) {
+    chrome.notifications.create(notificationId, {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("assets/icon.png") || "assets/icon-48.png",
+      title: "Apogee Multi-Tab Summary",
+      message: `Extracting and summarizing ${extractedResults.length} selected tab(s)...`,
+    });
+  }
+
+  const settings = await getSettings();
+  const title = `Multi-Tab Summary (${extractedResults.length} tabs)`;
+  const url = tabsToSummarize[0]?.url || extractedResults[0].url;
+
+  const prompt = buildMultiTabSummaryPrompt(
+    extractedResults,
+    settings.summaryMode,
+    settings.customInstructions,
+  );
+
+  const providerType = getProviderType(settings);
+  const model = getModelForSettings(settings);
+
+  let summaryResult;
+  if (providerType === PROVIDERS.OLLAMA) {
+    summaryResult = await summarizeText(prompt, settings.ollamaHost, model);
+  } else if (providerType === PROVIDERS.TRANSFORMERS) {
+    summaryResult = await withTransformersEngine((engine) =>
+      engine.generate(prompt, { model }),
+    );
+  } else {
+    await ensureOffscreenDocument();
+    const response = await chrome.runtime.sendMessage({
+      target: "offscreen",
+      action: "summarize",
+      payload: { prompt, model },
+    });
+    summaryResult = response?.summary || "";
+  }
+
+  const pageData = {
+    type: "multi-tab",
+    title,
+    url,
+    content: summaryResult,
+    tabs: extractedResults.map((t) => ({ title: t.title, url: t.url })),
+  };
+
+  await saveViewState(url, {
+    status: "completed",
+    summary: summaryResult,
+    pageData,
+  });
+
+  if (typeof chrome !== "undefined" && chrome.notifications) {
+    chrome.notifications.create(`${notificationId}-ready`, {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("assets/icon.png") || "assets/icon-48.png",
+      title: "Apogee Multi-Tab Summary Ready",
+      message: `Synthesized summary for ${extractedResults.length} tabs. Click to view in Apogee!`,
+    });
+  }
+
+  return { summary: summaryResult, pageData };
+}
+
+if (typeof chrome !== "undefined" && chrome.contextMenus) {
+  chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+    if (info.menuItemId === "apogee-summarize-tabs") {
+      let targetTabs = [tab];
+      if (typeof chrome.tabs?.query === "function") {
+        const highlighted = await chrome.tabs.query({
+          highlighted: true,
+          currentWindow: true,
+        });
+        if (highlighted && highlighted.length > 0) {
+          targetTabs = highlighted;
+        }
+      }
+      await summarizeMultiTab(targetTabs);
+    }
+  });
+}
+
+if (typeof chrome !== "undefined" && chrome.notifications) {
+  chrome.notifications.onClicked.addListener((notificationId) => {
+    if (notificationId.startsWith("apogee-multitab")) {
+      if (typeof chrome.action?.openPopup === "function") {
+        chrome.action.openPopup().catch(() => {});
+      }
+    }
+  });
+}
