@@ -148,6 +148,90 @@ Before submitting a pull request, run the complete suite of tests and quality ch
   ```
   Verifies that JavaScript and Markdown files follow Prettier formatting rules.
 
+## Browser Automation & E2E Testing
+
+Apogee can be loaded and controlled in automated browser test suites using tools like **Playwright** or **Puppeteer**. Because Chromium extension APIs require headful execution, set `headless: false` when running browser automation.
+
+### 1. Playwright (Chromium) Integration Example
+
+Launch Playwright with the unpacked `dist/chrome` build preloaded:
+
+```javascript
+const { chromium } = require("playwright");
+const path = require("path");
+
+(async () => {
+  const extensionPath = path.resolve("./apogee-extension/dist/chrome");
+
+  const context = await chromium.launchPersistentContext("", {
+    headless: false,
+    args: [
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`,
+    ],
+  });
+
+  const page = await context.newPage();
+  await page.goto("https://en.wikipedia.org/wiki/Artificial_intelligence");
+
+  // Trigger background summarize via keyboard shortcut (Alt+Shift+U)
+  await page.keyboard.press("Alt+Shift+U");
+
+  // Wait for processing and inspect storage
+  await page.waitForTimeout(5000);
+  const serviceWorker = context.serviceWorkers()[0];
+  const storageData = await serviceWorker.evaluate(() =>
+    chrome.storage.local.get(null),
+  );
+  console.log("Cached Summaries:", storageData);
+
+  await context.close();
+})();
+```
+
+### 2. Puppeteer (Chromium) Integration Example
+
+```javascript
+const puppeteer = require("puppeteer");
+const path = require("path");
+
+(async () => {
+  const extensionPath = path.resolve("./apogee-extension/dist/chrome");
+
+  const browser = await puppeteer.launch({
+    headless: false,
+    args: [
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`,
+    ],
+  });
+
+  const page = await browser.newPage();
+  await page.goto("https://en.wikipedia.org/wiki/Artificial_intelligence");
+
+  // Trigger background summarize via shortcut
+  await page.keyboard.down("Alt");
+  await page.keyboard.down("Shift");
+  await page.keyboard.press("KeyU");
+  await page.keyboard.up("Shift");
+  await page.keyboard.up("Alt");
+
+  await browser.close();
+})();
+```
+
+### 3. Programmatic Service Worker Messaging
+
+For custom test runners, invoke background service worker actions directly using WebExtension messaging:
+
+```javascript
+// Programmatically trigger background page summarization
+chrome.runtime.sendMessage({
+  type: "BACKGROUND_SUMMARIZE",
+  tabId: activeTab.id,
+});
+```
+
 ## Guidelines for Pull Requests
 
 - Keep PRs focused on a single feature, site extractor, or bug fix.

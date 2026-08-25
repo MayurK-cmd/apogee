@@ -130,3 +130,4 @@ When you click a summary bullet in Chromium browsers, Apogee highlights the exac
 - **Chromium Browsers**: Use Manifest V3 offscreen documents (`chrome.offscreen`) to host WebLLM with full WebGPU hardware acceleration.
 - **Firefox**: Firefox extension APIs do not currently support offscreen documents. Transformers.js executes directly in Firefox background page using WebAssembly.
 - **Local Ollama**: Communicates directly over local loopback (`http://127.0.0.1:11434`) via HTTP streaming from the background service worker.
+- **Automation & Testing**: For E2E browser automation setup using Playwright or Puppeteer with Apogee loaded, see [DEVELOPMENT.md#browser-automation--e2e-testing](DEVELOPMENT.md#browser-automation--e2e-testing).

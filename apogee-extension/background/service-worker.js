@@ -8,6 +8,7 @@ import { makeOpusTranslateFn } from "../lib/language/opusTranslateEngine.js";
 import { chatStream, checkHealth } from "../lib/engines/ollamaClient.js";
 import { errorHelpUrl } from "../lib/util/errorHelp.js";
 import { toUserMessage } from "../lib/util/userError.js";
+import { hasHostPermissions } from "../lib/util/permissions.js";
 import {
   buildAnswerPrompt,
   buildSuggestQuestionsPrompt,
@@ -833,7 +834,11 @@ async function fetchBilibiliSubtitles({ aid, bvid, cid, preferredLang }) {
   const params = new URLSearchParams({ cid: cidStr });
   if (bvid && /^BV[0-9A-Za-z]{10}$/.test(bvid)) params.set("bvid", bvid);
   else if (aid && /^\d+$/.test(String(aid))) params.set("aid", String(aid));
-  else return [];
+  const hasPerm = await hasHostPermissions([
+    "*://*.bilibili.com/*",
+    "*://*.hdslb.com/*",
+  ]);
+  if (!hasPerm) return [];
 
   let listRes;
   try {
@@ -1238,6 +1243,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "offscreen-ready") {
     _offscreenScriptReadyResolve();
     return false;
+  }
+
+  if (message.type === "check-host-permissions") {
+    hasHostPermissions(message.origins || []).then((hasPermissions) => {
+      sendResponse({ hasPermissions });
+    });
+    return true;
   }
 
   if (message.type === "model-progress") {
