@@ -10,8 +10,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **arXiv abstract extractor.** Custom extractor for arXiv abstract pages (`/abs/*`) that parses paper titles, authors, subjects, arXiv ID, PDF link, and abstract into structured Markdown. (#93)
 - **On-device semantic search for past summaries.** Real-time vector search across saved summary titles and content bodies powered by `all-MiniLM-L6-v2` embeddings, automatically stored and capped alongside cached summaries in local storage. (#9)
+- **Keyboard shortcut to open extension popup.** Added user-configurable keyboard shortcut support for opening the extension popup.
+- **Automated CI & release workflows.** Added GitHub Actions workflows for release artifact packaging, CodeQL security scanning, Dependabot auto-merge, and dependency review checks.
+- **Unit test coverage for timestamp utilities.** Unit tests for `lib/util/timestamps.js` covering timestamp parsing, formatting, and edge cases.
 - **Unit test coverage for cleaner module.** Tests for `lib/summarize/cleaner.js` covering whitespace collapsing, line trimming, double-newline collapsing, and already-clean text. (#79)
 - **Unit test coverage for Bilibili extractor.** Extractor tests for `content/extractors/bilibili.js`. (#78)
+
+### Fixed
+
+- **Translation engine cache identity.** Included translation engine in cached summary identity keys to prevent cache collisions between LLM and Opus-MT translation outputs. (#100, #101)
+- **Stream expiry summary recovery.** Restored ability to view completed summaries when reopening popup after stream expiry.
+
+### Security
+
+- **CodeQL security hardening.** Resolved CodeQL alerts for URL scheme validation, hostname regex parsing, and markdown link sanitization.
+
 
 
 ## [0.2.1] - 2026-08-19
