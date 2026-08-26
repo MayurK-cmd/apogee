@@ -100,3 +100,34 @@ test("shouldPersist correctly enforces history settings for trusted URL persiste
     true,
   );
 });
+
+test("internal job registry resolves registered finalize object and ignores untrusted caller input", async () => {
+  const registeredJobs = new Map();
+  const streamId = "webllm-12345";
+  const trustedFinalize = {
+    cacheKey: "summary:bullets:auto:model:opus:12345",
+    jobId: "job-123",
+    tabId: 1,
+  };
+
+  registeredJobs.set(streamId, {
+    finalize: trustedFinalize,
+    model: "trusted-model",
+    title: "Trusted Title",
+    url: "https://trusted.example.com",
+  });
+
+  const callerMessage = {
+    streamId,
+    finalize: { cacheKey: "FORGED_CACHE_KEY", jobId: "forged-job" },
+    model: "forged-model",
+    title: "Forged Title",
+  };
+
+  const resolvedJob = registeredJobs.get(callerMessage.streamId);
+  assert.deepStrictEqual(resolvedJob.finalize, trustedFinalize);
+  assert.notStrictEqual(
+    resolvedJob.finalize.cacheKey,
+    callerMessage.finalize.cacheKey,
+  );
+});

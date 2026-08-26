@@ -516,6 +516,7 @@ async function runStream(streamId, pending, stream) {
         .sendMessage({
           target: "service-worker",
           type: "stream-finished",
+          streamId,
           finalize: pending.finalize,
           model: pending.model,
           title: pending.title,

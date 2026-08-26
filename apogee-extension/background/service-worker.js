@@ -137,9 +137,24 @@ async function ensureOffscreenDocumentOnce() {
 function nextStreamId(kind) {
   return `${kind}-${crypto.randomUUID()}`;
 }
+
+const registeredStreamJobs = new Map();
+
+function registerStreamJob(streamId, jobData) {
+  if (!streamId || !jobData?.finalize) return;
+  registeredStreamJobs.set(streamId, jobData);
+  scheduleStreamCleanup(streamId);
+}
+
 async function recordPopupSummaryStream(payload, streamId) {
   const finalize = payload?.finalize;
   if (!finalize?.jobId || finalize.tabId == null) return;
+  registerStreamJob(streamId, {
+    finalize,
+    model: payload.model,
+    title: payload.title,
+    url: payload.url,
+  });
   await saveViewStateIfJobMatches(
     finalize.tabId,
     finalize.jobId,
@@ -745,6 +760,13 @@ async function runBackgroundSummarize(
     streamId = nextStreamId("webllm");
   }
 
+  registerStreamJob(streamId, {
+    finalize,
+    model,
+    title: pageData.title,
+    url: pageData.url,
+  });
+
   await saveViewState(tab.id, {
     view: "summaryView",
     subview: "summarizing",
@@ -1240,7 +1262,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     return;
   }
   if (alarm.name.startsWith(STREAM_CLEANUP_PREFIX)) {
-    activeStreams.delete(alarm.name.slice(STREAM_CLEANUP_PREFIX.length));
+    const streamId = alarm.name.slice(STREAM_CLEANUP_PREFIX.length);
+    activeStreams.delete(streamId);
+    registeredStreamJobs.delete(streamId);
   }
 });
 
@@ -1356,19 +1380,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "stream-finished") {
     if (message.error) return false;
     (async () => {
-      const trustedFinalize = message.finalize
-        ? await buildTrustedFinalize({
-            url: message.url,
-            title: message.title,
-            model: message.model,
-            finalize: message.finalize,
-          })
+      const streamId = message.streamId;
+      const registeredJob = streamId
+        ? registeredStreamJobs.get(streamId)
         : null;
+      if (streamId) {
+        registeredStreamJobs.delete(streamId);
+      }
+
+      const trustedFinalize =
+        registeredJob?.finalize ||
+        (message.finalize
+          ? await buildTrustedFinalize({
+              url: message.url,
+              title: message.title,
+              model: message.model,
+              finalize: message.finalize,
+            })
+          : null);
+      const model = registeredJob?.model || message.model;
+      const title = registeredJob?.title || message.title;
+      const url = registeredJob?.url || message.url;
+
       await finalizeSummaryJob({
         finalize: trustedFinalize,
-        model: message.model,
-        title: message.title,
-        url: message.url,
+        model,
+        title,
+        url,
         text: message.text,
       });
     })();
