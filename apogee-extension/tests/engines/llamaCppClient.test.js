@@ -261,9 +261,79 @@ test("chatStream errors are marked user-facing so they are not remapped", async 
   }
 });
 
-function routedFetch(routes) {
-  return async (url) => {
+test("chatStream sends no Authorization header when no key is configured", async () => {
+  let sent;
+  const restore = stubFetch(async (_url, init) => {
+    sent = init.headers;
+    return streamingResponse([token("hi"), "data: [DONE]"]);
+  });
+  try {
+    await collect(chatStream(HOST, "m", "p"));
+    assert.equal(sent.Authorization, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("chatStream sends the API key as a bearer token when one is set", async () => {
+  let sent;
+  const restore = stubFetch(async (_url, init) => {
+    sent = init.headers;
+    return streamingResponse([token("hi"), "data: [DONE]"]);
+  });
+  try {
+    await collect(chatStream(HOST, "m", "p", { apiKey: "secret123" }));
+    assert.equal(sent.Authorization, "Bearer secret123");
+  } finally {
+    restore();
+  }
+});
+
+// A key that is only whitespace is the same as no key, and sending
+// "Bearer    " would turn an unauthenticated server into a 401.
+test("chatStream treats a blank API key as no key at all", async () => {
+  let sent;
+  const restore = stubFetch(async (_url, init) => {
+    sent = init.headers;
+    return streamingResponse([token("hi"), "data: [DONE]"]);
+  });
+  try {
+    await collect(chatStream(HOST, "m", "p", { apiKey: "   " }));
+    assert.equal(sent.Authorization, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("chatStream explains a rejected API key instead of echoing the server", async () => {
+  const restore = stubFetch(async () =>
+    streamingResponse(
+      [
+        JSON.stringify({
+          error: {
+            message: "Invalid API Key",
+            type: "authentication_error",
+            code: 401,
+          },
+        }),
+      ],
+      { ok: false, status: 401 },
+    ),
+  );
+  try {
+    await assert.rejects(
+      collect(chatStream(HOST, "m", "p", { apiKey: "wrong" })),
+      /rejected the API key.*--api-key/s,
+    );
+  } finally {
+    restore();
+  }
+});
+
+function routedFetch(routes, onRequest) {
+  return async (url, init) => {
     const { pathname } = new URL(url);
+    onRequest?.(pathname, init);
     const handler = routes[pathname];
     if (!handler) throw new Error(`unexpected request: ${pathname}`);
     return handler();
@@ -374,6 +444,32 @@ test("checkHealth reports an unreachable server as disconnected instead of throw
     models: [],
     contextTokens: null,
   });
+});
+
+// Which endpoints --api-key guards has changed between llama-server versions,
+// so the key goes on all three rather than a guessed subset.
+test("checkHealth authenticates every lookup, not just the guarded ones", async () => {
+  const seen = new Map();
+  const restore = stubFetch(
+    routedFetch(
+      {
+        "/health": ok({ status: "ok" }),
+        "/props": ok(PROPS),
+        "/v1/models": ok(MODELS),
+      },
+      (pathname, init) => seen.set(pathname, init?.headers?.Authorization),
+    ),
+  );
+  try {
+    await checkHealth(HOST, 50, "secret123");
+  } finally {
+    restore();
+  }
+  assert.deepStrictEqual([...seen.entries()].sort(), [
+    ["/health", "Bearer secret123"],
+    ["/props", "Bearer secret123"],
+    ["/v1/models", "Bearer secret123"],
+  ]);
 });
 
 test("DEFAULT_CONTEXT_TOKENS is small enough to be safe on an unreported window", () => {

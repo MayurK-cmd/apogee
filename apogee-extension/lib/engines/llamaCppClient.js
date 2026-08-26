@@ -12,6 +12,15 @@ export const DEFAULT_CONTEXT_TOKENS = 8192;
 
 const SSE_DONE = "[DONE]";
 
+// llama-server started with `--api-key` wants it as a bearer token. Which
+// endpoints it guards has moved between versions (`/health` and `/v1/models`
+// have been public, `/props` has not), so the header goes on every request
+// rather than a guessed subset: a server that does not want it ignores it.
+function authHeaders(apiKey) {
+  const key = (apiKey || "").trim();
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
+
 function connectError(host, err) {
   return new LlamaCppError(
     `Could not connect to llama.cpp at ${host}. Is llama-server running and ` +
@@ -25,6 +34,12 @@ function connectError(host, err) {
 // to the person reading it. Request-shaped errors (400, 404) are written for
 // a caller, so those pass through.
 function envelopeMessage(error, model) {
+  if (error?.type === "authentication_error") {
+    return (
+      `llama.cpp rejected the API key. Check the key in Settings against the ` +
+      `--api-key llama-server was started with.`
+    );
+  }
   if (error?.type === "server_error") {
     return (
       `llama.cpp failed while handling the request for model '${model}'. ` +
@@ -96,7 +111,7 @@ export async function* chatStream(
   host,
   model,
   prompt,
-  { signal, system } = {},
+  { signal, system, apiKey } = {},
 ) {
   const messages = system
     ? [
@@ -111,7 +126,10 @@ export async function* chatStream(
   try {
     response = await fetch(`${base}/v1/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(apiKey),
+      },
       body: JSON.stringify({ model, messages, stream: true }),
       signal,
     });
@@ -169,10 +187,11 @@ export async function* chatStream(
   }
 }
 
-async function getJson(url, timeoutMs) {
+async function getJson(url, timeoutMs, apiKey) {
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(timeoutMs),
+      headers: authHeaders(apiKey),
     });
     if (!response.ok) return null;
     return await response.json();
@@ -197,8 +216,12 @@ function positiveInt(value) {
  * as connected. `contextTokens` is null when neither reported one, leaving the
  * caller to apply DEFAULT_CONTEXT_TOKENS rather than having a guess handed to
  * it as though it were detected.
+ *
+ * A wrong `apiKey` does not show up here: `/health` is public on the versions
+ * checked, so the server still reports as reachable and the rejection surfaces
+ * on the first generation instead.
  */
-export async function checkHealth(host, timeoutMs = 3000) {
+export async function checkHealth(host, timeoutMs = 3000, apiKey = "") {
   const base = host.replace(/\/+$/, "");
   const disconnected = { connected: false, models: [], contextTokens: null };
 
@@ -206,6 +229,7 @@ export async function checkHealth(host, timeoutMs = 3000) {
   try {
     health = await fetch(`${base}/health`, {
       signal: AbortSignal.timeout(timeoutMs),
+      headers: authHeaders(apiKey),
     });
   } catch {
     return disconnected;
@@ -213,8 +237,8 @@ export async function checkHealth(host, timeoutMs = 3000) {
   if (!health.ok) return disconnected;
 
   const [props, modelList] = await Promise.all([
-    getJson(`${base}/props`, timeoutMs),
-    getJson(`${base}/v1/models`, timeoutMs),
+    getJson(`${base}/props`, timeoutMs, apiKey),
+    getJson(`${base}/v1/models`, timeoutMs, apiKey),
   ]);
 
   const entries = Array.isArray(modelList?.data) ? modelList.data : [];
