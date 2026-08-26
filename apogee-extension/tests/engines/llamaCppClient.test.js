@@ -288,8 +288,8 @@ test("chatStream sends the API key as a bearer token when one is set", async () 
     return streamingResponse([token("hi"), "data: [DONE]"]);
   });
   try {
-    await collect(chatStream(HOST, "m", "p", { apiKey: "secret123" }));
-    assert.equal(sent.Authorization, "Bearer secret123");
+    await collect(chatStream(HOST, "m", "p", { apiKey: "test-api-key" }));
+    assert.equal(sent.Authorization, "Bearer test-api-key");
   } finally {
     restore();
   }
@@ -542,14 +542,14 @@ test("checkHealth authenticates every lookup, not just the guarded ones", async 
     ),
   );
   try {
-    await checkHealth(HOST, 50, "secret123");
+    await checkHealth(HOST, 50, "test-api-key");
   } finally {
     restore();
   }
   assert.deepStrictEqual([...seen.entries()].sort(), [
-    ["/health", "Bearer secret123"],
-    ["/props", "Bearer secret123"],
-    ["/v1/models", "Bearer secret123"],
+    ["/health", "Bearer test-api-key"],
+    ["/props", "Bearer test-api-key"],
+    ["/v1/models", "Bearer test-api-key"],
   ]);
 });
 
