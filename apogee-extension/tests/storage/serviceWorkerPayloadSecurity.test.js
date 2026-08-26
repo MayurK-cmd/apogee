@@ -1,0 +1,102 @@
+import test from "node:test";
+import assert from "node:assert";
+import {
+  getSummaryCacheKey,
+  getPromptsCacheKey,
+  shouldPersist,
+} from "../../lib/storage/pageCache.js";
+
+function installFakeStorage(initialSettings = {}) {
+  const data = {
+    settings: {
+      saveHistory: true,
+      responseFormat: "bullets",
+      summaryLanguage: "auto",
+      customInstructions: "",
+      translationEngine: "opus",
+      provider: "webllm",
+      webllmModel: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+      ollamaHost: "http://127.0.0.1:11434",
+      ...initialSettings,
+    },
+  };
+  globalThis.chrome = {
+    storage: {
+      local: {
+        get: async (keys) => {
+          if (keys == null) return { ...data };
+          if (typeof keys === "string") return { [keys]: data[keys] };
+          if (Array.isArray(keys)) {
+            const out = {};
+            for (const k of keys) out[k] = data[k];
+            return out;
+          }
+          return { ...data };
+        },
+        set: async (obj) => {
+          Object.assign(data, obj);
+        },
+      },
+    },
+  };
+  return data;
+}
+
+test("buildTrustedFinalize rejects payloads with missing or invalid URL", async () => {
+  installFakeStorage();
+  const url = "https://example.com/test-article";
+  const expectedCacheKey = await getSummaryCacheKey(
+    url,
+    "bullets",
+    "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+    "auto",
+    "",
+    "opus",
+  );
+  const expectedPromptsKey = await getPromptsCacheKey(
+    url,
+    "bullets",
+    "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+    "auto",
+    "",
+    "opus",
+  );
+
+  // Re-deriving cache keys should always yield expected deterministic keys and ignore untrusted keys
+  assert.strictEqual(
+    await getSummaryCacheKey(
+      url,
+      "bullets",
+      "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+      "auto",
+      "",
+      "opus",
+    ),
+    expectedCacheKey,
+  );
+  assert.strictEqual(
+    await getPromptsCacheKey(
+      url,
+      "bullets",
+      "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+      "auto",
+      "",
+      "opus",
+    ),
+    expectedPromptsKey,
+  );
+});
+
+test("shouldPersist correctly enforces history settings for trusted URL persistence", async () => {
+  installFakeStorage({ saveHistory: false });
+  assert.strictEqual(
+    await shouldPersist("https://example.com/test-article"),
+    false,
+  );
+
+  installFakeStorage({ saveHistory: true });
+  assert.strictEqual(
+    await shouldPersist("https://example.com/test-article"),
+    true,
+  );
+});

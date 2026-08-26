@@ -153,6 +153,73 @@ async function recordPopupSummaryStream(payload, streamId) {
   );
 }
 
+async function buildTrustedFinalize(payload) {
+  if (!payload || typeof payload !== "object") return null;
+
+  const rawFinalize = payload.finalize || {};
+  const rawUrl =
+    typeof payload.url === "string"
+      ? payload.url
+      : typeof rawFinalize.persistUrl === "string"
+        ? rawFinalize.persistUrl
+        : "";
+  if (!rawUrl) return null;
+
+  const settings = await getSettings();
+  const model = payload.model || getModelForSettings(settings);
+  const providerType = getProviderType(settings);
+  const isSelection = Boolean(rawFinalize.isSelection);
+  const cacheUrl = isSelection ? `${rawUrl}#apogee-selection` : rawUrl;
+
+  const cacheKey = await getSummaryCacheKey(
+    cacheUrl,
+    settings.responseFormat,
+    model,
+    settings.summaryLanguage,
+    settings.customInstructions,
+    settings.translationEngine,
+  );
+  const promptsCacheKey = await getPromptsCacheKey(
+    cacheUrl,
+    settings.responseFormat,
+    model,
+    settings.summaryLanguage,
+    settings.customInstructions,
+    settings.translationEngine,
+  );
+
+  const persist = isSelection ? false : await shouldPersist(rawUrl);
+
+  const jobId =
+    typeof rawFinalize.jobId === "string" && rawFinalize.jobId
+      ? rawFinalize.jobId
+      : `summary-${crypto.randomUUID()}`;
+
+  const tabId =
+    typeof rawFinalize.tabId === "number" ? rawFinalize.tabId : null;
+  const windowId =
+    typeof rawFinalize.windowId === "number" ? rawFinalize.windowId : null;
+  const notifyOnFinish = Boolean(rawFinalize.notifyOnFinish);
+  const sensitive = await isPrivateUrl(rawUrl, settings);
+
+  return {
+    cacheKey,
+    promptsCacheKey,
+    persist,
+    persistUrl: rawUrl,
+    isSelection,
+    providerType,
+    host: settings.ollamaHost,
+    notifyOnFinish,
+    sensitive,
+    tabId,
+    jobId,
+    windowId,
+    language: settings.summaryLanguage,
+    translationEngine: settings.translationEngine,
+  };
+}
+
 function isOffscreenStream(streamId) {
   return (
     hasOffscreenAPI &&
@@ -1288,13 +1355,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "stream-finished") {
     if (message.error) return false;
-    finalizeSummaryJob({
-      finalize: message.finalize,
-      model: message.model,
-      title: message.title,
-      url: message.url,
-      text: message.text,
-    });
+    (async () => {
+      const trustedFinalize = message.finalize
+        ? await buildTrustedFinalize({
+            url: message.url,
+            title: message.title,
+            model: message.model,
+            finalize: message.finalize,
+          })
+        : null;
+      await finalizeSummaryJob({
+        finalize: trustedFinalize,
+        model: message.model,
+        title: message.title,
+        url: message.url,
+        text: message.text,
+      });
+    })();
     return false;
   }
 
@@ -1306,14 +1383,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await ensureOffscreenDocument();
 
           const streamId = nextStreamId("webllm");
-          await recordPopupSummaryStream(message.payload, streamId);
+          const trustedFinalize =
+            message.action === "summarize"
+              ? await buildTrustedFinalize(message.payload)
+              : null;
+          const payload = {
+            ...message.payload,
+            ...(trustedFinalize ? { finalize: trustedFinalize } : {}),
+          };
+          await recordPopupSummaryStream(payload, streamId);
 
           const { customInstructions } = await getSettings();
           const resp = await chrome.runtime.sendMessage({
             target: "offscreen",
             action: message.action,
             streamId,
-            payload: { ...message.payload, customInstructions },
+            payload: { ...payload, customInstructions },
           });
           if (resp?.error) throw new Error(resp.error);
 
@@ -1323,8 +1408,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case "ollama-stream": {
           const streamId = nextStreamId("ollama");
-          await recordPopupSummaryStream(message.payload, streamId);
-          startOllamaStream(streamId, message.payload);
+          const settings = await getSettings();
+          const trustedFinalize =
+            message.payload?.action === "summarize" || message.payload?.finalize
+              ? await buildTrustedFinalize(message.payload)
+              : null;
+          const payload = {
+            ...message.payload,
+            ...(trustedFinalize ? { finalize: trustedFinalize } : {}),
+            host: settings.ollamaHost,
+          };
+          await recordPopupSummaryStream(payload, streamId);
+          startOllamaStream(streamId, payload);
           sendResponse({ streamId });
           break;
         }
@@ -1370,11 +1465,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case "transformers-stream": {
           const streamId = nextStreamId("transformers");
-          await recordPopupSummaryStream(message.payload, streamId);
+          const settings = await getSettings();
+          const trustedFinalize =
+            message.payload?.action === "summarize" || message.payload?.finalize
+              ? await buildTrustedFinalize(message.payload)
+              : null;
+          const payload = {
+            ...message.payload,
+            ...(trustedFinalize ? { finalize: trustedFinalize } : {}),
+          };
+          await recordPopupSummaryStream(payload, streamId);
           if (hasOffscreenAPI) {
             await ensureOffscreenDocument();
-            const { action, ...jobPayload } = message.payload;
-            const { customInstructions } = await getSettings();
+            const { action, ...jobPayload } = payload;
             const resp = await chrome.runtime.sendMessage({
               target: "offscreen",
               action,
@@ -1382,12 +1485,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               payload: {
                 ...jobPayload,
                 provider: "transformers",
-                customInstructions,
+                customInstructions: settings.customInstructions,
               },
             });
             if (resp?.error) throw new Error(resp.error);
           } else {
-            startTransformersStream(streamId, message.payload);
+            startTransformersStream(streamId, payload);
           }
           sendResponse({ streamId });
           break;
@@ -1419,8 +1522,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "sponsorblock-segments": {
-          const { useSponsorBlock } = await getSettings();
-          const segments = useSponsorBlock
+          const segments = message.payload?.videoId
             ? await fetchSponsorBlockSegments(message.payload.videoId)
             : [];
           sendResponse({ segments });
@@ -1434,7 +1536,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "suggest-questions-bg": {
-          runSuggestQuestionsJob(message.payload);
+          const settings = await getSettings();
+          const rawUrl =
+            typeof message.payload?.url === "string" ? message.payload.url : "";
+          const model = message.payload?.model || getModelForSettings(settings);
+          const promptsCacheKey = rawUrl
+            ? await getPromptsCacheKey(
+                rawUrl,
+                settings.responseFormat,
+                model,
+                settings.summaryLanguage,
+                settings.customInstructions,
+                settings.translationEngine,
+              )
+            : message.payload?.promptsCacheKey;
+          runSuggestQuestionsJob({
+            ...message.payload,
+            ...(promptsCacheKey ? { promptsCacheKey } : {}),
+            providerType: getProviderType(settings),
+            host: settings.ollamaHost,
+          });
           sendResponse({ started: true });
           break;
         }
