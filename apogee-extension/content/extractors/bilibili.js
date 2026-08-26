@@ -27,8 +27,11 @@ function biliExtractBalancedObject(text, openIndex) {
 }
 
 function getBiliInitialState() {
-  for (const script of document.querySelectorAll("script")) {
-    const text = script.textContent;
+  const scripts = Array.from(document.querySelectorAll("script")).filter(
+    (s) => s && (typeof s.isConnected === "undefined" || s.isConnected),
+  );
+  for (const script of scripts) {
+    const text = script?.textContent || "";
     if (!text || !text.includes("__INITIAL_STATE__")) continue;
     const assign = text.match(/window\.__INITIAL_STATE__\s*=\s*/);
     if (!assign) continue;

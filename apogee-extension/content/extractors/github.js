@@ -15,29 +15,36 @@ function ghReadme() {
 }
 
 function ghConversation() {
-  let blocks = document.querySelectorAll(".timeline-comment");
+  let blocks = Array.from(document.querySelectorAll(".timeline-comment"));
   if (!blocks.length) {
-    blocks = document.querySelectorAll(
-      '[data-testid="comment-viewer-outer-box"]',
+    blocks = Array.from(
+      document.querySelectorAll('[data-testid="comment-viewer-outer-box"]'),
     );
   }
-  if (!blocks.length) blocks = document.querySelectorAll(".markdown-body");
+  if (!blocks.length) {
+    blocks = Array.from(document.querySelectorAll(".markdown-body"));
+  }
 
   const out = [];
   const seen = new Set();
   for (const block of blocks) {
+    if (
+      !block ||
+      (typeof block.isConnected !== "undefined" && !block.isConnected)
+    )
+      continue;
     if (out.length >= GH_MAX_COMMENTS) break;
     const bodyEl =
-      block.querySelector(".comment-body, .markdown-body") || block;
-    const text = bodyEl.innerText.trim();
+      block.querySelector?.(".comment-body, .markdown-body") || block;
+    const text = (bodyEl?.innerText || bodyEl?.textContent || "").trim();
     if (!text || seen.has(text)) continue;
     seen.add(text);
     const author =
       block
-        .querySelector(
+        .querySelector?.(
           '.author, a[data-testid="avatar-link"], .ActionListItem-label',
         )
-        ?.innerText.trim() || "";
+        ?.innerText?.trim() || "";
     out.push({ author, text: ghTruncate(text, GH_MAX_COMMENT_CHARS) });
   }
   return out;

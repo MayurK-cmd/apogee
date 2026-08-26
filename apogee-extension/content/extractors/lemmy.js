@@ -139,7 +139,10 @@ function extractLemmy() {
   }
 
   const commentElements = candidateComments.filter((el) => {
-    if (mainPost && (el === mainPost || mainPost.contains(el))) return false;
+    if (!el || (typeof el.isConnected !== "undefined" && !el.isConnected))
+      return false;
+    if (mainPost && (el === mainPost || (mainPost?.contains?.(el) ?? false)))
+      return false;
     return true;
   });
 

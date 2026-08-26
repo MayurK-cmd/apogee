@@ -5,7 +5,7 @@ function extractGeneric() {
       type: "generic",
       title: document.title,
       url: location.href,
-      content: document.body.innerText,
+      content: document.body?.innerText || document.body?.textContent || "",
     };
   }
   return {

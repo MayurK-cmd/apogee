@@ -144,13 +144,18 @@ function extractMastodon() {
     document.querySelectorAll(
       ".activity-stream article.status, .activity-stream .status, .thread article.status, .thread .status, article.status, .status",
     ),
+  ).filter(
+    (el) => el && (typeof el.isConnected === "undefined" || el.isConnected),
   );
 
   const commentElements = candidateStatuses.filter((el) => {
-    if (el === mainStatus || mainStatus.contains(el)) return false;
+    if (!el || (typeof el.isConnected !== "undefined" && !el.isConnected))
+      return false;
+    if (el === mainStatus || (mainStatus?.contains?.(el) ?? false))
+      return false;
     if (
-      el.classList.contains("status__wrapper") &&
-      el.querySelector(".status")
+      el.classList?.contains("status__wrapper") &&
+      el.querySelector?.(".status")
     ) {
       return false;
     }

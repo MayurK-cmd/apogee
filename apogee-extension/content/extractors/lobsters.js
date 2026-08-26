@@ -23,15 +23,21 @@ function lobstersCommentDepth(li) {
 }
 
 function lobstersCommentItems(commentElements) {
-  return Array.from(commentElements, (li) => {
-    const bodyEl = li.querySelector(".comment_text");
-    const authorEl = li.querySelector(".byline a.u-author, .byline a.user");
-    const scoreEl = li.querySelector(".score");
-    const scoreVal = scoreEl ? parseInt(scoreEl.innerText.trim(), 10) : NaN;
+  const elements = Array.from(commentElements).filter(
+    (li) => li && (typeof li.isConnected === "undefined" || li.isConnected),
+  );
+  return elements.map((li) => {
+    const bodyEl = li.querySelector?.(".comment_text");
+    const authorEl = li.querySelector?.(".byline a.u-author, .byline a.user");
+    const scoreEl = li.querySelector?.(".score");
+    const scoreText =
+      scoreEl?.innerText?.trim() || scoreEl?.textContent?.trim() || "";
+    const scoreVal = scoreText ? parseInt(scoreText, 10) : NaN;
 
     return {
       depth: lobstersCommentDepth(li),
-      author: authorEl?.innerText.trim() || "anon",
+      author:
+        authorEl?.innerText?.trim() || authorEl?.textContent?.trim() || "anon",
       text: bodyEl
         ? threadTruncate(
             bodyEl.innerText?.trim() || bodyEl.textContent?.trim() || "",
@@ -53,23 +59,30 @@ function extractLobsters() {
     document.querySelector(".story_title a") ||
     document.querySelector(".u-url") ||
     document.querySelector("h1");
-  const title = (titleEl?.innerText || document.title).trim();
+  const title = (
+    titleEl?.innerText ||
+    titleEl?.textContent ||
+    document.title
+  ).trim();
 
   const linkHref = titleEl?.getAttribute("href") || "";
   const isExternalLink =
     /^https?:/i.test(linkHref) && !linkHref.includes("lobste.rs");
-  const domain = document.querySelector(".domain")?.innerText.trim() || "";
+  const domain = document.querySelector(".domain")?.innerText?.trim() || "";
 
   const points =
-    document.querySelector(".story .score")?.innerText.trim() || "";
+    document.querySelector(".story .score")?.innerText?.trim() || "";
   const author =
-    document.querySelector(".story .byline a.u-author")?.innerText.trim() || "";
+    document.querySelector(".story .byline a.u-author")?.innerText?.trim() ||
+    "";
 
   const storyText =
-    document.querySelector(".story_text")?.innerText.trim() || "";
+    document.querySelector(".story_text")?.innerText?.trim() || "";
 
-  const commentLis = document.querySelectorAll(
-    "ol.comments > li.comment, li.comment",
+  const commentLis = Array.from(
+    document.querySelectorAll("ol.comments > li.comment, li.comment"),
+  ).filter(
+    (li) => li && (typeof li.isConnected === "undefined" || li.isConnected),
   );
   const nodes = buildThreadNodes(lobstersCommentItems(commentLis));
   const eligible = (n) => n.text && n.depth <= LOBSTERS_MAX_DEPTH;

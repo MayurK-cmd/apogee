@@ -67,15 +67,20 @@ function soIsAccepted(answerEl) {
 }
 
 function soComments(root) {
-  return Array.from(root.querySelectorAll("li.comment, .comment")).map(
-    (el) => ({
-      author: soText(el.querySelector(".comment-user")) || "anon",
-      text: threadTruncate(
-        soText(el.querySelector(".comment-copy")),
-        SO_MAX_COMMENT_CHARS,
-      ),
-    }),
+  if (!root || (typeof root.isConnected !== "undefined" && !root.isConnected))
+    return [];
+  const comments = Array.from(
+    root.querySelectorAll?.("li.comment, .comment") || [],
+  ).filter(
+    (el) => el && (typeof el.isConnected === "undefined" || el.isConnected),
   );
+  return comments.map((el) => ({
+    author: soText(el.querySelector?.(".comment-user")) || "anon",
+    text: threadTruncate(
+      soText(el.querySelector?.(".comment-copy")),
+      SO_MAX_COMMENT_CHARS,
+    ),
+  }));
 }
 
 function soSelectAnswers(answers) {
@@ -105,6 +110,7 @@ function extractStackOverflow() {
   const tags = Array.from(
     questionEl.querySelectorAll(".post-taglist a.post-tag, a.post-tag"),
   )
+    .filter((t) => t && (typeof t.isConnected === "undefined" || t.isConnected))
     .map((t) => soText(t))
     .filter(Boolean);
   const score = soScore(questionEl);
@@ -113,18 +119,22 @@ function extractStackOverflow() {
     .filter((c) => c.text)
     .slice(0, SO_MAX_QUESTION_COMMENTS);
 
+  const answerElements = Array.from(
+    document.querySelectorAll("#answers .answer, .answer"),
+  ).filter(
+    (el) => el && (typeof el.isConnected === "undefined" || el.isConnected),
+  );
+
   const answers = soSelectAnswers(
-    Array.from(document.querySelectorAll("#answers .answer, .answer")).map(
-      (el) => ({
-        author: soAuthor(el),
-        text: threadTruncate(soBody(el), SO_MAX_ANSWER_CHARS),
-        score: soScore(el),
-        accepted: soIsAccepted(el),
-        comments: soComments(el)
-          .filter((c) => c.text)
-          .slice(0, SO_MAX_COMMENTS_PER_ANSWER),
-      }),
-    ),
+    answerElements.map((el) => ({
+      author: soAuthor(el),
+      text: threadTruncate(soBody(el), SO_MAX_ANSWER_CHARS),
+      score: soScore(el),
+      accepted: soIsAccepted(el),
+      comments: soComments(el)
+        .filter((c) => c.text)
+        .slice(0, SO_MAX_COMMENTS_PER_ANSWER),
+    })),
   );
 
   const items = [];

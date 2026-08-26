@@ -48,54 +48,64 @@ function extractDiscourse() {
   if (!titleText) return null;
 
   const categoryEl = document.querySelector(".topic-category, .badge-wrapper");
-  const categoryText = categoryEl?.innerText?.trim() || "";
+  const categoryText =
+    categoryEl?.innerText?.trim() || categoryEl?.textContent?.trim() || "";
 
   const postElements = Array.from(
     document.querySelectorAll(
       ".post-stream .topic-post, #main-outlet .topic-post, article.boxed, div[id^='post_']",
     ),
+  ).filter(
+    (el) => el && (typeof el.isConnected === "undefined" || el.isConnected),
   );
 
   if (postElements.length === 0) return null;
 
   const opEl = postElements[0];
-  const opAuthorEl = opEl.querySelector(
+  const opAuthorEl = opEl?.querySelector?.(
     ".username, .names .username, [itemprop='author'], .creator",
   );
-  const opAuthor = opAuthorEl?.innerText?.trim() || "anon";
+  const opAuthor =
+    opAuthorEl?.innerText?.trim() || opAuthorEl?.textContent?.trim() || "anon";
 
-  const opBodyEl = opEl.querySelector(".cooked, .post-body, .topic-body");
+  const opBodyEl = opEl?.querySelector?.(".cooked, .post-body, .topic-body");
   const opText = opBodyEl
     ? (opBodyEl.innerText || opBodyEl.textContent || "").trim()
     : "";
 
   const replyElements = postElements.slice(1);
 
-  const commentItems = replyElements.map((el) => {
-    const authorEl = el.querySelector(
-      ".username, .names .username, [itemprop='author'], .creator",
-    );
-    const bodyEl = el.querySelector(".cooked, .post-body, .topic-body");
-    const likesEl = el.querySelector(
-      ".like-count, .post-retort, .actions .likes",
-    );
+  const commentItems = replyElements
+    .filter(
+      (el) => el && (typeof el.isConnected === "undefined" || el.isConnected),
+    )
+    .map((el) => {
+      const authorEl = el.querySelector?.(
+        ".username, .names .username, [itemprop='author'], .creator",
+      );
+      const bodyEl = el.querySelector?.(".cooked, .post-body, .topic-body");
+      const likesEl = el.querySelector?.(
+        ".like-count, .post-retort, .actions .likes",
+      );
 
-    const authorName = authorEl?.innerText?.trim() || "anon";
-    const rawText = bodyEl
-      ? bodyEl.innerText?.trim() || bodyEl.textContent?.trim() || ""
-      : "";
+      const authorName =
+        authorEl?.innerText?.trim() || authorEl?.textContent?.trim() || "anon";
+      const rawText = bodyEl
+        ? bodyEl.innerText?.trim() || bodyEl.textContent?.trim() || ""
+        : "";
 
-    const likesText = likesEl?.innerText?.trim() || "";
-    const parsedScore = parseInt(likesText.replace(/[^0-9-]/g, ""), 10);
-    const score = isNaN(parsedScore) ? undefined : parsedScore;
+      const likesText =
+        likesEl?.innerText?.trim() || likesEl?.textContent?.trim() || "";
+      const parsedScore = parseInt(likesText.replace(/[^0-9-]/g, ""), 10);
+      const score = isNaN(parsedScore) ? undefined : parsedScore;
 
-    return {
-      depth: 0,
-      author: authorName,
-      text: threadTruncate(rawText, DISCOURSE_MAX_POST_CHARS),
-      score,
-    };
-  });
+      return {
+        depth: 0,
+        author: authorName,
+        text: threadTruncate(rawText, DISCOURSE_MAX_POST_CHARS),
+        score,
+      };
+    });
 
   const nodes = buildThreadNodes(commentItems);
   const eligible = (n) => n.text;

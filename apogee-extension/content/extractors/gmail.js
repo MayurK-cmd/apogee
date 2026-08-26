@@ -1,9 +1,14 @@
 function extractGmail() {
   const subjectEl =
     document.querySelector("h1.hP") || document.querySelector(".hP");
-  const subject = subjectEl ? subjectEl.innerText.trim() : document.title;
+  const subject =
+    subjectEl?.innerText?.trim() ||
+    subjectEl?.textContent?.trim() ||
+    document.title;
 
-  const messageEls = document.querySelectorAll("div.a3s");
+  const messageEls = Array.from(document.querySelectorAll("div.a3s")).filter(
+    (el) => el && (typeof el.isConnected === "undefined" || el.isConnected),
+  );
 
   if (messageEls.length === 0) {
     return {
@@ -16,23 +21,32 @@ function extractGmail() {
 
   let content = "";
   messageEls.forEach((el, index) => {
-    const text = el.innerText.trim();
+    if (!el || (typeof el.isConnected !== "undefined" && !el.isConnected))
+      return;
+    const text = (el.innerText || el.textContent || "").trim();
     if (!text) return;
 
-    const messageContainer = el.closest(".adn") || el.closest(".gs");
+    const messageContainer = el.closest?.(".adn") || el.closest?.(".gs");
 
-    const senderEl = messageContainer?.querySelector(".gD");
+    const senderEl = messageContainer?.querySelector?.(".gD");
     const sender =
-      senderEl?.getAttribute("email") || senderEl?.innerText.trim() || "";
+      senderEl?.getAttribute("email") ||
+      senderEl?.innerText?.trim() ||
+      senderEl?.textContent?.trim() ||
+      "";
 
-    const dateEl = messageContainer?.querySelector(".g3");
+    const dateEl = messageContainer?.querySelector?.(".g3");
     const date =
-      dateEl?.getAttribute("title") || dateEl?.innerText.trim() || "";
+      dateEl?.getAttribute("title") ||
+      dateEl?.innerText?.trim() ||
+      dateEl?.textContent?.trim() ||
+      "";
 
-    const attachmentEls =
-      messageContainer?.querySelectorAll(".aQH .aV3, .aZo .aV3") || [];
-    const attachments = Array.from(attachmentEls)
-      .map((a) => a.innerText.trim())
+    const attachmentEls = Array.from(
+      messageContainer?.querySelectorAll?.(".aQH .aV3, .aZo .aV3") || [],
+    );
+    const attachments = attachmentEls
+      .map((a) => (a?.innerText || a?.textContent || "").trim())
       .filter(Boolean);
 
     let header = `--- Message ${index + 1}`;

@@ -39,11 +39,16 @@ function hnCommentDepth(row) {
 }
 
 function hnCommentItems(rows) {
-  return Array.from(rows, (row) => {
-    const bodyEl = row.querySelector(".commtext");
+  const elements = Array.from(rows).filter(
+    (row) => row && (typeof row.isConnected === "undefined" || row.isConnected),
+  );
+  return elements.map((row) => {
+    const bodyEl = row.querySelector?.(".commtext");
+    const authorEl = row.querySelector?.(".hnuser");
     return {
       depth: hnCommentDepth(row),
-      author: row.querySelector(".hnuser")?.innerText.trim() || "anon",
+      author:
+        authorEl?.innerText?.trim() || authorEl?.textContent?.trim() || "anon",
       text: bodyEl
         ? threadTruncate(hnCommentText(bodyEl), HN_MAX_COMMENT_CHARS)
         : "",
@@ -61,22 +66,29 @@ function extractHackerNews() {
   const titleEl =
     fatitem.querySelector(".titleline a") ||
     fatitem.querySelector(".titleline");
-  const title = (titleEl?.innerText || document.title).trim();
+  const title = (
+    titleEl?.innerText ||
+    titleEl?.textContent ||
+    document.title
+  ).trim();
 
   const linkHref =
     fatitem.querySelector(".titleline a")?.getAttribute("href") || "";
   const isExternalLink = /^https?:/i.test(linkHref);
-  const domain = fatitem.querySelector(".sitestr")?.innerText.trim() || "";
+  const domain = fatitem.querySelector(".sitestr")?.innerText?.trim() || "";
 
-  const points = fatitem.querySelector(".score")?.innerText.trim() || "";
-  const author = fatitem.querySelector(".hnuser")?.innerText.trim() || "";
-  const age = fatitem.querySelector(".age")?.innerText.trim() || "";
+  const points = fatitem.querySelector(".score")?.innerText?.trim() || "";
+  const author = fatitem.querySelector(".hnuser")?.innerText?.trim() || "";
+  const age = fatitem.querySelector(".age")?.innerText?.trim() || "";
 
-  const storyText = fatitem.querySelector(".toptext")?.innerText.trim() || "";
+  const storyText = fatitem.querySelector(".toptext")?.innerText?.trim() || "";
 
-  const nodes = buildThreadNodes(
-    hnCommentItems(document.querySelectorAll("tr.athing.comtr")),
+  const commentRows = Array.from(
+    document.querySelectorAll("tr.athing.comtr"),
+  ).filter(
+    (row) => row && (typeof row.isConnected === "undefined" || row.isConnected),
   );
+  const nodes = buildThreadNodes(hnCommentItems(commentRows));
   const eligible = (n) =>
     n.text && n.downvotes <= HN_DOWNVOTE_LIMIT && n.depth <= HN_MAX_DEPTH;
   const comments = selectThreadComments(nodes, eligible, HN_MAX_COMMENTS);

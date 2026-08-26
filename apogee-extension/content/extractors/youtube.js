@@ -327,16 +327,20 @@ async function extractYoutube() {
     ? `${Math.round(durationSeconds / 60)} min`
     : "";
 
-  const commentEls = document.querySelectorAll(
-    "#content-text.ytd-comment-renderer",
+  const commentEls = Array.from(
+    document.querySelectorAll("#content-text.ytd-comment-renderer"),
+  ).filter(
+    (el) => el && (typeof el.isConnected === "undefined" || el.isConnected),
   );
-  const comments = Array.from(commentEls)
+  const comments = commentEls
     .slice(0, 25)
-    .map((el) => el.innerText.trim())
+    .map((el) => (el?.innerText || el?.textContent || "").trim())
     .filter(Boolean);
 
   const infoEl = document.querySelector("#info-strings");
-  const info = infoEl ? infoEl.innerText.trim() : "";
+  const info = infoEl
+    ? (infoEl.innerText || infoEl.textContent || "").trim()
+    : "";
 
   const videoId =
     videoDetails?.videoId ||
