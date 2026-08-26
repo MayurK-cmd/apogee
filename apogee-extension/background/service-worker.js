@@ -24,7 +24,9 @@ import {
   transformersChatStream,
 } from "../lib/engines/transformersEngine.js";
 import { getSettings } from "../lib/storage/settings.js";
-import { initDebugLogging } from "../lib/util/log.js";
+import { initDebugLogging, sanitizeLogMessage } from "../lib/util/log.js";
+import { validateOllamaHost } from "../lib/util/ollamaHost.js";
+import { NotificationTargetManager } from "../lib/util/notificationTargets.js";
 import {
   getSummaryCacheKey,
   getPromptsCacheKey,
@@ -233,24 +235,6 @@ function relayToOffscreenStream(popupPort, streamId) {
       offscreenPort.disconnect();
     } catch {}
   });
-}
-
-const ALLOWED_OLLAMA_HOSTS = new Set(["127.0.0.1", "localhost"]);
-
-function validateOllamaHost(host) {
-  let url;
-  try {
-    url = new URL(host);
-  } catch {
-    throw new Error("Invalid Ollama host");
-  }
-  if (url.protocol !== "http:") {
-    throw new Error(`Disallowed Ollama protocol: ${url.protocol}`);
-  }
-  if (!ALLOWED_OLLAMA_HOSTS.has(url.hostname)) {
-    throw new Error(`Disallowed Ollama host: ${url.hostname}`);
-  }
-  return url.toString().replace(/\/+$/, "");
 }
 
 async function getRelevantAskContent(content, question) {
@@ -849,6 +833,9 @@ async function fetchBilibiliSubtitles({ aid, bvid, cid, preferredLang }) {
 
   let listRes;
   try {
+    // Note: credentials: "include" is required for Bilibili's /x/player/v2 endpoint
+    // because Bilibili restricts subtitle list metadata to logged-in sessions.
+    // Cookies are strictly scoped to api.bilibili.com API requests on Bilibili pages.
     listRes = await fetch(
       `https://api.bilibili.com/x/player/v2?${params.toString()}`,
       { credentials: "include", signal: AbortSignal.timeout(6000) },
@@ -887,7 +874,12 @@ async function fetchBilibiliSubtitles({ aid, bvid, cid, preferredLang }) {
 
   let subRes;
   try {
-    subRes = await fetch(subUrl, { signal: AbortSignal.timeout(6000) });
+    // Subtitle track content on the hdslb.com CDN does not require session authentication,
+    // so credentials are explicitly omitted to restrict cookie scope.
+    subRes = await fetch(subUrl, {
+      credentials: "omit",
+      signal: AbortSignal.timeout(6000),
+    });
   } catch {
     return [];
   }
@@ -1078,7 +1070,7 @@ async function finalizeSummaryJob({ finalize, model, title, url, text }) {
   }
 }
 
-const notificationTargets = new Map();
+const notificationTargets = new NotificationTargetManager();
 
 function notifyJobComplete({ title, tabId, windowId }) {
   if (typeof chrome.notifications === "undefined") return;
@@ -1131,6 +1123,12 @@ if (typeof chrome.notifications !== "undefined") {
       } catch {}
     }
   });
+
+  if (typeof chrome.notifications.onClosed !== "undefined") {
+    chrome.notifications.onClosed.addListener((notificationId) => {
+      notificationTargets.delete(notificationId);
+    });
+  }
 }
 
 const OFFSCREEN_IDLE_ALARM = "offscreen-idle-close";
@@ -1273,7 +1271,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "offscreen-log") {
     const timestamp = new Date().toLocaleTimeString();
     const level = String(message.level || "log").toUpperCase();
-    const line = `[${timestamp}] [${level}] ${message.message}`;
+    const sanitized = sanitizeLogMessage(message.message);
+    const line = `[${timestamp}] [${level}] ${sanitized}`;
     offscreenLogs.push(line);
     if (offscreenLogs.length > 50) {
       offscreenLogs.shift();

@@ -26,6 +26,7 @@ import {
   isVideoType,
 } from "../lib/constants.js";
 import { getSettings } from "../lib/storage/settings.js";
+import { validateOllamaHost } from "../lib/util/ollamaHost.js";
 import { formatSummaryAsMarkdown } from "../lib/util/exportFormat.js";
 import {
   formatDiagnosticSettings,
@@ -2159,7 +2160,11 @@ backendUrlInput?.addEventListener("change", async () => {
   if (val && !/^https?:\/\//i.test(val)) {
     val = `http://${val}`;
   }
-  val = val.replace(/\/+$/, "");
+  try {
+    val = validateOllamaHost(val);
+  } catch {
+    val = DEFAULT_OLLAMA_HOST;
+  }
   backendUrlInput.value = val;
   const settings = await saveSettings({ ollamaHost: val });
   await applySettingsToUI(settings);

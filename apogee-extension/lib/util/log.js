@@ -1,3 +1,5 @@
+import { isSensitiveUrl } from "../storage/pageCache.js";
+
 let enabled = false;
 
 export function setDebugLogging(on) {
@@ -17,4 +19,51 @@ export async function initDebugLogging() {
     if (area !== "local" || !changes.settings) return;
     setDebugLogging(changes.settings.newValue?.debugLogs === true);
   });
+}
+
+const MAX_LOG_MESSAGE_LENGTH = 500;
+
+export function sanitizeLogMessage(message, maxLen = MAX_LOG_MESSAGE_LENGTH) {
+  let str = String(message ?? "");
+
+  // 1. Redact Authorization Bearer tokens & secret/API keys
+  str = str.replace(
+    /Bearer\s+[a-zA-Z0-9._~+/-]+=*/gi,
+    "Bearer [redacted-token]",
+  );
+  str = str.replace(
+    /(api[_-]?key|secret[_-]?token|access[_-]?token)=([^\s&"'<>]+)/gi,
+    "$1=[redacted]",
+  );
+
+  // 2. Redact data: and blob: URLs
+  str = str.replace(
+    /data:[a-zA-Z0-9-]+\/[a-zA-Z0-9-+.]+;base64,[^\s"'<>()]+/gi,
+    "data:[redacted-data-url]",
+  );
+  str = str.replace(/blob:[^\s"'<>()]+/gi, "blob:[redacted-blob-url]");
+
+  // 3. Redact file: URLs
+  str = str.replace(/file:\/\/[^\s"'<>()]+/gi, "file://[redacted-file-url]");
+
+  // 4. Redact http / https URLs (credentials, query parameters, sensitive domains)
+  str = str.replace(/https?:\/\/[^\s"'<>()]+/gi, (urlMatch) => {
+    if (isSensitiveUrl(urlMatch)) {
+      return "[redacted-sensitive-url]";
+    }
+    let sanitizedUrl = urlMatch;
+    sanitizedUrl = sanitizedUrl.replace(
+      /\/\/[^@\s]+@/,
+      "//[redacted-credentials]@",
+    );
+    sanitizedUrl = sanitizedUrl.replace(/\?[^\s#]*/, "?[redacted-query]");
+    return sanitizedUrl;
+  });
+
+  // 5. Truncate if length exceeds maxLen
+  if (str.length > maxLen) {
+    str = str.slice(0, maxLen) + "... [truncated]";
+  }
+
+  return str;
 }
