@@ -8,7 +8,7 @@ This document outlines current work, upcoming priorities, and long-term goals fo
 
 - **Extractor Expansion**:
   - Add page extractors for more platforms (Lemmy, Discourse, GitLab, Dev.to, Bluesky).
-  - Shipped extractors: YouTube, Bilibili, Wikipedia, Gmail, Reddit, Hacker News, GitHub, Lobsters, arXiv, Mastodon, Stack Overflow, Lemmy.
+  - Shipped extractors: YouTube, Bilibili, Wikipedia, Gmail, Reddit, Hacker News, GitHub, Lobsters, arXiv, Mastodon, Stack Overflow, Lemmy, Discourse.
   - Keep extractor creation simple so contributors can write unit-tested extractors in Node without running a browser.
 - **Test Coverage**:
   - Expand test suites for existing extractors (Bilibili) and untested library modules (diagnostics, hash, timestamps, mapReduce, viewState).

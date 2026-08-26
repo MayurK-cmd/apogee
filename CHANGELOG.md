@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - **Lemmy post extractor.** Dedicated extractor for Lemmy post pages parsing post titles, authors, communities, scores, bodies, links, and threaded comment chains in path notation. (#32)
+- **Discourse forum extractor.** Dedicated extractor for Discourse forum topic pages parsing topic titles, original posts, categories, and reply post streams into structured Markdown summaries. (#33)
 - **Multi-tab batch summarization via context menu.** Added context menu action ("Summarize with Apogee") to summarize multiple selected tabs simultaneously into a synthesized overview. (#116)
 - **Mastodon thread extractor.** Custom thread extractor for Mastodon status pages (detecting federated hosts via URL pattern and DOM markup) that parses main posts, authors, engagement metrics, and reply chains in tree path notation. (#31)
 - **On-demand permission prompts for optional host permissions.** Added dynamic permission check and request workflows (`ensurePermissionsForUrl`) in the popup UI when summarizing site surfaces requiring cross-origin host access (Bilibili, YouTube, SponsorBlock). (#94, #115)

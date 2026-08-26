@@ -67,6 +67,9 @@ async function extractPageContent() {
   const lemmyData = extractLemmy();
   if (lemmyData) return { ...lemmyData, isPdf: false };
 
+  const discourseData = extractDiscourse();
+  if (discourseData) return { ...discourseData, isPdf: false };
+
   const data = extractGeneric();
   return { ...data, isPdf: false };
 }

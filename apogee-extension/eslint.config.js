@@ -56,6 +56,7 @@ export default [
         extractMastodon: "readonly",
         extractStackOverflow: "readonly",
         extractLemmy: "readonly",
+        extractDiscourse: "readonly",
       },
     },
   },
@@ -87,6 +88,7 @@ export default [
       "content/extractors/mastodon.js",
       "content/extractors/stackoverflow.js",
       "content/extractors/lemmy.js",
+      "content/extractors/discourse.js",
     ],
     languageOptions: {
       globals: {
