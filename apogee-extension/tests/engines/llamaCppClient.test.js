@@ -31,7 +31,8 @@ const STOP = event({
 
 function streamingResponse(chunks, { ok = true, status = 200 } = {}) {
   const encoder = new TextEncoder();
-  return {
+  const state = { cancelled: false };
+  const response = {
     ok,
     status,
     body: new ReadableStream({
@@ -39,9 +40,14 @@ function streamingResponse(chunks, { ok = true, status = 200 } = {}) {
         for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
         controller.close();
       },
+      cancel() {
+        state.cancelled = true;
+      },
     }),
     text: async () => chunks.join(""),
   };
+  response._state = state;
+  return response;
 }
 
 function stubFetch(impl) {
@@ -324,6 +330,58 @@ test("chatStream explains a rejected API key instead of echoing the server", asy
     await assert.rejects(
       collect(chatStream(HOST, "m", "p", { apiKey: "wrong" })),
       /rejected the API key.*--api-key/s,
+    );
+  } finally {
+    restore();
+  }
+});
+
+// Cancelling a summary breaks out of the loop partway through. The generator
+// has to release the body then, or the connection is held until the request is
+// garbage collected.
+test("chatStream releases the response body when the consumer stops early", async () => {
+  let response;
+  const restore = stubFetch(async () => {
+    response = streamingResponse([
+      token("one"),
+      token("two"),
+      token("three"),
+      "data: [DONE]",
+    ]);
+    return response;
+  });
+  try {
+    for await (const chunk of chatStream(HOST, "m", "p")) {
+      if (chunk === "one") break;
+    }
+    assert.equal(
+      response._state.cancelled,
+      true,
+      "body was not cancelled, so the connection is held",
+    );
+    assert.equal(response.body.locked, false, "response body left locked");
+  } finally {
+    restore();
+  }
+});
+
+test("chatStream reports a mid-stream error arriving after a 200", async () => {
+  const restore = stubFetch(async () =>
+    streamingResponse([
+      token("partial"),
+      `data: ${JSON.stringify({
+        error: {
+          message: "context window exceeded",
+          type: "invalid_request_error",
+          code: 400,
+        },
+      })}\n\n`,
+    ]),
+  );
+  try {
+    await assert.rejects(
+      collect(chatStream(HOST, "test-model", "prompt")),
+      /context window exceeded/,
     );
   } finally {
     restore();

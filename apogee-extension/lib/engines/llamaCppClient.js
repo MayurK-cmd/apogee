@@ -94,8 +94,14 @@ function readEventBlock(block, model) {
       );
     }
 
+    // An error can also arrive mid-stream, after a 200. The payload is already
+    // parsed here, so this maps it directly rather than going back through
+    // httpError and parsing it a second time.
     if (parsed?.error) {
-      throw httpError(payload, "streamed error", model);
+      throw new LlamaCppError(
+        envelopeMessage(parsed.error, model) ||
+          `llama.cpp returned an error for model '${model}': ${payload}`,
+      );
     }
 
     const content = parsed?.choices?.[0]?.delta?.content;
@@ -185,6 +191,17 @@ export async function* chatStream(
       throw new LlamaCppError("Generation was cancelled.");
     }
     throw connectError(base, err);
+  } finally {
+    // Breaking out of the loop early, which is what cancelling a summary does,
+    // resumes this generator with a return completion: that skips the catch
+    // but still runs this. cancel() is what tells the body to stop and lets
+    // the connection go; releaseLock() then leaves no locked stream behind.
+    try {
+      await reader.cancel();
+    } catch {}
+    try {
+      reader.releaseLock();
+    } catch {}
   }
 }
 
