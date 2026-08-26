@@ -11,6 +11,8 @@ import {
   persistContent,
   clearCachedPages,
   isSensitiveUrl,
+  isSensitiveTitle,
+  sanitizeTitleForStorage,
   isPrivateUrl,
   parsePrivateHosts,
   matchesPrivateHost,
@@ -392,4 +394,31 @@ test("persistSummaryIfAllowed drops the write when the host is marked private mi
     false,
   );
   assert.strictEqual(data["summary:k"], undefined);
+});
+
+test("isSensitiveTitle detects sensitive page title patterns and excludes them from storage index", async () => {
+  assert.strictEqual(isSensitiveTitle("Gmail - Inbox (3)"), true);
+  assert.strictEqual(isSensitiveTitle("Bank Account Statement Summary"), true);
+  assert.strictEqual(
+    isSensitiveTitle("Patient Portal - Medical Records"),
+    true,
+  );
+  assert.strictEqual(
+    isSensitiveTitle("Understanding Quantum Computing"),
+    false,
+  );
+
+  const data = installFakeStorage({ settings: { saveHistory: true } });
+  await persistSummary("k1", "p1", "summary body", "Gmail - Inbox", null, {});
+  assert.strictEqual(data.cacheOrder[0].t, "");
+
+  await persistSummary(
+    "k2",
+    "p2",
+    "summary body 2",
+    "Public Research Article",
+    null,
+    {},
+  );
+  assert.strictEqual(data.cacheOrder[1].t, "Public Research Article");
 });

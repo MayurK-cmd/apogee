@@ -64,14 +64,37 @@ export async function getContentCacheKey(url) {
 
 export const MAX_CACHED_PAGES = 50;
 
+const SENSITIVE_TITLE_PATTERNS = [
+  /\b(inbox|gmail|outlook|protonmail|yahoo\s*mail|webmail)\b/i,
+  /\b(messages|whatsapp|telegram|slack|discord|teams)\b/i,
+  /\b(bank|banking|account\s*summary|statement|balance|paypal|stripe|transferwise|wise|fidelity|vanguard|chase|wells\s*fargo|capital\s*one|citi)\b/i,
+  /\b(patient\s*portal|mychart|medical\s*record|lab\s*results|health\s*record)\b/i,
+  /\b(password|login|sign\s*in|authentication|2fa|security\s*code|credentials)\b/i,
+];
+
+export function isSensitiveTitle(title) {
+  if (!title || typeof title !== "string") return false;
+  return SENSITIVE_TITLE_PATTERNS.some((re) => re.test(title));
+}
+
+export async function sanitizeTitleForStorage(title, options = {}) {
+  if (!title || typeof title !== "string") return "";
+  if (options.sensitive) return "";
+  if (isSensitiveTitle(title)) return "";
+  if (options.url && (await isPrivateUrl(options.url))) return "";
+  return title.trim();
+}
+
 export async function persistSummary(
   cacheKey,
   promptsCacheKey,
   text,
   title,
   vector = null,
-  { embedTextsFn = defaultEmbedTexts } = {},
+  options = {},
 ) {
+  const { embedTextsFn = defaultEmbedTexts } =
+    typeof options === "function" ? {} : options || {};
   const release = await acquireIndexLock();
   try {
     let v = vector;
@@ -87,8 +110,17 @@ export async function persistSummary(
     }
 
     const { cacheOrder = [] } = await chrome.storage.local.get("cacheOrder");
-    const order = cacheOrder.filter((e) => e && e.s !== cacheKey);
-    const entry = { s: cacheKey, p: promptsCacheKey, t: title || "" };
+    const order = cacheOrder
+      .filter((e) => e && e.s !== cacheKey)
+      .map((e) => {
+        if (e && e.t && isSensitiveTitle(e.t)) {
+          return { ...e, t: "" };
+        }
+        return e;
+      });
+
+    const safeTitle = await sanitizeTitleForStorage(title, options);
+    const entry = { s: cacheKey, p: promptsCacheKey, t: safeTitle };
     if (v) entry.v = v;
     order.push(entry);
 
