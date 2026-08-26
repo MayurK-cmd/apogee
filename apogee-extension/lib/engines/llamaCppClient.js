@@ -12,10 +12,11 @@ export const DEFAULT_CONTEXT_TOKENS = 8192;
 
 const SSE_DONE = "[DONE]";
 
-// llama-server started with `--api-key` wants it as a bearer token. Which
-// endpoints it guards has moved between versions (`/health` and `/v1/models`
-// have been public, `/props` has not), so the header goes on every request
-// rather than a guessed subset: a server that does not want it ignores it.
+// llama-server started with `--api-key` wants it as a bearer token. On
+// b10603 only `/health` is public; `/props` and `/v1/models` both answer 401
+// without it. Rather than encode that split, which has moved between
+// versions, the header goes on every request: a server that does not want it
+// ignores it, and model detection cannot silently break if the split changes.
 function authHeaders(apiKey) {
   const key = (apiKey || "").trim();
   return key ? { Authorization: `Bearer ${key}` } : {};
@@ -217,9 +218,10 @@ function positiveInt(value) {
  * caller to apply DEFAULT_CONTEXT_TOKENS rather than having a guess handed to
  * it as though it were detected.
  *
- * A wrong `apiKey` does not show up here: `/health` is public on the versions
- * checked, so the server still reports as reachable and the rejection surfaces
- * on the first generation instead.
+ * A wrong `apiKey` still reports connected, because `/health` is public, but
+ * both enrichment lookups answer 401 and it comes back with no models and no
+ * contextTokens. Connected with an empty model list is therefore the signature
+ * of a bad key rather than of a server that has nothing loaded.
  */
 export async function checkHealth(host, timeoutMs = 3000, apiKey = "") {
   const base = host.replace(/\/+$/, "");

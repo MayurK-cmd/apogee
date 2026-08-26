@@ -415,6 +415,29 @@ test("checkHealth stays connected when both enrichment lookups fail", async () =
   });
 });
 
+// Verified against b10603: /health is public but /props and /v1/models are
+// both guarded, so a bad key looks like a reachable server with nothing on it.
+// The UI needs that pair to tell a bad key from an idle server.
+test("checkHealth with a rejected key stays connected but reports nothing", async () => {
+  const rejected = () => ({
+    ok: false,
+    status: 401,
+    json: async () => ({
+      error: { message: "Invalid API Key", type: "authentication_error" },
+    }),
+  });
+  const result = await health({
+    "/health": ok({ status: "ok" }),
+    "/props": rejected,
+    "/v1/models": rejected,
+  });
+  assert.deepStrictEqual(result, {
+    connected: true,
+    models: [],
+    contextTokens: null,
+  });
+});
+
 test("checkHealth lists every model when a proxy is serving several", async () => {
   const result = await health({
     "/health": ok({ status: "ok" }),
