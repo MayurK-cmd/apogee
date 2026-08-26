@@ -55,6 +55,7 @@ export default [
         extractArxiv: "readonly",
         extractMastodon: "readonly",
         extractStackOverflow: "readonly",
+        extractLemmy: "readonly",
       },
     },
   },
@@ -85,6 +86,7 @@ export default [
       "content/extractors/github.js",
       "content/extractors/mastodon.js",
       "content/extractors/stackoverflow.js",
+      "content/extractors/lemmy.js",
     ],
     languageOptions: {
       globals: {

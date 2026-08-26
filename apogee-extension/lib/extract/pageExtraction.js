@@ -87,6 +87,7 @@ export async function extractFromActiveTab(tab) {
           "/content/extractors/arxiv.js",
           "/content/extractors/mastodon.js",
           "/content/extractors/stackoverflow.js",
+          "/content/extractors/lemmy.js",
           "/content/content.js",
         ],
       });

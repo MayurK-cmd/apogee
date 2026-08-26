@@ -35,7 +35,7 @@ The following diagram illustrates how components interact on your local device a
 flowchart TD
     subgraph device["Your Device"]
         subgraph page["Active Tab"]
-            EX["Extractors injected on demand<br/>Readability, YouTube, Bilibili, Wikipedia,<br/>Gmail, Reddit, HN, GitHub, Lobsters, arXiv"]
+            EX["Extractors injected on demand<br/>Readability, YouTube, Bilibili, Wikipedia,<br/>Gmail, Reddit, HN, GitHub, Lobsters, arXiv,<br/>Mastodon, Stack Overflow, Lemmy"]
             HL["Highlight overlay<br/>scrolls to source text"]
         end
 
