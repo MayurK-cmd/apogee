@@ -44,8 +44,16 @@ test("toUserMessage maps raw ONNX errors to the in-browser fallback", () => {
   );
 });
 
-test("toUserMessage maps raw Transformers.js errors to the in-browser fallback", () => {
+test("toUserMessage maps raw OOM/memory errors to the memory limit fallback", () => {
   const err = new Error("Transformers.js: out of memory");
+  assert.strictEqual(
+    toUserMessage(err),
+    "Memory limit reached while processing this document. Try a smaller model or reducing context size.",
+  );
+});
+
+test("toUserMessage maps raw Transformers.js errors to the in-browser fallback", () => {
+  const err = new Error("Transformers.js: failed to load module");
   assert.strictEqual(
     toUserMessage(err),
     "In-browser model error. Try picking a different model in Settings.",

@@ -13,7 +13,7 @@ const SECTIONS = [
   [/streamid|unknown .*(action|model)/i, "internal"],
   [/\bpdf\b/i, "pdfs"],
   [
-    /webgpu|offscreen|onnx|transformers\.js|model download|highlight-in-page|locate this passage|in-browser model/i,
+    /webgpu|offscreen|onnx|transformers\.js|model download|highlight-in-page|locate this passage|in-browser model|out of memory|memory limit|allocation/i,
     "in-browser-models",
   ],
   [/ollama/i, "local-ollama"],

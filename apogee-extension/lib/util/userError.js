@@ -22,6 +22,10 @@ export class UserFacingError extends Error {
 const FALLBACKS = [
   [/\bpdf\b/i, "Couldn't process this PDF document."],
   [
+    /out of memory|oom|buffer allocation|gpubuffer|allocation failed|memory limit|exceeded max.*memory|wasm.*memory/i,
+    "Memory limit reached while processing this document. Try a smaller model or reducing context size.",
+  ],
+  [
     /webgpu|offscreen|onnx|transformers\.js|model download/i,
     "In-browser model error. Try picking a different model in Settings.",
   ],

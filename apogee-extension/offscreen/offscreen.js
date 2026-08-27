@@ -591,6 +591,13 @@ async function runStream(streamId, pending, stream) {
     }
   } catch (err) {
     if (stream.cancelled) return;
+    const isOOM =
+      /out of memory|oom|buffer allocation|gpubuffer|allocation failed|memory limit/i.test(
+        err?.message || "",
+      );
+    if (isOOM) {
+      resetEngineState();
+    }
     emit({ type: "error", error: err.message });
     chrome.runtime
       .sendMessage({
@@ -683,6 +690,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (stream && !stream.done) {
             stream.cancelled = true;
             stream.done = true;
+            stream.text = "";
             broadcastToStream(stream, { type: "cancelled" });
             try {
               stream.controller?.abort();

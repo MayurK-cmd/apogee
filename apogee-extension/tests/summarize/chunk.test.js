@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert";
-import { chunkText, truncateForPrompt } from "../../lib/summarize/chunk.js";
+import {
+  chunkText,
+  truncateForPrompt,
+  chunkTextOverview,
+} from "../../lib/summarize/chunk.js";
 
 test("chunkText splits text within maxChars limits", () => {
   const text = "hello world";
@@ -18,4 +22,11 @@ test("truncateForPrompt truncates correctly", () => {
   const result = truncateForPrompt(text, 10);
   assert.ok(result.includes("[...content truncated...]"));
   assert.ok(result.length <= 10 + 28);
+});
+
+test("chunkTextOverview limits total chunks for large documents", () => {
+  const text = "chunk1. chunk2. chunk3. chunk4. chunk5. chunk6. chunk7.";
+  const overview = chunkTextOverview(text, 7, 3);
+  assert.ok(overview.length <= 3);
+  assert.strictEqual(overview[0], "chunk1.");
 });

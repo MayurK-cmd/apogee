@@ -63,18 +63,36 @@ export async function* mapReduceStream(
     if (signal?.aborted) return;
     onProgress?.({ stage: "map", index: i, total: chunks.length });
     let partial = "";
-    for await (const token of chatStreamFn(
-      host,
-      model,
-      buildMap(chunks[i], i, chunks.length),
-      { signal },
-    )) {
-      partial += token;
+    try {
+      for await (const token of chatStreamFn(
+        host,
+        model,
+        buildMap(chunks[i], i, chunks.length),
+        { signal },
+      )) {
+        if (signal?.aborted) return;
+        partial += token;
+      }
+      if (partial.trim()) {
+        partials.push(partial.trim());
+      }
+    } catch (err) {
+      if (signal?.aborted) return;
+      // If OOM or resource limit hit on a chunk, keep partials collected so far
+      const isOOM =
+        /out of memory|oom|buffer allocation|gpubuffer|allocation failed|memory limit/i.test(
+          err?.message || "",
+        );
+      if (isOOM && partials.length > 0) {
+        onProgress?.({ stage: "oom_fallback", index: i });
+        break;
+      }
+      throw err;
     }
-    partials.push(partial.trim());
   }
 
   if (signal?.aborted) return;
+  if (partials.length === 0) return;
   onProgress?.({ stage: "reduce" });
   yield* streamFinal(buildReduce(partials));
 }
