@@ -15,6 +15,7 @@
     "build": "npm run build:chrome && npm run build:firefox",
     "test": "node --test",
     "lint": "eslint .",
+    "lint:webext": "addons-linter dist/firefox",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "package": "npm run build && node -e 'const fs = require(\"fs\"); const v = JSON.parse(fs.readFileSync(\"manifest.json\")).version; const exec = require(\"child_process\").execSync; exec(\"npx web-ext build --source-dir dist/chrome --artifacts-dir ../ --overwrite-dest --filename apogee-\" + v + \"-chrome.zip\", {stdio: \"inherit\"}); exec(\"npx web-ext build --source-dir dist/firefox --artifacts-dir ../ --overwrite-dest --filename apogee-\" + v + \"-mozilla.xpi\", {stdio: \"inherit\"});'"
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "addons-linter": "^10.10.0",
     "eslint": "^10.9.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.11.0",
