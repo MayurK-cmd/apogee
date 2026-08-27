@@ -1554,7 +1554,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "extract-pdf": {
-          const text = await extractPdfText(message.payload.pdfBase64);
+          const pdfBase64 = message.payload?.pdfBase64;
+          const MAX_PDF_BASE64_LENGTH = Math.ceil((50 * 1024 * 1024 * 4) / 3);
+          if (
+            typeof pdfBase64 !== "string" ||
+            pdfBase64.length > MAX_PDF_BASE64_LENGTH
+          ) {
+            throw new Error("PDF input missing or exceeds maximum allowed size.");
+          }
+          const text = await extractPdfText(pdfBase64);
           sendResponse({ text });
           break;
         }
