@@ -25,7 +25,6 @@ import {
 } from "../lib/engines/transformersEngine.js";
 import { getSettings } from "../lib/storage/settings.js";
 import { initDebugLogging, sanitizeLogMessage } from "../lib/util/log.js";
-import { validateOllamaHost } from "../lib/util/ollamaHost.js";
 import { NotificationTargetManager } from "../lib/util/notificationTargets.js";
 import {
   getSummaryCacheKey,
@@ -319,6 +318,37 @@ function relayToOffscreenStream(popupPort, streamId) {
   });
 }
 
+const ALLOWED_LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost"]);
+
+// The label is woven into the thrown messages, which ERROR.md documents word
+// for word, so the Ollama default has to keep producing exactly the strings it
+// produced before.
+function validateLoopbackHost(host, label = "Ollama") {
+  let url;
+  try {
+    url = new URL(host);
+  } catch {
+    throw new Error(`Invalid ${label} host`);
+  }
+  if (url.protocol !== "http:") {
+    throw new Error(`Disallowed ${label} protocol: ${url.protocol}`);
+  }
+  if (!ALLOWED_LOOPBACK_HOSTS.has(url.hostname)) {
+    throw new Error(`Disallowed ${label} host: ${url.hostname}`);
+  }
+  return url.toString().replace(/\/+$/, "");
+}
+
+// What a loopback HTTP provider contributes to a generation job: the client
+// that talks to it, the name its errors are written in, and the message action
+// its stream arrives on. Everything else in the two functions below is the
+// same whichever server is answering. Ollama is the default, so its call sites
+// pass nothing and behave exactly as before.
+const OLLAMA_PROVIDER = {
+  label: "Ollama",
+  streamKind: "ollama-stream",
+  chatStream,
+};
 async function getRelevantAskContent(content, question) {
   if (!hasOffscreenAPI) return truncateForPrompt(content);
   try {
@@ -374,7 +404,7 @@ function createBufferedStream(streamId, { finalize, model, title, url }) {
   return { stream, finish, emitChunk };
 }
 
-async function startOllamaStream(
+async function startLocalHttpStream(
   streamId,
   {
     action,
@@ -390,6 +420,7 @@ async function startOllamaStream(
     language,
     translationEngine,
   },
+  client = OLLAMA_PROVIDER,
 ) {
   const { stream, finish, emitChunk } = createBufferedStream(streamId, {
     finalize,
@@ -400,7 +431,7 @@ async function startOllamaStream(
 
   let validHost;
   try {
-    validHost = validateOllamaHost(host);
+    validHost = validateLoopbackHost(host, client.label);
   } catch (err) {
     finish({ type: "error", error: err.message });
     return;
@@ -441,6 +472,7 @@ async function startOllamaStream(
           signal: stream.controller.signal,
         },
         {
+          chatStreamFn: client.chatStream,
           translateFn,
           onProgress: (p) => {
             if (p.stage === "truncated") {
@@ -465,7 +497,7 @@ async function startOllamaStream(
         buildAnswerPrompt(title, url, relevantContent, question),
         customInstructions,
       );
-      const chat = (p, opts) => chatStream(validHost, model, p, opts);
+      const chat = (p, opts) => client.chatStream(validHost, model, p, opts);
       generator = streamInTargetLanguage(
         chat,
         prompt,
@@ -473,7 +505,7 @@ async function startOllamaStream(
         { signal: stream.controller.signal, translateFn },
       );
     } else {
-      throw new Error(`Unknown ollama-stream action: ${action}`);
+      throw new Error(`Unknown ${client.streamKind} action: ${action}`);
     }
 
     for await (const token of generator) {
@@ -753,6 +785,7 @@ async function runBackgroundSummarize(
   let streamId;
   if (providerType === PROVIDERS.LOCAL) {
     streamId = nextStreamId("ollama");
+    startLocalHttpStream(streamId, { ...common, host: settings.ollamaHost });
   } else if (providerType === PROVIDERS.TRANSFORMERS) {
     streamId = nextStreamId("transformers");
   } else {
@@ -781,7 +814,7 @@ async function runBackgroundSummarize(
   });
 
   if (providerType === PROVIDERS.LOCAL) {
-    startOllamaStream(streamId, { ...common, host: settings.ollamaHost });
+    startLocalHttpStream(streamId, { ...common, host: settings.ollamaHost });
   } else if (providerType === PROVIDERS.TRANSFORMERS) {
     startTransformersStream(streamId, common);
   } else {
@@ -993,14 +1026,15 @@ async function fetchBilibiliSubtitles({ aid, bvid, cid, preferredLang }) {
     .filter((seg) => seg.text);
 }
 
-async function generateOllamaSuggestions(
+async function generateLocalSuggestions(
   host,
   model,
   { title, url, summary, language, translationEngine },
+  client = OLLAMA_PROVIDER,
 ) {
-  const validHost = validateOllamaHost(host);
+  const validHost = validateLoopbackHost(host, client.label);
   const prompt = buildSuggestQuestionsPrompt(title, url, summary);
-  const chat = (p, opts) => chatStream(validHost, model, p, opts);
+  const chat = (p, opts) => client.chatStream(validHost, model, p, opts);
   const qLanguage = await resolveEffectiveLanguage(summary, language);
   const translateFn =
     translationEngine === TRANSLATION_ENGINES.OPUS
@@ -1036,7 +1070,7 @@ async function runSuggestQuestionsJob(payload) {
     let questions = [];
     try {
       if (providerType === PROVIDERS.LOCAL) {
-        questions = await generateOllamaSuggestions(host, model, {
+        questions = await generateLocalSuggestions(host, model, {
           title,
           url,
           summary,
@@ -1468,7 +1502,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             host: settings.ollamaHost,
           };
           await recordPopupSummaryStream(payload, streamId);
-          startOllamaStream(streamId, payload);
+          startLocalHttpStream(streamId, payload);
           sendResponse({ streamId });
           break;
         }
@@ -1502,7 +1536,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case "ollama-status": {
           let validHost;
           try {
-            validHost = validateOllamaHost(message.payload.host);
+            validHost = validateLoopbackHost(message.payload.host);
           } catch {
             sendResponse({ connected: false, models: [] });
             break;
