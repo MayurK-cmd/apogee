@@ -1,3 +1,8 @@
+function sanitizeHeaderValue(str) {
+  if (!str) return "";
+  return str.replace(/[\r\n\x00-\x1F\x7F]/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function extractGmail() {
   const subjectEl =
     document.querySelector("h1.hP") || document.querySelector(".hP");
@@ -29,18 +34,20 @@ function extractGmail() {
     const messageContainer = el.closest?.(".adn") || el.closest?.(".gs");
 
     const senderEl = messageContainer?.querySelector?.(".gD");
-    const sender =
+    const rawSender =
       senderEl?.getAttribute("email") ||
       senderEl?.innerText?.trim() ||
       senderEl?.textContent?.trim() ||
       "";
+    const sender = sanitizeHeaderValue(rawSender);
 
     const dateEl = messageContainer?.querySelector?.(".g3");
-    const date =
+    const rawDate =
       dateEl?.getAttribute("title") ||
       dateEl?.innerText?.trim() ||
       dateEl?.textContent?.trim() ||
       "";
+    const date = sanitizeHeaderValue(rawDate);
 
     const attachmentEls = Array.from(
       messageContainer?.querySelectorAll?.(".aQH .aV3, .aZo .aV3") || [],
