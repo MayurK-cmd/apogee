@@ -1930,6 +1930,134 @@ document.getElementById("askBtn")?.addEventListener("click", async () => {
   });
 });
 
+async function summarizeCustomContent(title, content, url = "") {
+  if (activeSummarizeStreamId) {
+    cancelStream(activeSummarizeStreamId);
+  }
+  showOnlyView("summaryView");
+  showSummarizingContext();
+  setLoadingIndicator(summaryText, randomSummarizeVerb());
+
+  const jobId = `summary-${crypto.randomUUID()}`;
+  try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    const settings = await getSettings();
+    const provider = getProvider(settings);
+    const model = getModelForSettings(settings);
+    currentSummaryLanguage = settings.summaryLanguage;
+    currentTranslationEngine = settings.translationEngine;
+
+    const promptsCacheKey = await getPromptsCacheKey(
+      url || tab?.url || "https://local.paste",
+      settings.responseFormat,
+      model,
+      settings.summaryLanguage,
+      settings.customInstructions,
+      settings.translationEngine,
+    );
+
+    const { streamId, stream } = await provider.summarize({
+      title,
+      url: url || tab?.url || "https://local.paste",
+      content,
+      responseFormat: settings.responseFormat,
+      language: settings.summaryLanguage,
+      customInstructions: settings.customInstructions,
+      translationEngine: settings.translationEngine,
+    });
+
+    activeSummarizeStreamId = streamId;
+    if (tab?.id) {
+      await saveViewState(tab.id, {
+        view: "summaryView",
+        subview: "summarizing",
+        url: tab.url,
+        streamId,
+        jobId,
+        summaryText: "",
+        timeSaved: null,
+        promptsCacheKey,
+      });
+    }
+    showCancelSummarizeButton(streamId);
+
+    await consumeSummaryStream(stream, { tab, promptsCacheKey, jobId });
+  } catch (error) {
+    if (error instanceof StreamCancelledError) {
+      if (activeTabId) returnHomeAfterCancel(activeTabId, jobId);
+    } else {
+      console.error(error);
+      renderSummaryError(error);
+    }
+  } finally {
+    hideCancelSummarizeButton();
+  }
+}
+
+document.getElementById("pasteTextBtn")?.addEventListener("click", async () => {
+  try {
+    let text = "";
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.readText === "function"
+    ) {
+      text = await navigator.clipboard.readText();
+    }
+    if (!text || !text.trim()) {
+      text = prompt("Paste the text you want to summarize:");
+    }
+    if (text && text.trim()) {
+      await summarizeCustomContent("Pasted Text", text.trim());
+    }
+  } catch (err) {
+    console.error("Paste text failed:", err);
+    const text = prompt("Paste the text you want to summarize:");
+    if (text && text.trim()) {
+      await summarizeCustomContent("Pasted Text", text.trim());
+    }
+  }
+});
+
+const fileUploadInput = document.getElementById("fileUploadInput");
+
+document.getElementById("uploadFileBtn")?.addEventListener("click", () => {
+  fileUploadInput?.click();
+});
+
+fileUploadInput?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    let text = "";
+    if (file.name.toLowerCase().endsWith(".pdf")) {
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+      const { extractPdfText } = await import("../lib/extract/pdfExtract.js");
+      text = await extractPdfText(base64);
+    } else {
+      text = await file.text();
+    }
+
+    if (text && text.trim()) {
+      await summarizeCustomContent(file.name, text.trim());
+    }
+  } catch (err) {
+    console.error("File read failed:", err);
+    alert(`Failed to read file: ${err.message || err}`);
+  } finally {
+    if (fileUploadInput) fileUploadInput.value = "";
+  }
+});
+
 sendBtn?.addEventListener("click", () => submitQuestion(questionInput.value));
 questionInput?.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {

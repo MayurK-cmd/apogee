@@ -92,6 +92,32 @@
               <span>Ask Apogee a question</span>
             </button>
 
+            <div class="quick-action-row">
+              <button
+                id="pasteTextBtn"
+                class="quick-action-btn sharp-btn"
+                type="button"
+              >
+                <span class="ico" data-ico="copy" aria-hidden="true"></span>
+                <span>Paste text to summarize</span>
+              </button>
+
+              <button
+                id="uploadFileBtn"
+                class="quick-action-btn sharp-btn"
+                type="button"
+              >
+                <span class="ico" data-ico="upload" aria-hidden="true"></span>
+                <span>Upload file to summarize</span>
+              </button>
+              <input
+                type="file"
+                id="fileUploadInput"
+                accept=".pdf,.txt,.md,.json"
+                class="hidden"
+              />
+            </div>
+
             <button
               id="openSidePanelBtn"
               class="side-panel-launch-btn hidden"
