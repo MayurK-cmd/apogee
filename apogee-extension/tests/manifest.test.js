@@ -34,6 +34,15 @@ test("manifest.json permissions enforce local-first privacy boundary", () => {
   const hostPermissions = manifest.host_permissions || [];
   const optionalHostPermissions = manifest.optional_host_permissions || [];
 
+  assert.ok(
+    permissions.includes("storage"),
+    "Manifest must declare storage permission",
+  );
+  assert.ok(
+    permissions.includes("activeTab"),
+    "Manifest must declare activeTab permission",
+  );
+
   // Enforce no <all_urls> standing host permissions
   assert.strictEqual(
     hostPermissions.includes("<all_urls>"),
