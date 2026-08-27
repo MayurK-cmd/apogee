@@ -131,3 +131,11 @@ When you click a summary bullet in Chromium browsers, Apogee highlights the exac
 - **Firefox**: Firefox extension APIs do not currently support offscreen documents. Transformers.js executes directly in Firefox background page using WebAssembly.
 - **Local Ollama**: Communicates directly over local loopback (`http://127.0.0.1:11434`) via HTTP streaming from the background service worker.
 - **Automation & Testing**: For E2E browser automation setup using Playwright or Puppeteer with Apogee loaded, see [DEVELOPMENT.md#browser-automation--e2e-testing](DEVELOPMENT.md#browser-automation--e2e-testing).
+
+## Security Architecture and Isolation Boundaries
+
+- **Zero-Trust Message Validation**: All internal WebExtension message routing in `service-worker.js` validates sender context (`sender.id === chrome.runtime.id`) and enforces action-level authorization to prevent malicious web pages or untrusted scripts from invoking extension actions.
+- **Global Scope Isolation**: Content scripts operate cleanly within isolated JavaScript worlds without leaking references onto DOM global scope objects (`window.__apogeeHighlight` and `window.extractPageContent` removed).
+- **Extractor Input Sanitization & Payload Validation**: Specialized site extractors (e.g., Gmail) sanitize header text and control characters to prevent prompt injection. YouTube and Bilibili extractors perform parameter cross-validation between target URLs (`videoId`, `bvid`, `aid`) and embedded script tag structures (`ytInitialPlayerResponse`, `__INITIAL_STATE__`).
+- **PDF Payload Bounds**: Binary PDF payloads processed via base64 in `extract-pdf` are validated for correct string typing and capped at a maximum size of 50 MB to prevent memory exhaustion attacks.
+- **Memory Limits & Out-Of-Memory (OOM) Resilience**: In-browser models automatically intercept WebGPU buffer allocation failures and WASM memory limits, calling `resetEngineState` and falling back to bounded `chunkTextOverview` sampling to ensure reliable operation under tight memory constraints.

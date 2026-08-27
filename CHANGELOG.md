@@ -8,9 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Overview chunking strategy for large documents.** Added `chunkTextOverview` fallback helper to maintain bounded context when processing massive articles or long transcripts under memory pressure. (#114)
+- **Multi-tab batch summarization via context menu.** Added context menu action ("Summarize with Apogee") to summarize multiple selected tabs simultaneously into a synthesized overview. (#116)
 - **Lemmy post extractor.** Dedicated extractor for Lemmy post pages parsing post titles, authors, communities, scores, bodies, links, and threaded comment chains in path notation. (#32)
 - **Discourse forum extractor.** Dedicated extractor for Discourse forum topic pages parsing topic titles, original posts, categories, and reply post streams into structured Markdown summaries. (#33)
-- **Multi-tab batch summarization via context menu.** Added context menu action ("Summarize with Apogee") to summarize multiple selected tabs simultaneously into a synthesized overview. (#116)
 - **Mastodon thread extractor.** Custom thread extractor for Mastodon status pages (detecting federated hosts via URL pattern and DOM markup) that parses main posts, authors, engagement metrics, and reply chains in tree path notation. (#31)
 - **On-demand permission prompts for optional host permissions.** Added dynamic permission check and request workflows (`ensurePermissionsForUrl`) in the popup UI when summarizing site surfaces requiring cross-origin host access (Bilibili, YouTube, SponsorBlock). (#94, #115)
 - **arXiv abstract extractor.** Custom extractor for arXiv abstract pages (`/abs/*`) that parses paper titles, authors, subjects, arXiv ID, PDF link, and abstract into structured Markdown. (#93)
@@ -23,12 +24,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **Memory resilience and OOM recovery.** Intercepted WebGPU buffer allocation failures and WASM memory limits gracefully, preventing service worker or offscreen crashes and offering automatic cleanup (`resetEngineState`) and context reduction fallbacks. (#114)
+- **Immediate stream cancellation resource release.** Enhanced cancellation handling to instantly abort generation calls, clear memory buffers, and close stream ports without waiting on idle timers. (#114)
 - **Domain permissions refactored to `optional_host_permissions`.** Replaced static cross-origin host permissions in `manifest.json` with strict `activeTab` access by default, moving site-specific cross-origin domains (`*.bilibili.com`, `*.hdslb.com`, `*.youtube.com`, `sponsor.ajay.app`) to `optional_host_permissions`. (#94, #115)
 - **Translation engine cache identity.** Included translation engine in cached summary identity keys to prevent cache collisions between LLM and Opus-MT translation outputs. (#100, #101)
 - **Stream expiry summary recovery.** Restored ability to view completed summaries when reopening popup after stream expiry.
 
 ### Security
 
+- **Removed exposed global scope objects.** Neutralized `window.__apogeeHighlight` and `window.extractPageContent` global function exposures in content scripts, replacing them with secure `chrome.runtime` / `chrome.tabs` message listeners. (#121, #122)
+- **Gmail extractor prompt injection protection.** Implemented `sanitizeHeaderValue` using character code filtering to eliminate control characters and malicious prompt injection vectors from sender and date headers. (#123)
+- **YouTube and Bilibili script tag cross-validation.** Added strict URL parameter validation (`videoId`, `bvid`, `aid`) matched against embedded script tag JSON responses (`ytInitialPlayerResponse`, `__INITIAL_STATE__`) to prevent DOM payload tampering. (#124)
+- **Multi-tab tab selection constraints.** Refactored multi-tab summarization to ignore caller-supplied tab lists, enforcing internal querying of highlighted tabs in the current window. (#125)
+- **PDF input type and size validation.** Added strict type checking and a 50MB base64 size limit in the service worker `extract-pdf` action to prevent memory exhaustion and invalid payload processing. (#126)
+- **Service worker message router context validation.** Added sender context validation (`sender.id === chrome.runtime.id`) to the `service-worker.js` message listener to prevent unauthorized content-script invocation of internal privileged actions. (#127)
 - **CodeQL security hardening.** Resolved CodeQL alerts for URL scheme validation, hostname regex parsing, and markdown link sanitization.
 
 

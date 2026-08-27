@@ -6,12 +6,17 @@ This document outlines current work, upcoming priorities, and long-term goals fo
 
 ## Now
 
+- **Security & Resilience Hardening**:
+  - Out-of-memory (OOM) recovery, stream cancellation buffer release, and overview chunking strategy. (#114)
+  - Zero-trust message context validation (`sender.id`), global scope isolation, prompt injection neutralization, and payload bounds. (#121-#127)
+- **Multi-Tab Context (Shipped)**:
+  - Batch summarize and synthesize across multiple selected tabs via right-click context menu ("Summarize with Apogee"). (#116)
 - **Extractor Expansion**:
-  - Add page extractors for more platforms (Lemmy, Discourse, GitLab, Dev.to, Bluesky).
+  - Add page extractors for more platforms (GitLab, Dev.to, Bluesky).
   - Shipped extractors: YouTube, Bilibili, Wikipedia, Gmail, Reddit, Hacker News, GitHub, Lobsters, arXiv, Mastodon, Stack Overflow, Lemmy, Discourse.
   - Keep extractor creation simple so contributors can write unit-tested extractors in Node without running a browser.
 - **Test Coverage**:
-  - Expand test suites for existing extractors (Bilibili) and untested library modules (diagnostics, hash, timestamps, mapReduce, viewState).
+  - Expand test suites for existing extractors and core modules (316 tests passing).
 - **Firefox Feature Parity**:
   - Bring on-device vector retrieval (Ask) and sentence-level grounding (Highlight-in-page) to Firefox when browser APIs permit.
 - **Model and Performance Optimizations**:
@@ -33,8 +38,6 @@ This document outlines current work, upcoming priorities, and long-term goals fo
 
 - **Safari Support**:
   - Explore packaging requirements for Safari support.
-- **Multi-Tab Context**:
-  - Summarize and compare across multiple open tabs or reading lists via multi-select right-click context menu ("Summarize with Apogee"). (#116)
 - **Custom Extractor Plugin API**:
   - Allow users to load custom extractors directly in settings without editing core source code.
 

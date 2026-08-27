@@ -17,6 +17,8 @@ Apogee's central claim is that page content, summaries, and answers never leave 
 
 - Page content, extracted text, or a generated summary reaching any host other than `127.0.0.1` / `localhost`
 - A web page reading data belonging to another page through the extension, or reaching extension-privileged APIs
+- Bypassing extension sender context validation (`sender.id === chrome.runtime.id`) to invoke background actions from untrusted web pages
+- Polluting DOM global scope objects or exploiting content script execution contexts
 - Cached summaries or extracted content being readable by something other than the extension, or persisting for a URL that [`isSensitiveUrl`](apogee-extension/lib/storage/pageCache.js) should have excluded
 - Prompt injection from page content that escapes the grounding rules to make the model exfiltrate data or act outside summarizing (injection that merely produces a wrong or silly summary is a bug, not a vulnerability)
 - Anything letting an attacker widen the extension's permissions or host access
