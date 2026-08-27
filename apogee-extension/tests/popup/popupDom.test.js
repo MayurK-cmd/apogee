@@ -52,6 +52,11 @@ test("side panel controls preserve Chrome's native panel chrome", () => {
 
   assert.strictEqual(closeButtons.length, 4);
   assert.ok(document.getElementById("openSidePanelBtn"));
+  assert.ok(document.getElementById("sidePanelThemeToggleBtn"));
+  assert.strictEqual(
+    document.querySelector(".side-panel-hero h1")?.textContent,
+    "TL;DR",
+  );
 });
 
 test("popup.html includes summary text container and chat controls", () => {

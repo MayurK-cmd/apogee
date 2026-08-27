@@ -95,6 +95,9 @@ const pastSummariesFilter = document.getElementById("pastSummariesFilter");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsBtn2 = document.getElementById("settingsBtn2");
 const openSidePanelBtn = document.getElementById("openSidePanelBtn");
+const sidePanelThemeToggleBtn = document.getElementById(
+  "sidePanelThemeToggleBtn",
+);
 const closeBtn = document.getElementById("closeBtn");
 const closeBtn2 = document.getElementById("closeBtn2");
 const closeBtn3 = document.getElementById("closeBtn3");
@@ -2045,6 +2048,18 @@ themeRadios.forEach((radio) => {
     const settings = await saveSettings({ theme: radio.value });
     applyTheme(settings.theme);
   });
+});
+
+sidePanelThemeToggleBtn?.addEventListener("click", async () => {
+  const nextTheme = document.documentElement.classList.contains("theme-dark")
+    ? "light"
+    : "dark";
+  const settings = await saveSettings({ theme: nextTheme });
+  const themeRadio = document.querySelector(
+    `input[name="theme"][value="${settings.theme}"]`,
+  );
+  if (themeRadio) themeRadio.checked = true;
+  applyTheme(settings.theme);
 });
 
 function hideHistoryWipeConfirm() {

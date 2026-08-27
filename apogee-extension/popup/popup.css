@@ -1996,6 +1996,11 @@ body {
   height: 16px;
 }
 
+.side-panel-theme-btn,
+.side-panel-hero {
+  display: none;
+}
+
 html[data-surface="side-panel"],
 html[data-surface="side-panel"] body {
   width: 100%;
@@ -2021,6 +2026,47 @@ html[data-surface="side-panel"].theme-light body {
 
 html[data-surface="side-panel"] .container {
   min-height: 100vh;
+}
+
+html[data-surface="side-panel"] #homeView .header {
+  background: transparent;
+  border-bottom-color: transparent;
+}
+
+html[data-surface="side-panel"] #homeView .brand {
+  display: none;
+}
+
+html[data-surface="side-panel"] .side-panel-theme-btn {
+  display: flex;
+}
+
+html[data-surface="side-panel"] .side-panel-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: clamp(36px, 8vh, 72px) 20px 22px;
+}
+
+html[data-surface="side-panel"] .side-panel-hero img {
+  width: 30px;
+  height: 30px;
+}
+
+html[data-surface="side-panel"] .side-panel-hero h1 {
+  font-family: var(--font-head);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+html[data-surface="side-panel"] #homeView .home-buttons {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding-top: 0;
 }
 
 html[data-surface="side-panel"] #homeView,
