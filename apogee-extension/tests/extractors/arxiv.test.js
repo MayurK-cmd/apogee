@@ -93,7 +93,7 @@ test("arXiv PDF pages use the existing PDF extraction path", async () => {
     configurable: true,
   });
 
-  const result = await context.window.extractPageContent();
+  const result = await context.extractPageContent();
 
   assert.strictEqual(result.title, "A Synthetic Study of Quiet Machines");
   assert.strictEqual(result.url, "https://arxiv.org/pdf/2401.01234");

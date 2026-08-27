@@ -61,8 +61,8 @@ export async function extractFromActiveTab(tab) {
     const checkResult = await chrome.scripting.executeScript({
       target: { tabId },
       func: () =>
-        typeof window.extractPageContent === "function"
-          ? window.__apogeeExtractorVersion || "unknown"
+        typeof window.__apogeeExtractorVersion === "string"
+          ? window.__apogeeExtractorVersion
           : null,
     });
     injectedVersion = checkResult?.[0]?.result;
@@ -104,18 +104,9 @@ export async function extractFromActiveTab(tab) {
     }
   }
 
-  const results = await chrome.scripting.executeScript({
-    target: { tabId },
-    func: async () => {
-      try {
-        return await window.extractPageContent();
-      } catch (e) {
-        return { error: e?.message || String(e) };
-      }
-    },
+  const pageData = await chrome.tabs.sendMessage(tabId, {
+    action: "extract-page-content",
   });
-
-  const pageData = results?.[0]?.result;
   if (pageData?.error) throw new Error(pageData.error);
   return pageData || null;
 }
