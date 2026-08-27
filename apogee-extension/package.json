@@ -18,6 +18,8 @@
     "lint:webext": "addons-linter dist/firefox",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "start:firefox": "npm run build:firefox && web-ext run --source-dir dist/firefox",
+    "start:chrome": "npm run build:chrome && web-ext run --target chromium --source-dir dist/chrome",
     "package": "npm run build && node -e 'const fs = require(\"fs\"); const v = JSON.parse(fs.readFileSync(\"manifest.json\")).version; const exec = require(\"child_process\").execSync; exec(\"npx web-ext build --source-dir dist/chrome --artifacts-dir ../ --overwrite-dest --filename apogee-\" + v + \"-chrome.zip\", {stdio: \"inherit\"}); exec(\"npx web-ext build --source-dir dist/firefox --artifacts-dir ../ --overwrite-dest --filename apogee-\" + v + \"-mozilla.xpi\", {stdio: \"inherit\"});'"
   },
   "dependencies": {

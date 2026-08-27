@@ -47,6 +47,15 @@ Run all development commands from the repository root or inside the `apogee-exte
   npm run build:firefox
   ```
 
+- **Local Browser Runner (Interactive Testing)**:
+
+  ```bash
+  npm run start:firefox
+  npm run start:chrome
+  ```
+
+  Launches an isolated browser instance (Firefox or Chromium) pre-loaded with the local Apogee extension build for live debugging and interactive testing.
+
 - **Windows Build Notes**: Build scripts use POSIX environment variable syntax. If you are using native Windows CMD or PowerShell, run build commands inside **Git Bash** or **WSL** for seamless execution.
 
 ## Repository Folder Guide and Contribution Rules
