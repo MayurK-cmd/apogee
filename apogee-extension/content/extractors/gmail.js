@@ -1,6 +1,12 @@
 function sanitizeHeaderValue(str) {
   if (!str) return "";
-  return str.replace(/[\r\n\x00-\x1F\x7F]/g, " ").replace(/\s+/g, " ").trim();
+  const clean = Array.from(str)
+    .map((ch) => {
+      const code = ch.charCodeAt(0);
+      return code <= 31 || code === 127 ? " " : ch;
+    })
+    .join("");
+  return clean.replace(/\s+/g, " ").trim();
 }
 
 function extractGmail() {

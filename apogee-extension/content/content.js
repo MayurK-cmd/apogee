@@ -74,7 +74,11 @@ async function extractPageContent() {
   return { ...data, isPdf: false };
 }
 
-if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
+if (
+  typeof chrome !== "undefined" &&
+  chrome.runtime &&
+  chrome.runtime.onMessage
+) {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id && sender.id !== chrome.runtime.id) return;
     if (message && message.action === "extract-page-content") {
