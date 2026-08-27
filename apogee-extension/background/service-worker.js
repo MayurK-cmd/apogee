@@ -1676,8 +1676,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case "summarize-multi-tab": {
-          let targetTabs = message.payload?.tabs;
-          if (!targetTabs && typeof chrome.tabs?.query === "function") {
+          let targetTabs = [];
+          if (typeof chrome.tabs?.query === "function") {
             targetTabs = await chrome.tabs.query({
               highlighted: true,
               currentWindow: true,
