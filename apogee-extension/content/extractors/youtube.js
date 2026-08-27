@@ -27,6 +27,7 @@ function extractBalancedObject(text, openIndex) {
 }
 
 function getPlayerResponse() {
+  const currentVideoId = new URLSearchParams(location.search).get("v");
   for (const script of document.querySelectorAll("script")) {
     const text = script.textContent;
     if (!text || !text.includes("ytInitialPlayerResponse")) continue;
@@ -37,7 +38,15 @@ function getPlayerResponse() {
     const json = extractBalancedObject(text, openIndex);
     if (!json) continue;
     try {
-      return JSON.parse(json);
+      const parsed = JSON.parse(json);
+      if (
+        currentVideoId &&
+        parsed?.videoDetails?.videoId &&
+        parsed.videoDetails.videoId !== currentVideoId
+      ) {
+        continue;
+      }
+      return parsed;
     } catch {}
   }
   return null;

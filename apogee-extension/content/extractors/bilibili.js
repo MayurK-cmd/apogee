@@ -27,6 +27,7 @@ function biliExtractBalancedObject(text, openIndex) {
 }
 
 function getBiliInitialState() {
+  const path = location.pathname.toLowerCase();
   const scripts = Array.from(document.querySelectorAll("script")).filter(
     (s) => s && (typeof s.isConnected === "undefined" || s.isConnected),
   );
@@ -40,7 +41,15 @@ function getBiliInitialState() {
     const json = biliExtractBalancedObject(text, openIndex);
     if (!json) continue;
     try {
-      return JSON.parse(json);
+      const parsed = JSON.parse(json);
+      const bvid = parsed?.bvid || parsed?.videoData?.bvid;
+      const aid = parsed?.aid || parsed?.videoData?.aid;
+      if (bvid && !path.includes(String(bvid).toLowerCase())) {
+        if (!aid || !path.includes(String(aid).toLowerCase())) {
+          continue;
+        }
+      }
+      return parsed;
     } catch {}
   }
   return null;
