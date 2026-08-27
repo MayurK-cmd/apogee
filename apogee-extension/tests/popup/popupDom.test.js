@@ -32,12 +32,26 @@ test("popup.html includes all primary view panels", () => {
 
 test("popup.html includes key UI action buttons", () => {
   const { document } = parseHTML(popupHtmlRaw);
-  const requiredButtons = ["summarizeBtn", "askBtn", "settingsBtn", "closeBtn"];
+  const requiredButtons = [
+    "summarizeBtn",
+    "askBtn",
+    "openSidePanelBtn",
+    "settingsBtn",
+    "closeBtn",
+  ];
 
   requiredButtons.forEach((id) => {
     const btn = document.getElementById(id);
     assert.ok(btn, `Action button #${id} must exist in popup.html`);
   });
+});
+
+test("side panel controls preserve Chrome's native panel chrome", () => {
+  const { document } = parseHTML(popupHtmlRaw);
+  const closeButtons = document.querySelectorAll(".popup-close-btn");
+
+  assert.strictEqual(closeButtons.length, 4);
+  assert.ok(document.getElementById("openSidePanelBtn"));
 });
 
 test("popup.html includes summary text container and chat controls", () => {

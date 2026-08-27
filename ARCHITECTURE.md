@@ -6,7 +6,7 @@ Apogee is an offline-first browser extension designed for complete data privacy.
 
 Apogee operates through four cooperating execution contexts that communicate using standard WebExtension messaging.
 
-- **Popup UI**: The user interface for triggering summaries, selecting output formats, asking follow-up questions, and searching past summaries.
+- **Popup / Side Panel UI**: The same user interface can run in the temporary toolbar popup or, on Chromium, a persistent side panel for triggering summaries, selecting output formats, asking follow-up questions, and searching past summaries.
 - **Service Worker**: The central router that coordinates tasks, buffers streaming tokens, manages background alarms, and persists results to local storage.
 - **Inference Host**: The environment where AI models execute. On Chromium browsers, this is a dedicated offscreen document supporting WebGPU and WebAssembly. On Firefox, model execution runs inside the background page.
 - **Content Extractors**: Specialized scripts injected into active browser tabs to clean page content, parse transcripts, process structured data, or read PDF documents.
@@ -39,7 +39,7 @@ flowchart TD
             HL["Highlight overlay<br/>scrolls to source text"]
         end
 
-        subgraph ui["Popup"]
+        subgraph ui["Popup / Chromium Side Panel"]
             POPUP["popup.js<br/>Summarize, Ask, Settings"]
         end
 

@@ -66,6 +66,16 @@ import {
 import { ensurePermissionsForUrl } from "../lib/util/permissions.js";
 import { icon, ICONS } from "./icons.js";
 
+const isSidePanelSurface =
+  new URLSearchParams(window.location.search).get("surface") === "side-panel";
+if (isSidePanelSurface) {
+  document.documentElement.dataset.surface = "side-panel";
+}
+
+function closeTransientSurface() {
+  if (!isSidePanelSurface) window.close();
+}
+
 const summarizeBtn = document.getElementById("summarizeBtn");
 const summarizeShortcutHint = document.getElementById("summarizeShortcutHint");
 const summaryText = document.getElementById("summaryText");
@@ -84,6 +94,7 @@ const pastSummariesList = document.getElementById("pastSummariesList");
 const pastSummariesFilter = document.getElementById("pastSummariesFilter");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsBtn2 = document.getElementById("settingsBtn2");
+const openSidePanelBtn = document.getElementById("openSidePanelBtn");
 const closeBtn = document.getElementById("closeBtn");
 const closeBtn2 = document.getElementById("closeBtn2");
 const closeBtn3 = document.getElementById("closeBtn3");
@@ -1648,6 +1659,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (process.env.TARGET_BROWSER === "firefox") {
     webllmProviderOption?.classList.add("hidden");
   }
+  if (
+    process.env.TARGET_BROWSER !== "firefox" &&
+    !isSidePanelSurface &&
+    typeof chrome.sidePanel?.open === "function"
+  ) {
+    openSidePanelBtn?.classList.remove("hidden");
+  }
 
   try {
     loadPastSummaries().catch((err) => console.error(err));
@@ -1880,10 +1898,21 @@ settingsBtn2?.addEventListener("click", () => {
   saveViewState(activeTabId, { view: "settingsView" });
 });
 
-closeBtn?.addEventListener("click", () => window.close());
-closeBtn2?.addEventListener("click", () => window.close());
-closeBtn3?.addEventListener("click", () => window.close());
-closeBtn4?.addEventListener("click", () => window.close());
+closeBtn?.addEventListener("click", closeTransientSurface);
+closeBtn2?.addEventListener("click", closeTransientSurface);
+closeBtn3?.addEventListener("click", closeTransientSurface);
+closeBtn4?.addEventListener("click", closeTransientSurface);
+
+openSidePanelBtn?.addEventListener("click", async () => {
+  try {
+    await chrome.sidePanel.open({
+      windowId: chrome.windows.WINDOW_ID_CURRENT,
+    });
+    closeTransientSurface();
+  } catch (error) {
+    console.error("Could not open the side panel:", error);
+  }
+});
 
 document.getElementById("askBtn")?.addEventListener("click", async () => {
   showOnlyView("summaryView");
@@ -2296,7 +2325,7 @@ async function locateAndHighlight(target) {
       await chrome.windows.update(tab.windowId, { focused: true });
     }
     await chrome.tabs.update(tab.id, { active: true });
-    window.close();
+    closeTransientSurface();
   } catch (err) {
     console.error("Highlight-in-page failed:", err);
     showLocateFailure(target);
@@ -2321,7 +2350,7 @@ summaryText?.addEventListener("click", (event) => {
   const tabId = activeTabId;
   if (tabId != null) {
     chrome.tabs.update(tabId, { url: link.href, active: true });
-    window.close();
+    closeTransientSurface();
   } else {
     chrome.tabs.create({ url: link.href });
   }

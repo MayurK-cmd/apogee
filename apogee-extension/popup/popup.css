@@ -1963,3 +1963,109 @@ body {
 .copy-diagnostics-hint {
   margin-top: 8px;
 }
+
+.side-panel-launch-btn {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 12px;
+  padding: 9px 14px;
+  border: 1px solid var(--btn-border);
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.side-panel-launch-btn:hover {
+  background: var(--btn-hover-bg);
+  border-color: var(--btn-hover-border);
+  color: var(--text-main);
+}
+
+.side-panel-launch-btn .ico svg {
+  width: 16px;
+  height: 16px;
+}
+
+html[data-surface="side-panel"],
+html[data-surface="side-panel"] body {
+  width: 100%;
+  min-width: 280px;
+  height: 100%;
+  min-height: 100%;
+}
+
+html[data-surface="side-panel"] body {
+  background-image: radial-gradient(
+    rgba(136, 134, 255, 0.08) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+html[data-surface="side-panel"].theme-light body {
+  background-image: radial-gradient(
+    rgba(88, 85, 255, 0.06) 1px,
+    transparent 1px
+  );
+}
+
+html[data-surface="side-panel"] .container {
+  min-height: 100vh;
+}
+
+html[data-surface="side-panel"] #homeView,
+html[data-surface="side-panel"] #summaryView,
+html[data-surface="side-panel"] #settingsView,
+html[data-surface="side-panel"] #contactView {
+  height: 100vh;
+  min-height: 0;
+}
+
+html[data-surface="side-panel"] #homeView:not(.hidden),
+html[data-surface="side-panel"] #summaryView:not(.hidden),
+html[data-surface="side-panel"] #settingsView:not(.hidden),
+html[data-surface="side-panel"] #contactView:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+}
+
+html[data-surface="side-panel"] .view-body,
+html[data-surface="side-panel"] .settings-content,
+html[data-surface="side-panel"] .contact-content {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html[data-surface="side-panel"] #summaryView .view-body {
+  display: flex;
+  flex-direction: column;
+}
+
+html[data-surface="side-panel"] .chat-section {
+  margin-top: auto;
+}
+
+html[data-surface="side-panel"] .chat-box:has(#questionInput:not(.hidden)) {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  background: var(--bg-color);
+  box-shadow: 0 -12px 20px var(--bg-color);
+}
+
+html[data-surface="side-panel"] .popup-close-btn,
+html[data-surface="side-panel"] .side-panel-launch-btn {
+  display: none !important;
+}

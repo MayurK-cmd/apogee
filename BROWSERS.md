@@ -8,8 +8,8 @@ The table below outlines supported feature sets, runtime engine availability, an
 
 | Browser | WebLLM (In-Browser AI, WebGPU) | Transformers.js (In-Browser AI, WASM) | Local Ollama | Notes |
 | --- | --- | --- | --- | --- |
-| Chrome 113+ | Yes, default | Yes, opt-in in Settings | Yes | Primary target, most tested |
-| Edge 113+ | Yes, default | Yes, opt-in in Settings | Yes | Chromium based, same engine as Chrome |
+| Chrome 116+ | Yes, default | Yes, opt-in in Settings | Yes | Primary target, most tested; popup and persistent side panel UI |
+| Edge 116+ | Yes, default | Yes, opt-in in Settings | Yes | Chromium based, same engine and side panel support as Chrome |
 | Dia | Yes, default | Yes, opt-in in Settings | Yes | Chromium based |
 | Brave | Should work | Should work | Yes | Chromium based; WebGPU may need enabling in `brave://flags`, not independently verified |
 | Opera / Opera GX | Should work | Should work | Yes | Chromium based, not independently verified |
