@@ -408,6 +408,12 @@ test("isSensitiveTitle detects sensitive page title patterns and excludes them f
     false,
   );
 
+  assert.strictEqual(await sanitizeTitleForStorage("Gmail - Inbox (3)"), "");
+  assert.strictEqual(
+    await sanitizeTitleForStorage("Understanding Quantum Computing"),
+    "Understanding Quantum Computing",
+  );
+
   const data = installFakeStorage({ settings: { saveHistory: true } });
   await persistSummary("k1", "p1", "summary body", "Gmail - Inbox", null, {});
   assert.strictEqual(data.cacheOrder[0].t, "");
