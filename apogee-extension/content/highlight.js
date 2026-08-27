@@ -121,7 +121,7 @@ function rangeFromOffsets(records, start, end) {
 
 const APOGEE_HIGHLIGHT_NAME = "apogee-grounding";
 
-window.__apogeeHighlight = function (chunkText) {
+function performHighlight(chunkText) {
   try {
     const { text, records } = buildTextIndex(document.body);
     const match = findMatchingRange(text, chunkText);
@@ -151,6 +151,17 @@ window.__apogeeHighlight = function (chunkText) {
     console.error("Apogee highlight failed:", err);
     return { found: false, highlighted: false };
   }
-};
+}
+
+if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (sender.id && sender.id !== chrome.runtime.id) return;
+    if (message && message.action === "apogee-highlight") {
+      const result = performHighlight(message.chunkText);
+      sendResponse(result);
+      return true;
+    }
+  });
+}
 
 true;

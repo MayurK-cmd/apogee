@@ -2283,12 +2283,10 @@ async function locateAndHighlight(target) {
       target: { tabId: tab.id },
       files: ["/content/highlight.js"],
     });
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: (chunk) => window.__apogeeHighlight(chunk),
-      args: [passage.chunk],
+    const result = await chrome.tabs.sendMessage(tab.id, {
+      action: "apogee-highlight",
+      chunkText: passage.chunk,
     });
-    const result = results?.[0]?.result;
     if (!result?.found) {
       showLocateFailure(target);
       return;
