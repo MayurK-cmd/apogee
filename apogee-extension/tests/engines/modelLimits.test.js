@@ -43,3 +43,44 @@ test("getMaxChunks fans Transformers.js models out into far fewer chunks", () =>
   assert.equal(getMaxChunks("Qwen2.5-1.5B-Instruct-q4f16_1-MLC"), 12);
   assert.equal(getMaxChunks("llama3.1:8b"), 12);
 });
+
+// A llama.cpp server takes its context window from its own -c launch flag, so
+// the model name cannot imply it. A caller that has asked the server what it
+// is running passes the answer, and it has to beat every name-based guess.
+test("getMaxChunkChars prefers a reported context window over the model name", () => {
+  // llama3.1 would otherwise be read as a 128k model and capped to 24000.
+  assert.equal(getMaxChunkChars("llama3.1:8b"), 87808);
+  assert.equal(getMaxChunkChars("llama3.1:8b", 4096), 8192);
+});
+
+test("getMaxChunkChars applies a reported window to every model-name shape", () => {
+  for (const model of [
+    "llama3.1:8b",
+    "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+    TRANSFORMERS_MODELS[0].id,
+    "Qwen/Qwen2.5-0.5B-Instruct-GGUF:Q4_K_M",
+    "",
+  ]) {
+    assert.equal(getMaxChunkChars(model, 4096), 8192);
+  }
+});
+
+test("getMaxChunkChars still caps a large reported window at the practical max", () => {
+  assert.equal(getMaxChunkChars("some-model", 32768), 87808);
+  assert.equal(getMaxChunkChars("some-model", 1000000), 87808);
+});
+
+test("getMaxChunkChars keeps a floor under a tiny reported window", () => {
+  assert.equal(getMaxChunkChars("some-model", 1024), 2048);
+});
+
+// Everything that does not pass an override has to behave exactly as before.
+test("getMaxChunkChars ignores an absent or unusable override", () => {
+  for (const override of [undefined, null, 0, -1, NaN, Infinity, "4096", {}]) {
+    assert.equal(
+      getMaxChunkChars("llama3.1:8b", override),
+      getMaxChunkChars("llama3.1:8b"),
+      `override ${String(override)} should have been ignored`,
+    );
+  }
+});
