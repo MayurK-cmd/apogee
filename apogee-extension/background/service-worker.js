@@ -1336,6 +1336,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (sender.id !== chrome.runtime.id) return false;
 
+  const ALLOWED_CONTENT_SCRIPT_ACTIONS = new Set([
+    "sponsorblock-segments",
+    "bilibili-subtitles",
+  ]);
+  if (
+    sender.tab &&
+    (!message.action || !ALLOWED_CONTENT_SCRIPT_ACTIONS.has(message.action))
+  ) {
+    return false;
+  }
+
   if (message.type === "offscreen-ready") {
     _offscreenScriptReadyResolve();
     return false;
