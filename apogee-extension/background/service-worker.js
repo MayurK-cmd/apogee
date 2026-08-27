@@ -25,7 +25,6 @@ import {
 } from "../lib/engines/transformersEngine.js";
 import { getSettings } from "../lib/storage/settings.js";
 import { initDebugLogging, sanitizeLogMessage } from "../lib/util/log.js";
-import { validateOllamaHost } from "../lib/util/ollamaHost.js";
 import { NotificationTargetManager } from "../lib/util/notificationTargets.js";
 import {
   getSummaryCacheKey,
@@ -815,7 +814,7 @@ async function runBackgroundSummarize(
   });
 
   if (providerType === PROVIDERS.LOCAL) {
-    startOllamaStream(streamId, { ...common, host: settings.ollamaHost });
+    startLocalHttpStream(streamId, { ...common, host: settings.ollamaHost });
   } else if (providerType === PROVIDERS.TRANSFORMERS) {
     startTransformersStream(streamId, common);
   } else {
