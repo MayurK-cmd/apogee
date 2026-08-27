@@ -63,10 +63,8 @@ export function createExtensionApiMock(initialStorage = {}) {
     sendMessage: async (msg) => {
       let response;
       for (const listener of messageListeners) {
-        let sent = false;
         const sendResponse = (res) => {
           response = res;
-          sent = true;
         };
         const result = listener(msg, { id: mockRuntime.id }, sendResponse);
         if (result === true) {
@@ -85,7 +83,7 @@ export function createExtensionApiMock(initialStorage = {}) {
   };
 
   const mockTabs = {
-    query: async (queryInfo) => {
+    query: async (_queryInfo) => {
       return [
         {
           id: 101,
@@ -97,7 +95,7 @@ export function createExtensionApiMock(initialStorage = {}) {
         },
       ];
     },
-    sendMessage: async (tabId, msg) => {
+    sendMessage: async (_tabId, _msg) => {
       return {
         text: "Extracted article text content",
         title: "Example Test Article",
@@ -106,8 +104,8 @@ export function createExtensionApiMock(initialStorage = {}) {
   };
 
   const mockPermissions = {
-    contains: async (perm) => true,
-    request: async (perm) => true,
+    contains: async (_perm) => true,
+    request: async (_perm) => true,
   };
 
   return {
