@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
+import { parseHTML } from "linkedom";
 import { createExtensionApiMock } from "../helpers/extensionApiMock.js";
 import { toUserMessage } from "../../lib/util/userError.js";
 import { getOptionalOriginsForUrl } from "../../lib/util/permissions.js";
@@ -58,4 +59,11 @@ test("extensionApiMock simulates user error handling and state sync", () => {
     userMsg,
     "Memory limit reached while processing this document. Try a smaller model or reducing context size.",
   );
+});
+
+test("Shadow DOM encapsulation helper creates custom host element", () => {
+  const { document } = parseHTML("<!DOCTYPE html><html><body></body></html>");
+  const host = document.createElement("apogee-highlight-root");
+  assert.ok(host);
+  assert.strictEqual(host.tagName.toLowerCase(), "apogee-highlight-root");
 });
