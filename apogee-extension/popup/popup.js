@@ -66,10 +66,66 @@ import {
 import { ensurePermissionsForUrl } from "../lib/util/permissions.js";
 import { icon, ICONS } from "./icons.js";
 
+const SIDE_PANEL_TABS_KEY = "activeSidePanelTabs";
+
+async function isSidePanelOpenForTab(tabId) {
+  if (!tabId) return false;
+  try {
+    const storage = chrome.storage?.session || chrome.storage?.local;
+    const res = await storage.get(SIDE_PANEL_TABS_KEY);
+    const tabs = res?.[SIDE_PANEL_TABS_KEY] || [];
+    return tabs.includes(tabId);
+  } catch {
+    return false;
+  }
+}
+
+async function registerSidePanelOpen(tabId) {
+  if (!tabId) return;
+  try {
+    const storage = chrome.storage?.session || chrome.storage?.local;
+    const res = await storage.get(SIDE_PANEL_TABS_KEY);
+    const tabs = new Set(res?.[SIDE_PANEL_TABS_KEY] || []);
+    tabs.add(tabId);
+    await storage.set({ [SIDE_PANEL_TABS_KEY]: Array.from(tabs) });
+  } catch (err) {
+    console.error("Failed to register side panel open:", err);
+  }
+}
+
+async function registerSidePanelClose(tabId) {
+  if (!tabId) return;
+  try {
+    const storage = chrome.storage?.session || chrome.storage?.local;
+    const res = await storage.get(SIDE_PANEL_TABS_KEY);
+    const tabs = new Set(res?.[SIDE_PANEL_TABS_KEY] || []);
+    tabs.delete(tabId);
+    await storage.set({ [SIDE_PANEL_TABS_KEY]: Array.from(tabs) });
+  } catch (err) {
+    console.error("Failed to register side panel close:", err);
+  }
+}
+
 const isSidePanelSurface =
   new URLSearchParams(window.location.search).get("surface") === "side-panel";
 if (isSidePanelSurface) {
   document.documentElement.dataset.surface = "side-panel";
+  chrome.tabs?.query({ active: true, currentWindow: true }).then(([tab]) => {
+    if (tab?.id) {
+      registerSidePanelOpen(tab.id);
+      window.addEventListener("pagehide", () => registerSidePanelClose(tab.id));
+      window.addEventListener("beforeunload", () =>
+        registerSidePanelClose(tab.id),
+      );
+    }
+  });
+  if (typeof chrome.tabs?.onActivated === "function") {
+    chrome.tabs.onActivated.addListener((activeInfo) => {
+      if (activeInfo?.tabId) {
+        registerSidePanelOpen(activeInfo.tabId);
+      }
+    });
+  }
 }
 
 function closeTransientSurface() {
@@ -1662,13 +1718,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (process.env.TARGET_BROWSER === "firefox") {
     webllmProviderOption?.classList.add("hidden");
   }
-  if (
-    process.env.TARGET_BROWSER !== "firefox" &&
-    !isSidePanelSurface &&
-    typeof chrome.sidePanel?.open === "function"
-  ) {
-    openSidePanelBtn?.classList.remove("hidden");
-  }
 
   try {
     loadPastSummaries().catch((err) => console.error(err));
@@ -1688,8 +1737,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       active: true,
       currentWindow: true,
     });
-    activeTabId = tab.id;
-    setLinkifyOriginFromUrl(tab.url);
+    activeTabId = tab?.id;
+    if (tab?.url) {
+      setLinkifyOriginFromUrl(tab.url);
+    }
+
+    const sidePanelOpen = await isSidePanelOpenForTab(tab?.id);
+    if (
+      process.env.TARGET_BROWSER !== "firefox" &&
+      !isSidePanelSurface &&
+      !sidePanelOpen &&
+      typeof chrome.sidePanel?.open === "function"
+    ) {
+      openSidePanelBtn?.classList.remove("hidden");
+    } else {
+      openSidePanelBtn?.classList.add("hidden");
+    }
 
     let state = await loadViewState(tab.id);
 
@@ -1908,6 +1971,13 @@ closeBtn4?.addEventListener("click", closeTransientSurface);
 
 openSidePanelBtn?.addEventListener("click", async () => {
   try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (tab?.id) {
+      await registerSidePanelOpen(tab.id);
+    }
     await chrome.sidePanel.open({
       windowId: chrome.windows.WINDOW_ID_CURRENT,
     });
