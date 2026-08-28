@@ -6,6 +6,13 @@ import {
 } from "../lib/language/languageOutput.js";
 import { makeOpusTranslateFn } from "../lib/language/opusTranslateEngine.js";
 import { chatStream, checkHealth } from "../lib/engines/ollamaClient.js";
+import {
+  chatStream as llamaChatStream,
+  checkHealth as llamaCheckHealth,
+  DEFAULT_CONTEXT_TOKENS as LLAMACPP_DEFAULT_CONTEXT_TOKENS,
+} from "../lib/engines/llamaCppClient.js";
+import { getMaxChunkChars } from "../lib/engines/modelLimits.js";
+import { chunkBySections } from "../lib/summarize/sections.js";
 import { errorHelpUrl } from "../lib/util/errorHelp.js";
 import { toUserMessage } from "../lib/util/userError.js";
 import { hasHostPermissions } from "../lib/util/permissions.js";
@@ -357,6 +364,19 @@ const OLLAMA_PROVIDER = {
   streamKind: "ollama-stream",
   chatStream,
 };
+
+// llama-server reports the context window it is actually running, which comes
+// from its own -c launch flag and so cannot be read off the model name. Ollama
+// has no equivalent, which is why only this provider supplies the hook.
+const LLAMACPP_PROVIDER = {
+  label: "llama.cpp",
+  streamKind: "llamacpp-stream",
+  chatStream: llamaChatStream,
+  async getContextTokens(host, apiKey) {
+    const health = await llamaCheckHealth(host, 3000, apiKey);
+    return health.contextTokens ?? LLAMACPP_DEFAULT_CONTEXT_TOKENS;
+  },
+};
 async function getRelevantAskContent(content, question) {
   if (!hasOffscreenAPI) {
     try {
@@ -437,6 +457,7 @@ async function startLocalHttpStream(
     finalize,
     language,
     translationEngine,
+    apiKey,
   },
   client = OLLAMA_PROVIDER,
 ) {
@@ -456,6 +477,26 @@ async function startLocalHttpStream(
   }
 
   const { customInstructions } = await getSettings();
+
+  // Ollama's client ignores the extra option; llama.cpp's uses it when the
+  // server was started with --api-key.
+  const chatStreamFn = (h, m, p, opts) =>
+    client.chatStream(h, m, p, { ...opts, apiKey });
+
+  // Only a provider that can report its own window gets an explicit chunk
+  // size; everyone else keeps the model-name inference in getMaxChunkChars.
+  let chunkTextFn;
+  if (client.getContextTokens) {
+    try {
+      const contextTokens = await client.getContextTokens(validHost, apiKey);
+      const chunkChars = getMaxChunkChars(model, contextTokens);
+      chunkTextFn = (text) => chunkBySections(text, chunkChars);
+    } catch (err) {
+      // A window we could not read is not worth failing the job over: fall
+      // through to the name-based estimate the other providers use.
+      console.error("llama.cpp context-window lookup failed:", err);
+    }
+  }
 
   let longNote = "";
   const reportProgress = (text) => {
@@ -490,7 +531,8 @@ async function startLocalHttpStream(
           signal: stream.controller.signal,
         },
         {
-          chatStreamFn: client.chatStream,
+          chatStreamFn,
+          ...(chunkTextFn ? { chunkTextFn } : {}),
           translateFn,
           onProgress: (p) => {
             if (p.stage === "truncated") {
@@ -515,7 +557,7 @@ async function startLocalHttpStream(
         buildAnswerPrompt(title, url, relevantContent, question),
         customInstructions,
       );
-      const chat = (p, opts) => client.chatStream(validHost, model, p, opts);
+      const chat = (p, opts) => chatStreamFn(validHost, model, p, opts);
       generator = streamInTargetLanguage(
         chat,
         prompt,
@@ -811,6 +853,8 @@ async function runBackgroundSummarize(
   if (providerType === PROVIDERS.LOCAL) {
     streamId = nextStreamId("ollama");
     startLocalHttpStream(streamId, { ...common, host: settings.ollamaHost });
+  } else if (providerType === PROVIDERS.LLAMACPP) {
+    streamId = nextStreamId("llamacpp");
   } else if (providerType === PROVIDERS.TRANSFORMERS) {
     streamId = nextStreamId("transformers");
   } else {
@@ -840,6 +884,16 @@ async function runBackgroundSummarize(
 
   if (providerType === PROVIDERS.LOCAL) {
     startLocalHttpStream(streamId, { ...common, host: settings.ollamaHost });
+  } else if (providerType === PROVIDERS.LLAMACPP) {
+    startLocalHttpStream(
+      streamId,
+      {
+        ...common,
+        host: settings.llamaHost,
+        apiKey: settings.llamaApiKey,
+      },
+      LLAMACPP_PROVIDER,
+    );
   } else if (providerType === PROVIDERS.TRANSFORMERS) {
     startTransformersStream(streamId, common);
   } else {
@@ -1056,10 +1110,12 @@ async function generateLocalSuggestions(
   model,
   { title, url, summary, language, translationEngine },
   client = OLLAMA_PROVIDER,
+  apiKey = "",
 ) {
   const validHost = validateLoopbackHost(host, client.label);
   const prompt = buildSuggestQuestionsPrompt(title, url, summary);
-  const chat = (p, opts) => client.chatStream(validHost, model, p, opts);
+  const chat = (p, opts) =>
+    client.chatStream(validHost, model, p, { ...opts, apiKey });
   const qLanguage = await resolveEffectiveLanguage(summary, language);
   const translateFn =
     translationEngine === TRANSLATION_ENGINES.OPUS
@@ -1094,7 +1150,16 @@ async function runSuggestQuestionsJob(payload) {
   try {
     let questions = [];
     try {
-      if (providerType === PROVIDERS.LOCAL) {
+      if (providerType === PROVIDERS.LLAMACPP) {
+        const { llamaHost, llamaApiKey } = await getSettings();
+        questions = await generateLocalSuggestions(
+          llamaHost,
+          model,
+          { title, url, summary, language },
+          LLAMACPP_PROVIDER,
+          llamaApiKey,
+        );
+      } else if (providerType === PROVIDERS.LOCAL) {
         questions = await generateLocalSuggestions(host, model, {
           title,
           url,
@@ -1547,6 +1612,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await recordPopupSummaryStream(payload, streamId);
           startLocalHttpStream(streamId, payload);
           sendResponse({ streamId });
+          break;
+        }
+
+        case "llamacpp-stream": {
+          const streamId = nextStreamId("llamacpp");
+          const settings = await getSettings();
+          const trustedFinalize =
+            message.payload?.action === "summarize" || message.payload?.finalize
+              ? await buildTrustedFinalize(message.payload)
+              : null;
+          const payload = {
+            ...message.payload,
+            ...(trustedFinalize ? { finalize: trustedFinalize } : {}),
+            host: settings.llamaHost,
+            apiKey: settings.llamaApiKey,
+          };
+          await recordPopupSummaryStream(payload, streamId);
+          startLocalHttpStream(streamId, payload, LLAMACPP_PROVIDER);
+          sendResponse({ streamId });
+          break;
+        }
+
+        case "llamacpp-status": {
+          const { llamaHost, llamaApiKey } = await getSettings();
+          let validHost;
+          try {
+            validHost = validateLoopbackHost(
+              llamaHost,
+              LLAMACPP_PROVIDER.label,
+            );
+          } catch {
+            sendResponse({
+              connected: false,
+              models: [],
+              contextTokens: null,
+            });
+            break;
+          }
+          const response = await llamaCheckHealth(validHost, 3000, llamaApiKey);
+          sendResponse(response);
           break;
         }
 
