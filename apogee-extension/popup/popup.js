@@ -66,43 +66,34 @@ import {
 import { ensurePermissionsForUrl } from "../lib/util/permissions.js";
 import { icon, ICONS } from "./icons.js";
 
-const SIDE_PANEL_TABS_KEY = "activeSidePanelTabs";
-
 async function isSidePanelOpenForTab(tabId) {
-  if (!tabId) return false;
+  if (!tabId || typeof chrome.runtime?.sendMessage !== "function") return false;
   try {
-    const storage = chrome.storage?.session || chrome.storage?.local;
-    const res = await storage.get(SIDE_PANEL_TABS_KEY);
-    const tabs = res?.[SIDE_PANEL_TABS_KEY] || [];
-    return tabs.includes(tabId);
+    const res = await chrome.runtime.sendMessage({
+      target: "service-worker",
+      type: "check-side-panel-open",
+      tabId,
+    });
+    return res?.isOpen === true;
   } catch {
     return false;
   }
 }
 
-async function registerSidePanelOpen(tabId) {
-  if (!tabId) return;
+let sidePanelPort = null;
+function connectSidePanelPort(tabId) {
+  if (!tabId || typeof chrome.runtime?.connect !== "function") return;
   try {
-    const storage = chrome.storage?.session || chrome.storage?.local;
-    const res = await storage.get(SIDE_PANEL_TABS_KEY);
-    const tabs = new Set(res?.[SIDE_PANEL_TABS_KEY] || []);
-    tabs.add(tabId);
-    await storage.set({ [SIDE_PANEL_TABS_KEY]: Array.from(tabs) });
+    if (sidePanelPort) {
+      try {
+        sidePanelPort.disconnect();
+      } catch {}
+    }
+    sidePanelPort = chrome.runtime.connect({
+      name: `side-panel-tab-${tabId}`,
+    });
   } catch (err) {
-    console.error("Failed to register side panel open:", err);
-  }
-}
-
-async function registerSidePanelClose(tabId) {
-  if (!tabId) return;
-  try {
-    const storage = chrome.storage?.session || chrome.storage?.local;
-    const res = await storage.get(SIDE_PANEL_TABS_KEY);
-    const tabs = new Set(res?.[SIDE_PANEL_TABS_KEY] || []);
-    tabs.delete(tabId);
-    await storage.set({ [SIDE_PANEL_TABS_KEY]: Array.from(tabs) });
-  } catch (err) {
-    console.error("Failed to register side panel close:", err);
+    console.error("Failed to connect side-panel port:", err);
   }
 }
 
@@ -112,17 +103,13 @@ if (isSidePanelSurface) {
   document.documentElement.dataset.surface = "side-panel";
   chrome.tabs?.query({ active: true, currentWindow: true }).then(([tab]) => {
     if (tab?.id) {
-      registerSidePanelOpen(tab.id);
-      window.addEventListener("pagehide", () => registerSidePanelClose(tab.id));
-      window.addEventListener("beforeunload", () =>
-        registerSidePanelClose(tab.id),
-      );
+      connectSidePanelPort(tab.id);
     }
   });
   if (typeof chrome.tabs?.onActivated === "function") {
     chrome.tabs.onActivated.addListener((activeInfo) => {
       if (activeInfo?.tabId) {
-        registerSidePanelOpen(activeInfo.tabId);
+        connectSidePanelPort(activeInfo.tabId);
       }
     });
   }
@@ -1971,13 +1958,6 @@ closeBtn4?.addEventListener("click", closeTransientSurface);
 
 openSidePanelBtn?.addEventListener("click", async () => {
   try {
-    const [tab] = await chrome.tabs.query({
-      active: true,
-      currentWindow: true,
-    });
-    if (tab?.id) {
-      await registerSidePanelOpen(tab.id);
-    }
     await chrome.sidePanel.open({
       windowId: chrome.windows.WINDOW_ID_CURRENT,
     });

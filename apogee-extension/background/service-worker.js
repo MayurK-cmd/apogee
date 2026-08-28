@@ -1268,7 +1268,20 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+const activeSidePanelTabs = new Set();
+
 chrome.runtime.onConnect.addListener((port) => {
+  if (port.name && port.name.startsWith("side-panel-tab-")) {
+    const tabId = parseInt(port.name.replace("side-panel-tab-", ""), 10);
+    if (!isNaN(tabId)) {
+      activeSidePanelTabs.add(tabId);
+      port.onDisconnect.addListener(() => {
+        activeSidePanelTabs.delete(tabId);
+      });
+    }
+    return;
+  }
+
   if (port.name === "popup-lifecycle") {
     popupConnected = true;
     cancelOffscreenIdleClose();
@@ -1350,6 +1363,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "offscreen-ready") {
     _offscreenScriptReadyResolve();
     return false;
+  }
+
+  if (message.type === "check-side-panel-open") {
+    sendResponse({ isOpen: activeSidePanelTabs.has(message.tabId) });
+    return true;
   }
 
   if (message.type === "check-host-permissions") {
