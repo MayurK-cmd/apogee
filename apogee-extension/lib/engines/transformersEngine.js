@@ -37,7 +37,9 @@ async function ensureEngine(modelId, onProgress) {
   if (engine) {
     try {
       await engine.dispose();
-    } catch {}
+    } catch {
+      // Safe fallback: ignore disposal errors when replacing an existing engine
+    }
     engine = null;
     currentModelId = null;
   }
@@ -80,7 +82,9 @@ function resetEngineState() {
     const stale = engine;
     try {
       Promise.resolve(stale.dispose()).catch(() => {});
-    } catch {}
+    } catch {
+      // Safe fallback: best-effort cleanup of stale model engine
+    }
   }
   engine = null;
   currentModelId = null;
@@ -113,7 +117,9 @@ async function ensureTranslator(modelId, onProgress) {
   if (translator) {
     try {
       await translator.dispose();
-    } catch {}
+    } catch {
+      // Safe fallback: ignore disposal errors when replacing translator engine
+    }
     translator = null;
     translatorModelId = null;
   }
@@ -145,7 +151,9 @@ export async function withTranslator(modelId, onProgress, fn) {
     if (translator) {
       try {
         Promise.resolve(translator.dispose()).catch(() => {});
-      } catch {}
+      } catch {
+        // Safe fallback: best-effort cleanup of failed translator
+      }
     }
     translator = null;
     translatorModelId = null;

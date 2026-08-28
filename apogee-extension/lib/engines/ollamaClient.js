@@ -45,12 +45,16 @@ export async function* chatStream(
     let detail = "";
     try {
       detail = await response.text();
-    } catch {}
+    } catch {
+      // Safe fallback: ignore body read error when inspecting response error detail
+    }
     let message = detail;
     try {
       const parsed = JSON.parse(detail);
       if (parsed?.error) message = parsed.error;
-    } catch {}
+    } catch {
+      // Safe fallback: ignore JSON parse error if response body is plain text
+    }
     throw new OllamaError(
       `Ollama returned an error for model '${model}': ${message || response.status}`,
     );
@@ -115,6 +119,7 @@ export async function checkHealth(host, timeoutMs = 3000) {
       : [];
     return { connected: true, models };
   } catch {
+    // Safe fallback: health check probe failed or timed out, report disconnected
     return { connected: false, models: [] };
   }
 }

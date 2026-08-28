@@ -57,7 +57,9 @@ function httpError(body, status, model) {
   let parsed = null;
   try {
     parsed = JSON.parse(body);
-  } catch {}
+  } catch {
+    // Safe fallback: ignore JSON parse error for HTTP error body
+  }
   const described = envelopeMessage(parsed?.error, model);
   return new LlamaCppError(
     described ||
@@ -150,7 +152,9 @@ export async function* chatStream(
     let body = "";
     try {
       body = await response.text();
-    } catch {}
+    } catch {
+      // Safe fallback: ignore body text read error
+    }
     throw httpError(body, response.status, model);
   }
 
@@ -198,10 +202,14 @@ export async function* chatStream(
     // the connection go; releaseLock() then leaves no locked stream behind.
     try {
       await reader.cancel();
-    } catch {}
+    } catch {
+      // Safe fallback: best-effort reader cancellation
+    }
     try {
       reader.releaseLock();
-    } catch {}
+    } catch {
+      // Safe fallback: best-effort release of reader lock
+    }
   }
 }
 
@@ -214,6 +222,7 @@ async function getJson(url, timeoutMs, apiKey) {
     if (!response.ok) return null;
     return await response.json();
   } catch {
+    // Safe fallback: endpoint call failed or timed out
     return null;
   }
 }
