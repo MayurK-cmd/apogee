@@ -27,7 +27,7 @@ Apogee was inspired by Mozilla's discontinued Orbit project, which offered brows
 
 WHAT IT DOES
 
-• Summarize any page: articles, blog posts, documentation, long threads • Summarize YouTube and Bilibili videos from their transcript, with a "Key moments" timeline of links that seek the video to each moment • Summarize PDFs opened in the browser • Ask questions about the page. Apogee reads the whole page (not just the first few thousand characters) using on-device retrieval, so answers can come from deep inside a long article, PDF, or transcript • Highlight-in-page: click any bullet in a summary and Apogee scrolls to and highlights the passage of the original page it came from, so you can spot-check a claim without re-reading everything • Semantic summary search: search saved past summaries in real-time with on-device vector search across titles and summary bodies • Multiple summary formats: bullets, sentences, or paragraphs, switchable right under the Summarize button • Custom instructions: add your own standing guidance ("Explain like I'm five", "Focus on the technical details") that applies to every summary and answer • Summaries in your language: pick one of 29 output languages (or keep the page's own), translated either by the summarization model itself or, optionally, by dedicated on-device translation models
+• Summarize any page: articles, blog posts, documentation, long threads • Keep Apogee open in Chrome's side panel while reading, scrolling, or taking notes • Summarize YouTube and Bilibili videos from their transcript, with a "Key moments" timeline of links that seek the video to each moment • Summarize PDFs opened in the browser • Ask questions about the page. Apogee reads the whole page (not just the first few thousand characters) using on-device retrieval, so answers can come from deep inside a long article, PDF, or transcript • Highlight-in-page: click any bullet in a summary and Apogee scrolls to and highlights the passage of the original page it came from, so you can spot-check a claim without re-reading everything • Semantic summary search: search saved past summaries in real-time with on-device vector search across titles and summary bodies • Multiple summary formats: bullets, sentences, or paragraphs, switchable right under the Summarize button • Custom instructions: add your own standing guidance ("Explain like I'm five", "Focus on the technical details") that applies to every summary and answer • Summaries in your language: pick one of 29 output languages (or keep the page's own), translated either by the summarization model itself or, optionally, by dedicated on-device translation models
 
 Fast ways to summarize without opening the popup: • Right-click a page, then "Summarize this page" • Keyboard shortcut (default Alt+Shift+U, remappable at chrome://extensions/shortcuts) A system notification tells you when the summary is ready.
 
@@ -43,7 +43,7 @@ PRIVACY
 
 REQUIREMENTS
 
-• Chrome or Edge 113+ (any recent Chromium browser: Brave, Opera, Vivaldi, Arc, Dia) • A GPU with WebGPU support for the default In-Browser mode (most GPUs from the last several years). No WebGPU? Switch to the WebAssembly option in Settings, or use Local Ollama. • First run downloads model weights, so it needs internet once; after that it runs offline.
+• Chrome or Edge 116+ (or another Chromium browser based on Chromium 116+) • A GPU with WebGPU support for the default In-Browser mode (most GPUs from the last several years). No WebGPU? Switch to the WebAssembly option in Settings, or use Local Ollama. • First run downloads model weights, so it needs internet once; after that it runs offline.
 
 OPEN SOURCE
 
@@ -62,6 +62,8 @@ Apogee summarizes the web page, video, or PDF the user is currently viewing and 
 **storage** Stores the user's local settings (chosen AI provider and model, summary format, and other preferences) so they persist between sessions. This data stays on the device and is never transmitted.
 
 **offscreen** On Chromium, WebGPU is not accessible from the extension service worker. Apogee uses an offscreen document to run the in-browser AI model (WebLLM on WebGPU, or Transformers.js on WebAssembly) outside any visible tab, so summarization can run in the background without opening a dedicated page.
+
+**sidePanel** Lets users keep Apogee's existing local summary and Ask interface open beside the page as an alternative to the temporary toolbar popup. It does not grant access to page content or any network resource.
 
 **unlimitedStorage** In-browser AI model weights are large (roughly 270 MB to 2.2 GB) and are cached locally so they download only once and then run fully offline. unlimitedStorage prevents the browser's default storage quota from evicting these cached model files.
 

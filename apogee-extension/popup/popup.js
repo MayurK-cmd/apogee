@@ -66,6 +66,59 @@ import {
 import { ensurePermissionsForUrl } from "../lib/util/permissions.js";
 import { icon, ICONS } from "./icons.js";
 
+async function isSidePanelOpenForTab(tabId) {
+  if (!tabId || typeof chrome.runtime?.sendMessage !== "function") return false;
+  try {
+    const res = await chrome.runtime.sendMessage({
+      target: "service-worker",
+      type: "check-side-panel-open",
+      tabId,
+    });
+    return res?.isOpen === true;
+  } catch {
+    return false;
+  }
+}
+
+let sidePanelPort = null;
+function connectSidePanelPort(tabId) {
+  if (!tabId || typeof chrome.runtime?.connect !== "function") return;
+  try {
+    if (sidePanelPort) {
+      try {
+        sidePanelPort.disconnect();
+      } catch {}
+    }
+    sidePanelPort = chrome.runtime.connect({
+      name: `side-panel-tab-${tabId}`,
+    });
+  } catch (err) {
+    console.error("Failed to connect side-panel port:", err);
+  }
+}
+
+const isSidePanelSurface =
+  new URLSearchParams(window.location.search).get("surface") === "side-panel";
+if (isSidePanelSurface) {
+  document.documentElement.dataset.surface = "side-panel";
+  chrome.tabs?.query({ active: true, currentWindow: true }).then(([tab]) => {
+    if (tab?.id) {
+      connectSidePanelPort(tab.id);
+    }
+  });
+  if (typeof chrome.tabs?.onActivated === "function") {
+    chrome.tabs.onActivated.addListener((activeInfo) => {
+      if (activeInfo?.tabId) {
+        connectSidePanelPort(activeInfo.tabId);
+      }
+    });
+  }
+}
+
+function closeTransientSurface() {
+  if (!isSidePanelSurface) window.close();
+}
+
 const summarizeBtn = document.getElementById("summarizeBtn");
 const summarizeShortcutHint = document.getElementById("summarizeShortcutHint");
 const summaryText = document.getElementById("summaryText");
@@ -84,6 +137,10 @@ const pastSummariesList = document.getElementById("pastSummariesList");
 const pastSummariesFilter = document.getElementById("pastSummariesFilter");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsBtn2 = document.getElementById("settingsBtn2");
+const openSidePanelBtn = document.getElementById("openSidePanelBtn");
+const sidePanelThemeToggleBtn = document.getElementById(
+  "sidePanelThemeToggleBtn",
+);
 const closeBtn = document.getElementById("closeBtn");
 const closeBtn2 = document.getElementById("closeBtn2");
 const closeBtn3 = document.getElementById("closeBtn3");
@@ -1667,8 +1724,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       active: true,
       currentWindow: true,
     });
-    activeTabId = tab.id;
-    setLinkifyOriginFromUrl(tab.url);
+    activeTabId = tab?.id;
+    if (tab?.url) {
+      setLinkifyOriginFromUrl(tab.url);
+    }
+
+    const sidePanelOpen = await isSidePanelOpenForTab(tab?.id);
+    if (
+      process.env.TARGET_BROWSER !== "firefox" &&
+      !isSidePanelSurface &&
+      !sidePanelOpen &&
+      typeof chrome.sidePanel?.open === "function"
+    ) {
+      openSidePanelBtn?.classList.remove("hidden");
+    } else {
+      openSidePanelBtn?.classList.add("hidden");
+    }
 
     let state = await loadViewState(tab.id);
 
@@ -1880,10 +1951,21 @@ settingsBtn2?.addEventListener("click", () => {
   saveViewState(activeTabId, { view: "settingsView" });
 });
 
-closeBtn?.addEventListener("click", () => window.close());
-closeBtn2?.addEventListener("click", () => window.close());
-closeBtn3?.addEventListener("click", () => window.close());
-closeBtn4?.addEventListener("click", () => window.close());
+closeBtn?.addEventListener("click", closeTransientSurface);
+closeBtn2?.addEventListener("click", closeTransientSurface);
+closeBtn3?.addEventListener("click", closeTransientSurface);
+closeBtn4?.addEventListener("click", closeTransientSurface);
+
+openSidePanelBtn?.addEventListener("click", async () => {
+  try {
+    await chrome.sidePanel.open({
+      windowId: chrome.windows.WINDOW_ID_CURRENT,
+    });
+    closeTransientSurface();
+  } catch (error) {
+    console.error("Could not open the side panel:", error);
+  }
+});
 
 document.getElementById("askBtn")?.addEventListener("click", async () => {
   showOnlyView("summaryView");
@@ -1896,6 +1978,134 @@ document.getElementById("askBtn")?.addEventListener("click", async () => {
     url: tab.url,
     streamId: null,
   });
+});
+
+async function summarizeCustomContent(title, content, url = "") {
+  if (activeSummarizeStreamId) {
+    cancelStream(activeSummarizeStreamId);
+  }
+  showOnlyView("summaryView");
+  showSummarizingContext();
+  setLoadingIndicator(summaryText, randomSummarizeVerb());
+
+  const jobId = `summary-${crypto.randomUUID()}`;
+  try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    const settings = await getSettings();
+    const provider = getProvider(settings);
+    const model = getModelForSettings(settings);
+    currentSummaryLanguage = settings.summaryLanguage;
+    currentTranslationEngine = settings.translationEngine;
+
+    const promptsCacheKey = await getPromptsCacheKey(
+      url || tab?.url || "https://local.paste",
+      settings.responseFormat,
+      model,
+      settings.summaryLanguage,
+      settings.customInstructions,
+      settings.translationEngine,
+    );
+
+    const { streamId, stream } = await provider.summarize({
+      title,
+      url: url || tab?.url || "https://local.paste",
+      content,
+      responseFormat: settings.responseFormat,
+      language: settings.summaryLanguage,
+      customInstructions: settings.customInstructions,
+      translationEngine: settings.translationEngine,
+    });
+
+    activeSummarizeStreamId = streamId;
+    if (tab?.id) {
+      await saveViewState(tab.id, {
+        view: "summaryView",
+        subview: "summarizing",
+        url: tab.url,
+        streamId,
+        jobId,
+        summaryText: "",
+        timeSaved: null,
+        promptsCacheKey,
+      });
+    }
+    showCancelSummarizeButton(streamId);
+
+    await consumeSummaryStream(stream, { tab, promptsCacheKey, jobId });
+  } catch (error) {
+    if (error instanceof StreamCancelledError) {
+      if (activeTabId) returnHomeAfterCancel(activeTabId, jobId);
+    } else {
+      console.error(error);
+      renderSummaryError(error);
+    }
+  } finally {
+    hideCancelSummarizeButton();
+  }
+}
+
+document.getElementById("pasteTextBtn")?.addEventListener("click", async () => {
+  try {
+    let text = "";
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.readText === "function"
+    ) {
+      text = await navigator.clipboard.readText();
+    }
+    if (!text || !text.trim()) {
+      text = prompt("Paste the text you want to summarize:");
+    }
+    if (text && text.trim()) {
+      await summarizeCustomContent("Pasted Text", text.trim());
+    }
+  } catch (err) {
+    console.error("Paste text failed:", err);
+    const text = prompt("Paste the text you want to summarize:");
+    if (text && text.trim()) {
+      await summarizeCustomContent("Pasted Text", text.trim());
+    }
+  }
+});
+
+const fileUploadInput = document.getElementById("fileUploadInput");
+
+document.getElementById("uploadFileBtn")?.addEventListener("click", () => {
+  fileUploadInput?.click();
+});
+
+fileUploadInput?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    let text = "";
+    if (file.name.toLowerCase().endsWith(".pdf")) {
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+      const { extractPdfText } = await import("../lib/extract/pdfExtract.js");
+      text = await extractPdfText(base64);
+    } else {
+      text = await file.text();
+    }
+
+    if (text && text.trim()) {
+      await summarizeCustomContent(file.name, text.trim());
+    }
+  } catch (err) {
+    console.error("File read failed:", err);
+    alert(`Failed to read file: ${err.message || err}`);
+  } finally {
+    if (fileUploadInput) fileUploadInput.value = "";
+  }
 });
 
 sendBtn?.addEventListener("click", () => submitQuestion(questionInput.value));
@@ -2016,6 +2226,18 @@ themeRadios.forEach((radio) => {
     const settings = await saveSettings({ theme: radio.value });
     applyTheme(settings.theme);
   });
+});
+
+sidePanelThemeToggleBtn?.addEventListener("click", async () => {
+  const nextTheme = document.documentElement.classList.contains("theme-dark")
+    ? "light"
+    : "dark";
+  const settings = await saveSettings({ theme: nextTheme });
+  const themeRadio = document.querySelector(
+    `input[name="theme"][value="${settings.theme}"]`,
+  );
+  if (themeRadio) themeRadio.checked = true;
+  applyTheme(settings.theme);
 });
 
 function hideHistoryWipeConfirm() {
@@ -2296,7 +2518,7 @@ async function locateAndHighlight(target) {
       await chrome.windows.update(tab.windowId, { focused: true });
     }
     await chrome.tabs.update(tab.id, { active: true });
-    window.close();
+    closeTransientSurface();
   } catch (err) {
     console.error("Highlight-in-page failed:", err);
     showLocateFailure(target);
@@ -2321,7 +2543,7 @@ summaryText?.addEventListener("click", (event) => {
   const tabId = activeTabId;
   if (tabId != null) {
     chrome.tabs.update(tabId, { url: link.href, active: true });
-    window.close();
+    closeTransientSurface();
   } else {
     chrome.tabs.create({ url: link.href });
   }

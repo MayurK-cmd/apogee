@@ -30,17 +30,36 @@
           </div>
 
           <div class="header-actions">
+            <button
+              id="sidePanelThemeToggleBtn"
+              class="icon-btn side-panel-theme-btn"
+              type="button"
+              aria-label="Toggle theme"
+              title="Toggle theme"
+            >
+              <span class="ico" data-ico="contrast" aria-hidden="true"></span>
+            </button>
+
             <button id="settingsBtn" class="icon-btn" aria-label="Settings">
               <span class="ico" data-ico="sliders" aria-hidden="true"></span>
             </button>
 
-            <button id="closeBtn" class="icon-btn" aria-label="Close">
+            <button
+              id="closeBtn"
+              class="icon-btn popup-close-btn"
+              aria-label="Close"
+            >
               <span class="ico" data-ico="close" aria-hidden="true"></span>
             </button>
           </div>
         </header>
 
         <div class="view-body">
+          <div class="side-panel-hero">
+            <img src="../assets/logo.png" alt="" />
+            <h1>TL;DR</h1>
+          </div>
+
           <div class="home-buttons">
             <button id="summarizeBtn" class="action-btn">
               <span class="ico" data-ico="sparkle" aria-hidden="true"></span>
@@ -71,6 +90,34 @@
             <button id="askBtn" class="action-btn">
               <span class="ico" data-ico="chat" aria-hidden="true"></span>
               <span>Ask Apogee a question</span>
+            </button>
+
+            <div class="chip-row">
+              <button id="pasteTextBtn" class="chip-btn" type="button">
+                <span class="ico" data-ico="copy" aria-hidden="true"></span>
+                <span>Paste text to summarize</span>
+              </button>
+
+              <button id="uploadFileBtn" class="chip-btn" type="button">
+                <span class="ico" data-ico="upload" aria-hidden="true"></span>
+                <span>Upload file to summarize</span>
+              </button>
+            </div>
+
+            <input
+              type="file"
+              id="fileUploadInput"
+              accept=".pdf,.txt,.md,.json,.docx,.html"
+              class="hidden"
+            />
+
+            <button
+              id="openSidePanelBtn"
+              class="side-panel-launch-btn hidden"
+              type="button"
+            >
+              <span class="ico" data-ico="panel" aria-hidden="true"></span>
+              <span>Open in side panel</span>
             </button>
           </div>
 
@@ -136,7 +183,11 @@
               <span class="ico" data-ico="sliders" aria-hidden="true"></span>
             </button>
 
-            <button id="closeBtn2" class="icon-btn" aria-label="Close">
+            <button
+              id="closeBtn2"
+              class="icon-btn popup-close-btn"
+              aria-label="Close"
+            >
               <span class="ico" data-ico="close" aria-hidden="true"></span>
             </button>
           </div>
@@ -352,7 +403,11 @@
           </div>
 
           <div class="header-actions">
-            <button id="closeBtn3" class="icon-btn" aria-label="Close">
+            <button
+              id="closeBtn3"
+              class="icon-btn popup-close-btn"
+              aria-label="Close"
+            >
               <span class="ico" data-ico="close" aria-hidden="true"></span>
             </button>
           </div>
@@ -672,7 +727,11 @@
           </div>
 
           <div class="header-actions">
-            <button id="closeBtn4" class="icon-btn" aria-label="Close">
+            <button
+              id="closeBtn4"
+              class="icon-btn popup-close-btn"
+              aria-label="Close"
+            >
               <span class="ico" data-ico="close" aria-hidden="true"></span>
             </button>
           </div>

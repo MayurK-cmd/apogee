@@ -315,6 +315,58 @@ body {
   margin-top: 12px;
 }
 
+.chip-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.chip-btn {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 6px;
+  border-radius: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chip-btn:hover {
+  background: var(--btn-hover-bg);
+  border-color: var(--btn-hover-border);
+  transform: translateY(-1px);
+}
+
+.chip-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.chip-btn .ico svg {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.chip-btn span:last-child {
+  white-space: nowrap;
+}
+
 .action-btn {
   width: 100%;
   height: 52px;
@@ -1338,11 +1390,13 @@ body {
 
 .settings-contact-btn {
   width: calc(100% - 32px);
-  margin: 0 16px;
-  height: 44px;
+  margin: 0 16px 20px 16px;
+  height: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
   border: 1px solid var(--btn-border);
   background: var(--btn-bg);
-  padding: 0 12px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1459,7 +1513,8 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
+  height: 30px;
+  padding: 0 10px;
   border: 1px solid var(--border-color);
   font-size: 10px;
   font-weight: 600;
@@ -1962,4 +2017,156 @@ body {
 
 .copy-diagnostics-hint {
   margin-top: 8px;
+}
+
+.side-panel-launch-btn {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 12px;
+  padding: 9px 14px;
+  border: 1px solid var(--btn-border);
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.side-panel-launch-btn:hover {
+  background: var(--btn-hover-bg);
+  border-color: var(--btn-hover-border);
+  color: var(--text-main);
+}
+
+.side-panel-launch-btn .ico svg {
+  width: 16px;
+  height: 16px;
+}
+
+.side-panel-theme-btn,
+.side-panel-hero {
+  display: none;
+}
+
+html[data-surface="side-panel"],
+html[data-surface="side-panel"] body {
+  width: 100%;
+  min-width: 280px;
+  height: 100%;
+  min-height: 100%;
+}
+
+html[data-surface="side-panel"] body {
+  background-image: radial-gradient(
+    rgba(136, 134, 255, 0.08) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+html[data-surface="side-panel"].theme-light body {
+  background-image: radial-gradient(
+    rgba(88, 85, 255, 0.06) 1px,
+    transparent 1px
+  );
+}
+
+html[data-surface="side-panel"] .container {
+  min-height: 100vh;
+}
+
+html[data-surface="side-panel"] #homeView .header {
+  background: transparent;
+  border-bottom-color: transparent;
+}
+
+html[data-surface="side-panel"] #homeView .brand {
+  display: none;
+}
+
+html[data-surface="side-panel"] .side-panel-theme-btn {
+  display: flex;
+}
+
+html[data-surface="side-panel"] .side-panel-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: clamp(36px, 8vh, 72px) 20px 22px;
+}
+
+html[data-surface="side-panel"] .side-panel-hero img {
+  width: 30px;
+  height: 30px;
+}
+
+html[data-surface="side-panel"] .side-panel-hero h1 {
+  font-family: var(--font-head);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+html[data-surface="side-panel"] #homeView .home-buttons {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding-top: 0;
+}
+
+html[data-surface="side-panel"] #homeView,
+html[data-surface="side-panel"] #summaryView,
+html[data-surface="side-panel"] #settingsView,
+html[data-surface="side-panel"] #contactView {
+  height: 100vh;
+  min-height: 0;
+}
+
+html[data-surface="side-panel"] #homeView:not(.hidden),
+html[data-surface="side-panel"] #summaryView:not(.hidden),
+html[data-surface="side-panel"] #settingsView:not(.hidden),
+html[data-surface="side-panel"] #contactView:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+}
+
+html[data-surface="side-panel"] .view-body,
+html[data-surface="side-panel"] .settings-content,
+html[data-surface="side-panel"] .contact-content {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html[data-surface="side-panel"] #summaryView .view-body {
+  display: flex;
+  flex-direction: column;
+}
+
+html[data-surface="side-panel"] .chat-section {
+  margin-top: auto;
+}
+
+html[data-surface="side-panel"] .chat-box:has(#questionInput:not(.hidden)) {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  background: var(--bg-color);
+  box-shadow: 0 -12px 20px var(--bg-color);
+}
+
+html[data-surface="side-panel"] .popup-close-btn,
+html[data-surface="side-panel"] .side-panel-launch-btn {
+  display: none !important;
 }

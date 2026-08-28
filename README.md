@@ -55,6 +55,7 @@ The table below provides a side by side comparison between Apogee, typical cloud
 - **Client-Side PDF Support**: Parses PDF text locally in your browser without external conversion servers.
 - **Ask Q&A with Smart Retrieval**: Embedded passages are matched locally so you can ask questions about long documents without losing context.
 - **Grounding and Sentence Highlighting**: Click any summary bullet to scroll the webpage directly to the original source passage on Chromium browsers.
+- **Persistent Chrome Side Panel**: Open the same Apogee views beside the page when you want the summary or Ask flow to remain visible while browsing.
 - **Custom Standing Instructions**: Set personal prompt guidance like simple explanations or technical summaries.
 - **Multi-Language Translation**: Summarize pages into 29 supported target languages using the default Helsinki-NLP Opus-MT engine or direct LLM translation.
 

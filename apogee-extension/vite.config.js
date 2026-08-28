@@ -14,7 +14,7 @@ function copyStaticPlugin(targetBrowser) {
 
       if (targetBrowser === "firefox") {
         manifest.permissions = manifest.permissions.filter(
-          (p) => p !== "offscreen",
+          (p) => p !== "offscreen" && p !== "sidePanel",
         );
         manifest.content_security_policy = {
           extension_pages:
@@ -23,6 +23,7 @@ function copyStaticPlugin(targetBrowser) {
         if (manifest.background) {
           delete manifest.background.service_worker;
         }
+        delete manifest.side_panel;
         delete manifest.minimum_chrome_version;
       } else {
         if (manifest.background) {

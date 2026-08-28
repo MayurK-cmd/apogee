@@ -29,6 +29,22 @@ test("manifest.json declares valid background service worker", () => {
   );
 });
 
+test("manifest.json exposes the popup UI as a Chrome side panel", () => {
+  assert.ok(
+    Number(manifest.minimum_chrome_version) >= 116,
+    "Programmatic side panel opening requires Chrome 116 or newer",
+  );
+  assert.ok(
+    manifest.permissions.includes("sidePanel"),
+    "Manifest must declare the sidePanel permission",
+  );
+  assert.strictEqual(
+    manifest.side_panel?.default_path,
+    "popup/popup.html?surface=side-panel",
+  );
+  assert.strictEqual(manifest.action?.default_popup, "popup/popup.html");
+});
+
 test("manifest.json permissions enforce local-first privacy boundary", () => {
   const permissions = manifest.permissions || [];
   const hostPermissions = manifest.host_permissions || [];
