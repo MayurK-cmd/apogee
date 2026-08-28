@@ -2,6 +2,7 @@ import {
   PROVIDERS,
   DEFAULT_PROVIDER,
   DEFAULT_OLLAMA_HOST,
+  DEFAULT_LLAMACPP_HOST,
 } from "../constants.js";
 
 function sendToServiceWorker(message) {
@@ -118,6 +119,18 @@ async function startTransformersStream(action, payload) {
   const { streamId } = await sendToServiceWorker({
     target: "service-worker",
     action: "transformers-stream",
+    payload: { action, ...payload },
+  });
+  if (!streamId) {
+    throw new Error("No streamId returned from service worker");
+  }
+  return { streamId, stream: attachToStream(streamId) };
+}
+
+async function startLlamaCppStream(action, payload) {
+  const { streamId } = await sendToServiceWorker({
+    target: "service-worker",
+    action: "llamacpp-stream",
     payload: { action, ...payload },
   });
   if (!streamId) {
@@ -281,6 +294,70 @@ class DirectOllamaProvider {
   }
 }
 
+class DirectLlamaCppProvider {
+  constructor(model, host, apiKey) {
+    this.model = model;
+    this.host = (host || DEFAULT_LLAMACPP_HOST).replace(/\/+$/, "");
+    this.apiKey = apiKey || "";
+  }
+
+  summarize({
+    title,
+    url,
+    content,
+    mode,
+    type,
+    finalize,
+    language,
+    translationEngine,
+  }) {
+    return startLlamaCppStream("summarize", {
+      title,
+      url,
+      content,
+      mode,
+      type,
+      model: this.model,
+      host: this.host,
+      apiKey: this.apiKey,
+      finalize,
+      language,
+      translationEngine,
+    });
+  }
+
+  ask({ title, url, content, question, language, translationEngine }) {
+    return startLlamaCppStream("ask", {
+      title,
+      url,
+      content,
+      question,
+      model: this.model,
+      host: this.host,
+      apiKey: this.apiKey,
+      language,
+      translationEngine,
+    });
+  }
+
+  // `contextTokens` rides along because llama-server reports the window it is
+  // actually running, which no model name can imply. Null means it did not
+  // say, not that it is unlimited.
+  async checkReady() {
+    const response = await sendToServiceWorker({
+      target: "service-worker",
+      action: "llamacpp-status",
+      payload: { host: this.host, apiKey: this.apiKey },
+    });
+    return {
+      ready: response?.connected === true,
+      models: response?.models || [],
+      contextTokens: response?.contextTokens ?? null,
+      error: response?.error,
+    };
+  }
+}
+
 export function getProviderType(settings) {
   const provider = settings.provider;
   if (Object.values(PROVIDERS).includes(provider)) return provider;
@@ -289,6 +366,7 @@ export function getProviderType(settings) {
 
 export function getModelForSettings(settings) {
   if (settings.provider === PROVIDERS.LOCAL) return settings.localModel;
+  if (settings.provider === PROVIDERS.LLAMACPP) return settings.llamaModel;
   if (settings.provider === PROVIDERS.TRANSFORMERS) {
     return settings.transformersModel;
   }
@@ -299,6 +377,13 @@ export function getProvider(settings) {
   const type = getProviderType(settings);
   if (type === PROVIDERS.LOCAL) {
     return new DirectOllamaProvider(settings.localModel, settings.ollamaHost);
+  }
+  if (type === PROVIDERS.LLAMACPP) {
+    return new DirectLlamaCppProvider(
+      settings.llamaModel,
+      settings.llamaHost,
+      settings.llamaApiKey,
+    );
   }
   if (type === PROVIDERS.TRANSFORMERS) {
     return new TransformersProvider(settings.transformersModel);

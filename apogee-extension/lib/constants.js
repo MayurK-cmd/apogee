@@ -130,9 +130,17 @@ const DEFAULT_LOCAL_MODEL = "qwen3:8b";
 
 const isFirefox = process.env.TARGET_BROWSER === "firefox";
 
+// llama.cpp is offered on both builds: like Ollama it is a plain fetch to a
+// loopback server, with none of the WebGPU or offscreen-document dependency
+// that keeps WebLLM off Firefox.
 export const PROVIDERS = isFirefox
-  ? { TRANSFORMERS: "transformers", LOCAL: "local" }
-  : { WEBLLM: "webllm", TRANSFORMERS: "transformers", LOCAL: "local" };
+  ? { TRANSFORMERS: "transformers", LOCAL: "local", LLAMACPP: "llamacpp" }
+  : {
+      WEBLLM: "webllm",
+      TRANSFORMERS: "transformers",
+      LOCAL: "local",
+      LLAMACPP: "llamacpp",
+    };
 
 export const DEFAULT_PROVIDER = isFirefox
   ? PROVIDERS.TRANSFORMERS
@@ -140,12 +148,21 @@ export const DEFAULT_PROVIDER = isFirefox
 
 export const DEFAULT_OLLAMA_HOST = "http://127.0.0.1:11434";
 
+export const DEFAULT_LLAMACPP_HOST = "http://127.0.0.1:8080";
+
 export const DEFAULT_SETTINGS = {
   provider: DEFAULT_PROVIDER,
   webllmModel: DEFAULT_WEBLLM_MODEL,
   transformersModel: DEFAULT_TRANSFORMERS_MODEL,
   localModel: DEFAULT_LOCAL_MODEL,
   ollamaHost: DEFAULT_OLLAMA_HOST,
+  // llama-server loads one model at launch, so there is no list to pick from
+  // and no sensible default to ship: the name is filled in from the server
+  // once it answers. The API key stays empty unless the server was started
+  // with --api-key, which most are not.
+  llamaHost: DEFAULT_LLAMACPP_HOST,
+  llamaModel: "",
+  llamaApiKey: "",
   responseFormat: "bullets",
   customInstructions: "",
   summaryLanguage: DEFAULT_SUMMARY_LANGUAGE,
