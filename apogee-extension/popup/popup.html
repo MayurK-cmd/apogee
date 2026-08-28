@@ -92,31 +92,24 @@
               <span>Ask Apogee a question</span>
             </button>
 
-            <div class="quick-action-row">
-              <button
-                id="pasteTextBtn"
-                class="quick-action-btn sharp-btn"
-                type="button"
-              >
+            <div class="chip-row">
+              <button id="pasteTextBtn" class="chip-btn" type="button">
                 <span class="ico" data-ico="copy" aria-hidden="true"></span>
                 <span>Paste text to summarize</span>
               </button>
 
-              <button
-                id="uploadFileBtn"
-                class="quick-action-btn sharp-btn"
-                type="button"
-              >
+              <button id="uploadFileBtn" class="chip-btn" type="button">
                 <span class="ico" data-ico="upload" aria-hidden="true"></span>
                 <span>Upload file to summarize</span>
               </button>
-              <input
-                type="file"
-                id="fileUploadInput"
-                accept=".pdf,.txt,.md,.json"
-                class="hidden"
-              />
             </div>
+
+            <input
+              type="file"
+              id="fileUploadInput"
+              accept=".pdf,.txt,.md,.json,.docx,.html"
+              class="hidden"
+            />
 
             <button
               id="openSidePanelBtn"
