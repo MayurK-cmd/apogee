@@ -1390,11 +1390,13 @@ body {
 
 .settings-contact-btn {
   width: calc(100% - 32px);
-  margin: 0 16px;
-  height: 44px;
+  margin: 0 16px 20px 16px;
+  height: 48px;
+  min-height: 48px;
+  flex-shrink: 0;
   border: 1px solid var(--btn-border);
   background: var(--btn-bg);
-  padding: 0 12px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
