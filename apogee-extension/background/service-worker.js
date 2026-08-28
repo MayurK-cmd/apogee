@@ -19,6 +19,14 @@ import { truncateForPrompt } from "../lib/summarize/chunk.js";
 import { parseSuggestedQuestions } from "../lib/summarize/questions.js";
 import { extractPdfText } from "../lib/extract/pdfExtract.js";
 import {
+  recordPageAccessEvent,
+  getActivityAuditSummary,
+} from "../lib/storage/activityAudit.js";
+import {
+  retrieveRelevantContent,
+  findBestPassage,
+} from "../lib/retrieval/rag.js";
+import {
   withTransformersEngine,
   getTransformersStatus,
   transformersChatStream,
@@ -350,7 +358,17 @@ const OLLAMA_PROVIDER = {
   chatStream,
 };
 async function getRelevantAskContent(content, question) {
-  if (!hasOffscreenAPI) return truncateForPrompt(content);
+  if (!hasOffscreenAPI) {
+    try {
+      return await retrieveRelevantContent({ content, question });
+    } catch (err) {
+      console.error(
+        "Relevant-content retrieval in background failed, falling back to truncation:",
+        err,
+      );
+      return truncateForPrompt(content);
+    }
+  }
   try {
     await ensureOffscreenDocument();
     const resp = await chrome.runtime.sendMessage({
@@ -709,6 +727,13 @@ async function runBackgroundSummarize(
   if (!isSelection && CACHEABLE_PAGE_TYPES.has(pageData.type) && persist) {
     await persistContent(tab.url, pageData);
   }
+
+  recordPageAccessEvent({
+    title: pageData.title,
+    url: pageData.url,
+    contentLength: (pageData.content || "").length,
+    type: pageData.type,
+  }).catch(() => {});
 
   let content = pageData.content;
   if (pageData.isPdf) {
@@ -1685,10 +1710,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case "find-passage": {
           if (!hasOffscreenAPI) {
-            sendResponse({
-              error:
-                "Highlight-in-page needs the offscreen document (Chrome/Edge only).",
-            });
+            try {
+              const { content, query } = message.payload || {};
+              const passage = await findBestPassage({ content, query });
+              sendResponse({ passage });
+            } catch (err) {
+              sendResponse({ error: err.message });
+            }
             break;
           }
           await ensureOffscreenDocument();
@@ -1698,6 +1726,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             payload: message.payload,
           });
           sendResponse(response);
+          break;
+        }
+
+        case "retrieve-context": {
+          if (!hasOffscreenAPI) {
+            try {
+              const { content, question } = message.payload || {};
+              const relevantContent = await retrieveRelevantContent({
+                content,
+                question,
+              });
+              sendResponse({ content: relevantContent });
+            } catch (err) {
+              sendResponse({ error: err.message });
+            }
+            break;
+          }
+          await ensureOffscreenDocument();
+          const response = await chrome.runtime.sendMessage({
+            target: "offscreen",
+            action: "retrieve-context",
+            payload: message.payload,
+          });
+          sendResponse(response);
+          break;
+        }
+
+        case "get-activity-audit": {
+          const auditSummary = await getActivityAuditSummary();
+          sendResponse(auditSummary);
           break;
         }
 
