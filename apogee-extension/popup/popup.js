@@ -520,6 +520,62 @@ async function applySettingsToUI(settings) {
   if (debugLogsRadio) debugLogsRadio.checked = true;
 
   updateWebgpuWarning(isWebllm).catch((err) => console.error(err));
+  updatePrivacyAuditUI().catch((err) => console.error(err));
+}
+
+async function updatePrivacyAuditUI() {
+  const networkEl = document.getElementById("auditNetworkStatus");
+  const countEl = document.getElementById("auditAccessCount");
+  const storageEl = document.getElementById("auditStorageRetention");
+  const listEl = document.getElementById("auditLogList");
+  if (!networkEl || !countEl || !storageEl || !listEl) return;
+
+  try {
+    const summary = await new Promise((resolve) => {
+      if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+        chrome.runtime.sendMessage(
+          { target: "service-worker", action: "get-activity-audit" },
+          (res) => resolve(res || {}),
+        );
+      } else {
+        resolve({});
+      }
+    });
+
+    const zeroEgress = summary.networkEgress?.zeroEgress;
+    const msg = summary.networkEgress?.statusMessage || "100% Local";
+    networkEl.textContent = msg;
+    networkEl.className = `audit-badge ${zeroEgress ? "success" : "info"}`;
+
+    countEl.textContent = `${summary.pageAccessCount || 0} pages processed`;
+    storageEl.textContent = `Cached items: ${summary.storageRetention?.cachedPagesCount || 0}`;
+
+    listEl.innerHTML = "";
+    const logs = summary.recentAccesses || [];
+    if (logs.length === 0) {
+      listEl.innerHTML =
+        '<p class="audit-empty">No page access recorded yet.</p>';
+    } else {
+      for (const entry of logs) {
+        const item = document.createElement("div");
+        item.className = "audit-log-item";
+        const titleSpan = document.createElement("span");
+        titleSpan.className = "audit-log-title";
+        titleSpan.textContent = entry.title || entry.url || "Untitled";
+        const metaSpan = document.createElement("span");
+        metaSpan.className = "audit-log-meta";
+        const timeStr = entry.timestamp
+          ? new Date(entry.timestamp).toLocaleTimeString()
+          : "";
+        metaSpan.textContent = `${entry.type || "page"} • ${entry.contentLength || 0} chars • ${timeStr}`;
+        item.appendChild(titleSpan);
+        item.appendChild(metaSpan);
+        listEl.appendChild(item);
+      }
+    }
+  } catch (err) {
+    console.error("Failed to update privacy audit UI:", err);
+  }
 }
 
 async function updateWebgpuWarning(isWebllm) {

@@ -33,6 +33,13 @@ To reach Ollama, Apogee strips the `Origin` header from its `localhost` and `127
 
 Apogee includes no Google Analytics, Mixpanel, crash-reporting SDKs, or telemetry of any kind. No usage data or performance metrics are collected.
 
+## Activity & Privacy Audit View
+
+Settings includes an **Activity & Privacy Audit** panel that provides full visual transparency into local execution:
+- **Network Egress Verification**: Confirms that zero network egress requests were sent during inference (100% on-device local execution).
+- **Page Access Audit Log**: Displays a transparent, capped log of recent page extractions (title, URL, content character length, page type, and timestamp).
+- **Storage Retention Audit**: Displays active cache storage usage and history retention policies.
+
 ## Local Data Storage Controls
 
 - **Cached Summaries and Page Text**: To make reopening the popup instant, Apogee caches summaries, suggested prompts, extracted page text for articles, and your recent questions and answers in local extension storage (`chrome.storage.local`). This data is never transmitted, is capped in size, and is keyed by a truncated SHA-256 of the URL, so URLs with session tokens in their query strings are not stored in plaintext keys, and the key cannot be walked back to the URL it came from.

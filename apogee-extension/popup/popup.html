@@ -652,6 +652,41 @@
             <div id="clearDataStatus" class="clear-data-status"></div>
           </div>
 
+          <div class="settings-card" id="privacyAuditCard">
+            <div class="card-title">
+              <span class="ico" data-ico="activity" aria-hidden="true"></span>
+              <span>Activity &amp; Privacy Audit</span>
+            </div>
+
+            <div class="audit-summary-box">
+              <div class="audit-row">
+                <span class="audit-label">Network Egress:</span>
+                <span id="auditNetworkStatus" class="audit-badge success"
+                  >Checking...</span
+                >
+              </div>
+              <div class="audit-row">
+                <span class="audit-label">Page Access History:</span>
+                <span id="auditAccessCount" class="audit-val"
+                  >0 pages processed</span
+                >
+              </div>
+              <div class="audit-row">
+                <span class="audit-label">Storage Retention:</span>
+                <span id="auditStorageRetention" class="audit-val"
+                  >Cached items: 0</span
+                >
+              </div>
+            </div>
+
+            <div class="audit-details">
+              <h4 class="audit-subheading">Recent Page Access Log</h4>
+              <div id="auditLogList" class="audit-log-list">
+                <p class="audit-empty">No page access recorded yet.</p>
+              </div>
+            </div>
+          </div>
+
           <div class="settings-card">
             <div class="card-title">
               <span class="ico" data-ico="inspect" aria-hidden="true"></span>
