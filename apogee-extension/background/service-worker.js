@@ -1424,83 +1424,83 @@ if (typeof chrome !== "undefined" && chrome.alarms?.onAlarm?.addListener) {
 const activeSidePanelTabs = new Set();
 
 if (typeof chrome !== "undefined" && chrome.runtime?.onConnect?.addListener) {
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name && port.name.startsWith("side-panel-tab-")) {
-    const tabId = parseInt(port.name.replace("side-panel-tab-", ""), 10);
-    if (!isNaN(tabId)) {
-      activeSidePanelTabs.add(tabId);
-      port.onDisconnect.addListener(() => {
-        activeSidePanelTabs.delete(tabId);
-      });
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name && port.name.startsWith("side-panel-tab-")) {
+      const tabId = parseInt(port.name.replace("side-panel-tab-", ""), 10);
+      if (!isNaN(tabId)) {
+        activeSidePanelTabs.add(tabId);
+        port.onDisconnect.addListener(() => {
+          activeSidePanelTabs.delete(tabId);
+        });
+      }
+      return;
     }
-    return;
-  }
 
-  if (port.name === "popup-lifecycle") {
-    popupConnected = true;
-    cancelOffscreenIdleClose();
-    port.onDisconnect.addListener(() => {
-      popupConnected = false;
-      scheduleOffscreenIdleClose();
+    if (port.name === "popup-lifecycle") {
+      popupConnected = true;
+      cancelOffscreenIdleClose();
+      port.onDisconnect.addListener(() => {
+        popupConnected = false;
+        scheduleOffscreenIdleClose();
+      });
+      return;
+    }
+
+    if (!port.name.startsWith("popup-stream-")) return;
+    const popupPort = port;
+
+    const streamId = popupPort.name.replace("popup-stream-", "");
+
+    if (isOffscreenStream(streamId)) {
+      relayToOffscreenStream(popupPort, streamId);
+      return;
+    }
+
+    const stream = activeStreams.get(streamId);
+
+    if (!stream) {
+      try {
+        popupPort.postMessage({
+          type: "error",
+          error:
+            "This response is no longer available (its stream expired). " +
+            "Try summarizing again.",
+        });
+      } catch {}
+      try {
+        popupPort.disconnect();
+      } catch {}
+      return;
+    }
+
+    stream.subscribers.add(popupPort);
+    if (stream.text) {
+      try {
+        popupPort.postMessage({ type: "chunk", text: stream.text });
+      } catch {}
+    }
+    if (stream.cancelled) {
+      try {
+        popupPort.postMessage({ type: "cancelled" });
+      } catch {}
+    } else if (stream.error) {
+      try {
+        popupPort.postMessage({
+          type: "error",
+          error: stream.error,
+          userFacing: stream.errorUserFacing,
+        });
+      } catch {}
+    } else if (stream.done) {
+      try {
+        popupPort.postMessage({ type: "done" });
+      } catch {}
+    }
+
+    popupPort.onDisconnect.addListener(() => {
+      stream.subscribers.delete(popupPort);
     });
-    return;
-  }
-
-  if (!port.name.startsWith("popup-stream-")) return;
-  const popupPort = port;
-
-  const streamId = popupPort.name.replace("popup-stream-", "");
-
-  if (isOffscreenStream(streamId)) {
-    relayToOffscreenStream(popupPort, streamId);
-    return;
-  }
-
-  const stream = activeStreams.get(streamId);
-
-  if (!stream) {
-    try {
-      popupPort.postMessage({
-        type: "error",
-        error:
-          "This response is no longer available (its stream expired). " +
-          "Try summarizing again.",
-      });
-    } catch {}
-    try {
-      popupPort.disconnect();
-    } catch {}
-    return;
-  }
-
-  stream.subscribers.add(popupPort);
-  if (stream.text) {
-    try {
-      popupPort.postMessage({ type: "chunk", text: stream.text });
-    } catch {}
-  }
-  if (stream.cancelled) {
-    try {
-      popupPort.postMessage({ type: "cancelled" });
-    } catch {}
-  } else if (stream.error) {
-    try {
-      popupPort.postMessage({
-        type: "error",
-        error: stream.error,
-        userFacing: stream.errorUserFacing,
-      });
-    } catch {}
-  } else if (stream.done) {
-    try {
-      popupPort.postMessage({ type: "done" });
-    } catch {}
-  }
-
-  popupPort.onDisconnect.addListener(() => {
-    stream.subscribers.delete(popupPort);
   });
-});
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
