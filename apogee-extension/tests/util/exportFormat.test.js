@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert";
-import { formatSummaryAsMarkdown } from "../../lib/util/exportFormat.js";
+import {
+  formatSummaryAsMarkdown,
+  formatSummaryAsPlainText,
+} from "../../lib/util/exportFormat.js";
 
 test("formatSummaryAsMarkdown includes title, source, and summary", () => {
   const result = formatSummaryAsMarkdown({
@@ -62,5 +65,17 @@ test("formatSummaryAsMarkdown includes YAML frontmatter when includeFrontmatter 
     result.includes(
       "# Obsidian Note\n\nSource: https://example.com/obsidian\n\n- Important point\n",
     ),
+  );
+});
+test("formatSummaryAsPlainText removes Markdown formatting", () => {
+  const result = formatSummaryAsPlainText({
+    title: "Example Article",
+    url: "https://example.com/article",
+    summary: "## Key points\n\n- **First point**\n- _Second point_",
+  });
+
+  assert.strictEqual(
+    result,
+    "Example Article\n\nSource: https://example.com/article\n\nKey points\n\n- First point\n- Second point\n",
   );
 });

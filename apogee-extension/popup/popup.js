@@ -28,7 +28,10 @@ import {
 } from "../lib/constants.js";
 import { getSettings } from "../lib/storage/settings.js";
 import { validateOllamaHost } from "../lib/util/ollamaHost.js";
-import { formatSummaryAsMarkdown } from "../lib/util/exportFormat.js";
+import {
+  formatSummaryAsMarkdown,
+  formatSummaryAsPlainText,
+} from "../lib/util/exportFormat.js";
 import {
   formatDiagnosticSettings,
   formatDiagnosticsMarkdown,
@@ -131,6 +134,7 @@ const resummarizeHintBtn = document.getElementById("resummarizeHintBtn");
 const timeSavedBadge = document.getElementById("timeSavedBadge");
 const copySummaryBtn = document.getElementById("copySummaryBtn");
 const copyMarkdownBtn = document.getElementById("copyMarkdownBtn");
+const copyPlainTextBtn = document.getElementById("copyPlainTextBtn");
 const copyAnswerBtn = document.getElementById("copyAnswerBtn");
 const cancelAskBtn = document.getElementById("cancelAskBtn");
 const pastSummariesSection = document.getElementById("pastSummariesSection");
@@ -1159,6 +1163,7 @@ function showTimeSavedFromInputs(inputs, summaryText) {
 function setSummaryCopyButtonsVisible(hasText) {
   copySummaryBtn.classList.toggle("hidden", !hasText);
   copyMarkdownBtn?.classList.toggle("hidden", !hasText);
+  copyPlainTextBtn?.classList.toggle("hidden", !hasText);
   resummarizeBtn?.classList.toggle("hidden", !hasText);
 }
 
@@ -1194,8 +1199,26 @@ copyMarkdownBtn?.addEventListener("click", async () => {
     url,
     summary: currentSummaryText,
   });
+
   copyToClipboard(markdown, copyMarkdownBtn);
 });
+
+copyPlainTextBtn?.addEventListener("click", async () => {
+  const [tab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+  const title = currentPageData?.title || tab?.title || "";
+  const url = currentPageData?.url || tab?.url || "";
+  const plainText = formatSummaryAsPlainText({
+    title,
+    url,
+    summary: currentSummaryText,
+  });
+
+  copyToClipboard(plainText, copyPlainTextBtn);
+});
+
 copyAnswerBtn?.addEventListener("click", () =>
   copyToClipboard(currentAnswerText, copyAnswerBtn),
 );
