@@ -20,6 +20,7 @@ import {
   TRANSFORMERS_MODELS,
   LOCAL_MODELS,
   DEFAULT_OLLAMA_HOST,
+  DEFAULT_LLAMACPP_HOST,
   SUMMARY_LANGUAGES,
   CUSTOM_INSTRUCTIONS_MAX_CHARS,
   PRIVATE_HOSTS_MAX_CHARS,
@@ -185,6 +186,12 @@ const transformersModelsCard = document.getElementById(
 );
 const localSettingsCard = document.getElementById("localSettingsCard");
 const localModelsCard = document.getElementById("localModelsCard");
+const llamaSettingsCard = document.getElementById("llamaSettingsCard");
+const llamaModelsCard = document.getElementById("llamaModelsCard");
+const llamaHostInput = document.getElementById("llamaHostInput");
+const llamaApiKeyInput = document.getElementById("llamaApiKeyInput");
+const llamaModelInput = document.getElementById("llamaModelInput");
+const llamaModelStatus = document.getElementById("llamaModelStatus");
 const webllmModelList = document.getElementById("webllmModelList");
 const transformersModelList = document.getElementById("transformersModelList");
 const localModelList = document.getElementById("localModelList");
@@ -460,16 +467,23 @@ async function applySettingsToUI(settings) {
   const isWebllm = provider === PROVIDERS.WEBLLM;
   const isTransformers = provider === PROVIDERS.TRANSFORMERS;
   const isLocal = provider === PROVIDERS.LOCAL;
+  const isLlamaCpp = provider === PROVIDERS.LLAMACPP;
   webllmModelsCard.classList.toggle("hidden", !isWebllm);
   transformersModelsCard?.classList.toggle("hidden", !isTransformers);
   localSettingsCard.classList.toggle("hidden", !isLocal);
   localModelsCard.classList.toggle("hidden", !isLocal);
+  llamaSettingsCard?.classList.toggle("hidden", !isLlamaCpp);
+  llamaModelsCard?.classList.toggle("hidden", !isLlamaCpp);
 
   buildWebllmModelUI(settings.webllmModel);
   buildTransformersModelUI(settings.transformersModel);
 
   if (backendUrlInput) backendUrlInput.value = settings.ollamaHost;
   buildLocalModelUI(settings.localModel);
+
+  if (llamaHostInput) llamaHostInput.value = settings.llamaHost;
+  if (llamaApiKeyInput) llamaApiKeyInput.value = settings.llamaApiKey || "";
+  if (llamaModelInput) llamaModelInput.value = settings.llamaModel || "";
 
   const fmtRadio = document.querySelector(
     `input[name="format"][value="${settings.responseFormat}"]`,
@@ -1683,6 +1697,60 @@ async function checkConnection() {
   return await provider.checkReady();
 }
 
+/**
+ * Reflect what llama-server reported back into the model field.
+ *
+ * llama-server loads one model at launch, so unlike Ollama there is no list to
+ * choose from -- the field is filled in from the server instead. It stays
+ * editable for the cases detection cannot cover: a proxy such as llama-swap
+ * routing by model name, or a build whose /v1/models says something unhelpful.
+ *
+ * Auto-fill only touches an empty field, which is what keeps a name the user
+ * typed, and a name detected earlier, from being overwritten on the next
+ * health check. Clearing the field asks for detection again.
+ */
+function updateLlamaModelUI(settings, status) {
+  if (settings.provider !== PROVIDERS.LLAMACPP) return;
+  if (!llamaModelInput) return;
+
+  const detected = Array.isArray(status?.models) ? status.models : [];
+
+  if (detected.length > 0 && !llamaModelInput.value.trim()) {
+    llamaModelInput.value = detected[0];
+    saveSettings({ llamaModel: detected[0] }).catch((err) =>
+      console.error("Saving the detected llama.cpp model failed:", err),
+    );
+  }
+
+  if (!llamaModelStatus) return;
+
+  if (!status?.ready) {
+    renderStatusError(
+      llamaModelStatus,
+      "Not connected. Start llama-server and check the URL above.",
+    );
+    return;
+  }
+
+  llamaModelStatus.removeAttribute("role");
+  if (detected.length === 0) {
+    // /health answered but the model lookup did not, which is what a wrong
+    // API key looks like: reachable, but nothing readable behind it.
+    llamaModelStatus.textContent = settings.llamaApiKey
+      ? "Connected, but the model could not be read. Check the API key."
+      : "Connected, but the server did not report a model name.";
+    return;
+  }
+
+  const context = status.contextTokens
+    ? `${status.contextTokens.toLocaleString()} token context`
+    : "context window not reported";
+  llamaModelStatus.textContent =
+    detected.length > 1
+      ? `${detected.length} models available, ${context}.`
+      : `Detected from the server, ${context}.`;
+}
+
 function updateLocalModelList(settings, status) {
   if (settings.provider !== PROVIDERS.LOCAL) return;
 
@@ -1773,6 +1841,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       .then((status) => {
         updateConnectionUI(status?.ready === true);
         updateLocalModelList(settings, status);
+        updateLlamaModelUI(settings, status);
       })
       .catch((err) => console.error(err));
 
@@ -2202,6 +2271,7 @@ providerRadios.forEach((radio) => {
     const status = await checkConnection();
     updateConnectionUI(status?.ready === true);
     updateLocalModelList(settings, status);
+    updateLlamaModelUI(settings, status);
   });
 });
 
@@ -2449,6 +2519,35 @@ backendUrlInput?.addEventListener("change", async () => {
   const status = await checkConnection();
   updateConnectionUI(status?.ready === true);
   updateLocalModelList(settings, status);
+  updateLlamaModelUI(settings, status);
+});
+
+async function refreshLlamaConnection() {
+  const settings = await getSettings();
+  const status = await checkConnection();
+  updateConnectionUI(status?.ready === true);
+  updateLlamaModelUI(settings, status);
+}
+
+llamaHostInput?.addEventListener("change", async () => {
+  let val = (llamaHostInput.value || DEFAULT_LLAMACPP_HOST).trim();
+  if (val && !/^https?:\/\//i.test(val)) {
+    val = `http://${val}`;
+  }
+  val = val.replace(/\/+$/, "");
+  llamaHostInput.value = val;
+  await saveSettings({ llamaHost: val });
+  await refreshLlamaConnection();
+});
+
+llamaApiKeyInput?.addEventListener("change", async () => {
+  await saveSettings({ llamaApiKey: llamaApiKeyInput.value.trim() });
+  // The key gates the model lookup, so a corrected one should re-detect.
+  await refreshLlamaConnection();
+});
+
+llamaModelInput?.addEventListener("change", async () => {
+  await saveSettings({ llamaModel: llamaModelInput.value.trim() });
 });
 
 promptsCloseBtn?.addEventListener("click", () => {

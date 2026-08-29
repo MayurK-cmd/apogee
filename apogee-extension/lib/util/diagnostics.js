@@ -16,7 +16,12 @@ function redact(key, value) {
     const entries = parsePrivateHosts(value);
     return entries.length ? `${entries.length} host(s)` : "unset";
   }
-  if (key === "ollamaHost") {
+  // An API key is a credential: a bug report should say whether one is set,
+  // never what it is.
+  if (key === "llamaApiKey") {
+    return value ? "set" : "unset";
+  }
+  if (key === "ollamaHost" || key === "llamaHost") {
     const host = String(value || "");
     try {
       const { hostname, port, protocol } = new URL(host);
