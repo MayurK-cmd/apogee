@@ -7,7 +7,8 @@ Apogee is an offline-first, private browser extension for Chrome, Edge, and Fire
 - `apogee-extension/manifest.json`: Manifest V3 configuration for Chromium and Firefox.
 - `apogee-extension/background/service-worker.js`: Background service worker and message routing.
 - `apogee-extension/popup/`: Extension popup UI (HTML, CSS, JS).
-- `apogee-extension/lib/engines/`: LLM engine implementations (WebLLM, Transformers.js, Ollama).
+- `apogee-extension/lib/engines/`: LLM engine implementations (WebLLM, Transformers.js, Ollama, llama.cpp).
+- `apogee-extension/lib/engines/llamaCppClient.js`: SSE streaming client and health/context detection for a local `llama-server`.
 - `apogee-extension/lib/extract/`: Article and video text extractors (`pageExtraction.js`, site extractors).
 - `apogee-extension/lib/extract/pdfExtract.js`: Client-side PDF text extraction using pdf.js.
 - `apogee-extension/lib/retrieval/rag.js`: Embedding generation, vector similarity retrieval (Ask), and grounding logic.
@@ -61,6 +62,7 @@ Content
 - [Architecture](ARCHITECTURE.md): System architecture, 4 contexts, sequence diagrams, and trust boundaries.
 - [Models](MODELS.md): WebLLM, WASM, Ollama models, benchmarks, and context windows.
 - [Browser Support](BROWSERS.md): Browser compatibility matrix, WebGPU vs WebAssembly execution, and Ollama support.
+- [Local llama.cpp Guide](LLAMACPP.md): Connecting Apogee to your own `llama-server`.
 - [Local Ollama Guide](OLLAMA.md): Local Ollama setup for macOS, Windows, and Linux.
 - [Translation Reference](TRANSLATION.md): 29-language matrix and Opus-MT model tiers.
 - [Privacy Policy](PRIVACY.md): Detailed privacy, network connections, and permission sandboxing.

@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **llama.cpp (`llama-server`) as a local provider.** Apogee can now talk directly to a `llama-server` instance over loopback (`http://127.0.0.1:8080`), alongside Local Ollama. Selecting it in Settings reads the loaded model's name from the server rather than offering a list, since `llama-server` serves one GGUF at a time, and the field stays editable for proxies that route by model name. Streaming uses the OpenAI-compatible `/v1/chat/completions` endpoint with SSE framing. Servers started with `--api-key` are supported; the key is reported in diagnostics as `set` or `unset`, never by value. No CORS configuration is needed, unlike Ollama. See the new [Local llama.cpp Guide](LLAMACPP.md). (#91)
+- **Chunk sizing from a server-reported context window.** `getMaxChunkChars()` accepts a context length read from the provider. `llama-server` takes its window from its own `-c` launch flag, so the same GGUF may serve 4096 tokens or 32768 with an identical name, and inferring one from the model name could overflow it. Providers that cannot report a window are unaffected. (#91)
+
 - **Overview chunking strategy for large documents.** Added `chunkTextOverview` fallback helper to maintain bounded context when processing massive articles or long transcripts under memory pressure. (#114)
 - **Multi-tab batch summarization via context menu.** Added context menu action ("Summarize with Apogee") to summarize multiple selected tabs simultaneously into a synthesized overview. (#116)
 - **Lemmy post extractor.** Dedicated extractor for Lemmy post pages parsing post titles, authors, communities, scores, bodies, links, and threaded comment chains in path notation. (#32)
@@ -39,8 +42,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **PDF input type and size validation.** Added strict type checking and a 50MB base64 size limit in the service worker `extract-pdf` action to prevent memory exhaustion and invalid payload processing. (#126)
 - **Service worker message router context validation.** Added sender context validation (`sender.id === chrome.runtime.id`) to the `service-worker.js` message listener to prevent unauthorized content-script invocation of internal privileged actions. (#127)
 - **CodeQL security hardening.** Resolved CodeQL alerts for URL scheme validation, hostname regex parsing, and markdown link sanitization.
-
-
 
 ## [0.2.1] - 2026-08-19
 
