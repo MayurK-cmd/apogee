@@ -412,6 +412,7 @@ function createBufferedStream(streamId, { finalize, model, title, url }) {
     text: "",
     done: false,
     error: null,
+    errorUserFacing: false,
     cancelled: false,
     subscribers: new Set(),
     controller: new AbortController(),
@@ -424,6 +425,7 @@ function createBufferedStream(streamId, { finalize, model, title, url }) {
     if (msg.type === "done") stream.done = true;
     if (msg.type === "error") {
       stream.error = msg.error;
+      stream.errorUserFacing = !!msg.userFacing;
       stream.done = true;
     }
     broadcastToStream(stream, msg);
@@ -472,7 +474,11 @@ async function startLocalHttpStream(
   try {
     validHost = validateLoopbackHost(host, client.label);
   } catch (err) {
-    finish({ type: "error", error: err.message });
+    finish({
+      type: "error",
+      error: err.message,
+      userFacing: !!err?.isUserFacing,
+    });
     return;
   }
 
@@ -573,7 +579,11 @@ async function startLocalHttpStream(
     }
     finish({ type: "done" });
   } catch (err) {
-    finish({ type: "error", error: err.message });
+    finish({
+      type: "error",
+      error: err.message,
+      userFacing: !!err?.isUserFacing,
+    });
   }
 }
 
@@ -699,7 +709,11 @@ async function startTransformersStream(
     });
     finish({ type: "done" });
   } catch (err) {
-    finish({ type: "error", error: err?.message || String(err) });
+    finish({
+      type: "error",
+      error: err?.message || String(err),
+      userFacing: !!err?.isUserFacing,
+    });
   }
 }
 
@@ -1455,7 +1469,11 @@ chrome.runtime.onConnect.addListener((port) => {
     } catch {}
   } else if (stream.error) {
     try {
-      popupPort.postMessage({ type: "error", error: stream.error });
+      popupPort.postMessage({
+        type: "error",
+        error: stream.error,
+        userFacing: stream.errorUserFacing,
+      });
     } catch {}
   } else if (stream.done) {
     try {
