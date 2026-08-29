@@ -866,7 +866,6 @@ async function runBackgroundSummarize(
   let streamId;
   if (providerType === PROVIDERS.LOCAL) {
     streamId = nextStreamId("ollama");
-    startLocalHttpStream(streamId, { ...common, host: settings.ollamaHost });
   } else if (providerType === PROVIDERS.LLAMACPP) {
     streamId = nextStreamId("llamacpp");
   } else if (providerType === PROVIDERS.TRANSFORMERS) {
