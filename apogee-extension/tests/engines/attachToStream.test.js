@@ -5,6 +5,7 @@ import {
   attachToStream,
   StreamCancelledError,
 } from "../../lib/engines/providers.js";
+import { toUserMessage } from "../../lib/util/userError.js";
 
 function createFakePort() {
   const listeners = { message: [], disconnect: [] };
@@ -80,4 +81,47 @@ test("attachToStream errors (instead of silently truncating) when the port disco
   port._emitDisconnect();
 
   await assert.rejects(run, /Connection to the model was lost/);
+});
+
+// A message written for the user only survives the port if the marker travels
+// with it. Without this, attachToStream rebuilt a plain Error, toUserMessage
+// fell through to its pattern table, and "Could not connect to llama.cpp..."
+// was rewritten as "Could not connect to Ollama..." because the table matches
+// on "could not connect".
+test("attachToStream keeps an error that was written for the user intact", async () => {
+  const port = createFakePort();
+  globalThis.chrome = { runtime: { connect: () => port } };
+
+  const run = collect(attachToStream("stream-user-facing"));
+  await new Promise((r) => setTimeout(r, 0));
+
+  const written =
+    "Could not connect to llama.cpp at http://127.0.0.1:8080. " +
+    "Is llama-server running and listening on that address?";
+  port._emitMessage({ type: "error", error: written, userFacing: true });
+
+  await assert.rejects(run, (err) => {
+    assert.equal(err.isUserFacing, true, "marker must survive the port");
+    assert.equal(
+      toUserMessage(err),
+      written,
+      "a user-facing message must not be run through the fallback table",
+    );
+    return true;
+  });
+});
+
+test("attachToStream still lets an unmarked error be mapped to a fallback", async () => {
+  const port = createFakePort();
+  globalThis.chrome = { runtime: { connect: () => port } };
+
+  const run = collect(attachToStream("stream-raw"));
+  await new Promise((r) => setTimeout(r, 0));
+
+  port._emitMessage({ type: "error", error: "TypeError: fetch failed" });
+
+  await assert.rejects(run, (err) => {
+    assert.notEqual(err.isUserFacing, true);
+    return true;
+  });
 });
