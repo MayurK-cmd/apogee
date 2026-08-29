@@ -453,6 +453,14 @@
               <input type="radio" name="provider" value="local" />
               <span>Local Ollama</span>
             </label>
+
+            <label class="radio-option" id="llamacppProviderOption">
+              <input type="radio" name="provider" value="llamacpp" />
+              <span
+                >llama.cpp
+                <small class="provider-badge">llama-server</small></span
+              >
+            </label>
           </div>
 
           <div id="webllmModelsCard" class="settings-card">
@@ -497,6 +505,52 @@
 
             <div id="localModelList"></div>
             <div id="localModelStatus" class="clear-data-status"></div>
+          </div>
+
+          <div id="llamaSettingsCard" class="settings-card hidden">
+            <div class="card-title">
+              <span class="ico" data-ico="server" aria-hidden="true"></span>
+              <span>llama.cpp</span>
+            </div>
+
+            <label class="settings-field">
+              <span>Server URL</span>
+              <input
+                id="llamaHostInput"
+                type="url"
+                placeholder="http://127.0.0.1:8080"
+              />
+            </label>
+
+            <label class="settings-field">
+              <span
+                >API key <small>(only if started with --api-key)</small></span
+              >
+              <input
+                id="llamaApiKeyInput"
+                type="password"
+                autocomplete="off"
+                placeholder="Leave empty for most servers"
+              />
+            </label>
+          </div>
+
+          <div id="llamaModelsCard" class="settings-card hidden">
+            <div class="card-title">
+              <span class="ico" data-ico="robot" aria-hidden="true"></span>
+              <span>Loaded Model</span>
+            </div>
+
+            <label class="settings-field">
+              <span>Model name</span>
+              <input
+                id="llamaModelInput"
+                type="text"
+                autocomplete="off"
+                placeholder="Detected from the server"
+              />
+            </label>
+            <div id="llamaModelStatus" class="clear-data-status"></div>
           </div>
 
           <div class="settings-card">
