@@ -772,6 +772,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         }
 
+        case "generate-text": {
+          const { prompt, model, provider, language, translationEngine } =
+            message.payload;
+          const qLanguage = await resolveEffectiveLanguage("", language);
+          const translateFn = opusTranslateFor(translationEngine);
+          const text =
+            provider === "transformers"
+              ? await withTransformersEngine(model, null, async (eng) => {
+                  return generateInTargetLanguage(
+                    transformersChatFn(eng),
+                    prompt,
+                    qLanguage,
+                    { translateFn },
+                  );
+                })
+              : await withEngine(model, async (eng) => {
+                  return generateInTargetLanguage(
+                    webllmChatFn(eng),
+                    prompt,
+                    qLanguage,
+                    { translateFn },
+                  );
+                });
+          sendResponse({ text });
+          break;
+        }
+
         case "status": {
           let webgpuAvailable = false;
           try {

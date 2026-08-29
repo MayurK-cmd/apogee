@@ -939,45 +939,59 @@ function notifyJobFailed(err) {
 const SUMMARIZE_CONTEXT_MENU_ID = "apogee-summarize";
 const SUMMARIZE_SELECTION_CONTEXT_MENU_ID = "apogee-summarize-selection";
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: SUMMARIZE_CONTEXT_MENU_ID,
-    title: "Summarize this page",
-    contexts: ["page"],
+if (typeof chrome !== "undefined" && chrome.runtime?.onInstalled?.addListener) {
+  chrome.runtime.onInstalled.addListener(() => {
+    chrome.contextMenus.create({
+      id: SUMMARIZE_CONTEXT_MENU_ID,
+      title: "Summarize this page",
+      contexts: ["page"],
+    });
+    chrome.contextMenus.create({
+      id: SUMMARIZE_SELECTION_CONTEXT_MENU_ID,
+      title: "Summarize selection",
+      contexts: ["selection"],
+    });
   });
-  chrome.contextMenus.create({
-    id: SUMMARIZE_SELECTION_CONTEXT_MENU_ID,
-    title: "Summarize selection",
-    contexts: ["selection"],
-  });
-});
+}
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (!tab) return;
-  if (info.menuItemId === SUMMARIZE_CONTEXT_MENU_ID) {
+if (
+  typeof chrome !== "undefined" &&
+  chrome.contextMenus?.onClicked?.addListener
+) {
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (!tab) return;
+    if (info.menuItemId === SUMMARIZE_CONTEXT_MENU_ID) {
+      runBackgroundSummarize(tab, { notifyOnFinish: true }).catch((err) =>
+        notifyJobFailed(err),
+      );
+    } else if (info.menuItemId === SUMMARIZE_SELECTION_CONTEXT_MENU_ID) {
+      runBackgroundSummarize(tab, {
+        notifyOnFinish: true,
+        selectionText: info.selectionText,
+      }).catch((err) => notifyJobFailed(err));
+    }
+  });
+}
+
+if (typeof chrome !== "undefined" && chrome.commands?.onCommand?.addListener) {
+  chrome.commands.onCommand.addListener(async (command) => {
+    if (command !== "summarize-page") return;
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (!tab) return;
     runBackgroundSummarize(tab, { notifyOnFinish: true }).catch((err) =>
       notifyJobFailed(err),
     );
-  } else if (info.menuItemId === SUMMARIZE_SELECTION_CONTEXT_MENU_ID) {
-    runBackgroundSummarize(tab, {
-      notifyOnFinish: true,
-      selectionText: info.selectionText,
-    }).catch((err) => notifyJobFailed(err));
-  }
-});
+  });
+}
 
-chrome.commands.onCommand.addListener(async (command) => {
-  if (command !== "summarize-page") return;
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) return;
-  runBackgroundSummarize(tab, { notifyOnFinish: true }).catch((err) =>
-    notifyJobFailed(err),
-  );
-});
-
-chrome.tabs.onRemoved.addListener((tabId) => {
-  removeViewState(tabId).catch(() => {});
-});
+if (typeof chrome !== "undefined" && chrome.tabs?.onRemoved?.addListener) {
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    removeViewState(tabId).catch(() => {});
+  });
+}
 
 const SPONSORBLOCK_CATEGORIES = ["sponsor", "selfpromo", "interaction"];
 
@@ -1393,20 +1407,23 @@ async function closeOffscreenIfIdle() {
   offscreenReady = false;
 }
 
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === OFFSCREEN_IDLE_ALARM) {
-    closeOffscreenIfIdle();
-    return;
-  }
-  if (alarm.name.startsWith(STREAM_CLEANUP_PREFIX)) {
-    const streamId = alarm.name.slice(STREAM_CLEANUP_PREFIX.length);
-    activeStreams.delete(streamId);
-    registeredStreamJobs.delete(streamId);
-  }
-});
+if (typeof chrome !== "undefined" && chrome.alarms?.onAlarm?.addListener) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === OFFSCREEN_IDLE_ALARM) {
+      closeOffscreenIfIdle();
+      return;
+    }
+    if (alarm.name.startsWith(STREAM_CLEANUP_PREFIX)) {
+      const streamId = alarm.name.slice(STREAM_CLEANUP_PREFIX.length);
+      activeStreams.delete(streamId);
+      registeredStreamJobs.delete(streamId);
+    }
+  });
+}
 
 const activeSidePanelTabs = new Set();
 
+if (typeof chrome !== "undefined" && chrome.runtime?.onConnect?.addListener) {
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name && port.name.startsWith("side-panel-tab-")) {
     const tabId = parseInt(port.name.replace("side-panel-tab-", ""), 10);
@@ -1484,6 +1501,7 @@ chrome.runtime.onConnect.addListener((port) => {
     stream.subscribers.delete(popupPort);
   });
 });
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.target !== "service-worker") return false;
@@ -2020,30 +2038,67 @@ export async function summarizeMultiTab(tabsToSummarize) {
   const title = `Multi-Tab Summary (${extractedResults.length} tabs)`;
   const url = tabsToSummarize[0]?.url || extractedResults[0].url;
 
-  const prompt = buildMultiTabSummaryPrompt(
-    extractedResults,
-    settings.summaryMode,
+  const prompt = withCustomInstructions(
+    buildMultiTabSummaryPrompt(extractedResults, settings.responseFormat),
     settings.customInstructions,
   );
 
   const providerType = getProviderType(settings);
   const model = getModelForSettings(settings);
+  const qLanguage = await resolveEffectiveLanguage(
+    extractedResults.map((r) => r.content).join("\n"),
+    settings.summaryLanguage,
+  );
+  const translateFn =
+    settings.translationEngine === TRANSLATION_ENGINES.OPUS
+      ? makeOpusTranslateFn(() => {})
+      : undefined;
 
   let summaryResult;
-  if (providerType === PROVIDERS.OLLAMA) {
-    summaryResult = await summarizeText(prompt, settings.ollamaHost, model);
-  } else if (providerType === PROVIDERS.TRANSFORMERS) {
-    summaryResult = await withTransformersEngine((engine) =>
-      engine.generate(prompt, { model }),
+  if (providerType === PROVIDERS.LOCAL) {
+    const validHost = validateLoopbackHost(
+      settings.ollamaHost,
+      OLLAMA_PROVIDER.label,
     );
+    const chat = (p, opts) => chatStream(validHost, model, p, opts);
+    summaryResult = await generateInTargetLanguage(chat, prompt, qLanguage, {
+      translateFn,
+    });
+  } else if (providerType === PROVIDERS.LLAMACPP) {
+    const validHost = validateLoopbackHost(
+      settings.llamaHost,
+      LLAMACPP_PROVIDER.label,
+    );
+    const chat = (p, opts) =>
+      llamaChatStream(validHost, model, p, {
+        ...opts,
+        apiKey: settings.llamaApiKey,
+      });
+    summaryResult = await generateInTargetLanguage(chat, prompt, qLanguage, {
+      translateFn,
+    });
+  } else if (providerType === PROVIDERS.TRANSFORMERS && !hasOffscreenAPI) {
+    summaryResult = await withTransformersEngine(model, null, async (eng) => {
+      const chat = (p, opts) =>
+        transformersChatStream(eng, p, { system: opts?.system });
+      return generateInTargetLanguage(chat, prompt, qLanguage, { translateFn });
+    });
   } else {
     await ensureOffscreenDocument();
     const response = await chrome.runtime.sendMessage({
       target: "offscreen",
-      action: "summarize",
-      payload: { prompt, model },
+      action: "generate-text",
+      payload: {
+        prompt,
+        model,
+        provider:
+          providerType === PROVIDERS.TRANSFORMERS ? "transformers" : "webllm",
+        language: settings.summaryLanguage,
+        translationEngine: settings.translationEngine,
+      },
     });
-    summaryResult = response?.summary || "";
+    if (response?.error) throw new Error(response.error);
+    summaryResult = response?.text || "";
   }
 
   const pageData = {
