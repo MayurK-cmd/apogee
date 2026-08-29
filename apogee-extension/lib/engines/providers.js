@@ -1,3 +1,4 @@
+import { UserFacingError } from "../util/userError.js";
 import {
   PROVIDERS,
   DEFAULT_PROVIDER,
@@ -26,6 +27,7 @@ export async function* attachToStream(streamId) {
   const queue = [];
   let resolvePromise = null;
   let error = null;
+  let errorUserFacing = false;
   let cancelled = false;
   let done = false;
 
@@ -39,6 +41,7 @@ export async function* attachToStream(streamId) {
       done = true;
     } else if (msg.type === "error") {
       error = msg.error || "Unknown error during streaming";
+      errorUserFacing = !!msg.userFacing;
       done = true;
     }
     if (resolvePromise) {
@@ -65,7 +68,7 @@ export async function* attachToStream(streamId) {
       } else if (cancelled) {
         throw new StreamCancelledError("Cancelled.");
       } else if (error) {
-        throw new Error(error);
+        throw errorUserFacing ? new UserFacingError(error) : new Error(error);
       } else if (done) {
         break;
       } else {
