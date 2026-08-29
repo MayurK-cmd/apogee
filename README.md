@@ -4,7 +4,7 @@
 
 # Apogee
 
-A private, in-browser AI summarizer for your articles, videos, and PDFs. Runs on WebGPU, WebAssembly, or your local Ollama.
+A private, in-browser AI summarizer for your articles, videos, and PDFs. Runs on WebGPU, WebAssembly, or your own local Ollama or llama.cpp server.
 
 <a href="https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog"><img alt="Available in Chrome Web Store" src=".github/assets/chrome-web-store.png" width="206" height="58"></a>
 &nbsp;
@@ -20,9 +20,9 @@ A private, in-browser AI summarizer for your articles, videos, and PDFs. Runs on
 
 Apogee is an AI browser assistant for articles, videos, emails, and more. It runs entirely in your browser: on your GPU via WebGPU (Chrome, Edge, and other Chromium browsers) or on your CPU via WebAssembly, which now works everywhere. WebAssembly is the default on Firefox and an opt-in fallback on Chromium browsers, useful on machines without WebGPU. No backend, no API keys, no cloud. Just install the extension and go.
 
-For power users, Apogee also connects directly to a local Ollama instance over 127.0.0.1 to run larger models.
+For power users, Apogee also connects directly to a local Ollama instance over 127.0.0.1 to run larger models, or to a `llama-server` you run yourself if you already use llama.cpp directly.
 
-> **TL;DR**: Apogee is an offline-first, private AI assistant that runs entirely in your browser, on WebGPU by default in Chromium browsers and on WebAssembly by default in Firefox (also available as an opt-in on Chromium), with zero cloud dependencies or API keys. It summarizes articles, YouTube and Bilibili videos, and PDFs, and answers questions about them using local retrieval, all with complete privacy. Power users can switch to Local Ollama mode to run larger models on their own machine, still with nothing leaving it. Apogee is designed as a fully local, privacy-respecting alternative to cloud-dependent tools like Mozilla's discontinued Orbit.
+> **TL;DR**: Apogee is an offline-first, private AI assistant that runs entirely in your browser, on WebGPU by default in Chromium browsers and on WebAssembly by default in Firefox (also available as an opt-in on Chromium), with zero cloud dependencies or API keys. It summarizes articles, YouTube and Bilibili videos, and PDFs, and answers questions about them using local retrieval, all with complete privacy. Power users can switch to Local Ollama or Local llama.cpp mode to run larger models on their own machine, still with nothing leaving it. Apogee is designed as a fully local, privacy-respecting alternative to cloud-dependent tools like Mozilla's discontinued Orbit.
 
 ## Inspiration: Orbit (Killed by Mozilla)
 
@@ -38,15 +38,16 @@ Apogee fixes Orbit's architectural and privacy flaws by being fully local-first:
 
 The table below provides a side by side comparison between Apogee, typical cloud based AI extensions, and Mozilla discontinued Orbit project.
 
-| Feature or Architecture | Apogee | Cloud AI Extensions | Mozilla Orbit Project |
-| --- | --- | --- | --- |
-| Local On-Device Inference | Yes (WebGPU, WASM, and Ollama) | No (Requires cloud API endpoints) | No (Relied on remote Mistral 7B servers) |
-| Zero API Key Requirement | Yes (No keys, subscriptions, or accounts) | No (Requires API keys or paid tiers) | Yes |
-| Offline Functionality | Yes (Works offline after initial weight cache) | No (Requires active internet connection) | No (Failed without server connection) |
-| Zero Data Transmission | Yes (Page contents never leave your device) | No (Full webpage text uploaded to servers) | No (Page summaries cached on remote server) |
-| Open Source License | Yes (MIT License) | Varies | Yes |
-| Local Ollama Integration | Yes (Direct loopback HTTP connection) | Rare | No |
-| Grounded Passage Highlighting | Yes (Interactive source sentence scroll) | Rare | No |
+| Feature or Architecture       | Apogee                                                  | Cloud AI Extensions                        | Mozilla Orbit Project                       |
+| ----------------------------- | ------------------------------------------------------- | ------------------------------------------ | ------------------------------------------- |
+| Local On-Device Inference     | Yes (WebGPU, WASM, Ollama, and llama.cpp)               | No (Requires cloud API endpoints)          | No (Relied on remote Mistral 7B servers)    |
+| Zero API Key Requirement      | Yes (No keys, subscriptions, or accounts)               | No (Requires API keys or paid tiers)       | Yes                                         |
+| Offline Functionality         | Yes (Works offline after initial weight cache)          | No (Requires active internet connection)   | No (Failed without server connection)       |
+| Zero Data Transmission        | Yes (Page contents never leave your device)             | No (Full webpage text uploaded to servers) | No (Page summaries cached on remote server) |
+| Open Source License           | Yes (MIT License)                                       | Varies                                     | Yes                                         |
+| Local Ollama Integration      | Yes (Direct loopback HTTP connection)                   | Rare                                       | No                                          |
+| Local llama.cpp Integration   | Yes (Direct loopback HTTP connection to `llama-server`) | Rare                                       | No                                          |
+| Grounded Passage Highlighting | Yes (Interactive source sentence scroll)                | Rare                                       | No                                          |
 
 ## Key Features
 
@@ -89,7 +90,7 @@ The table below provides a side by side comparison between Apogee, typical cloud
 ## Privacy
 
 - **Zero Data Leaks**: Page contents, transcripts, PDFs, and summaries are processed locally and never uploaded to cloud APIs.
-- **Local Loopback**: Ollama connections communicate strictly over local loopback (`http://127.0.0.1:11434`).
+- **Local Loopback**: Ollama and llama.cpp connections communicate strictly over local loopback (`http://127.0.0.1`); any other host is refused.
 - **Anonymized SponsorBlock**: YouTube sponsor lookups use k-anonymity hash prefixes and can be disabled under Settings to stay fully local.
 - **Sensitive Site Exclusions**: Gmail, Outlook, Proton Mail, WhatsApp, Slack, Discord, and custom domain lists are excluded from disk caching.
 
@@ -101,6 +102,7 @@ Read our complete security model in the [Privacy and Security Architecture](PRIV
 
 - **[Browser Support](BROWSERS.md)**: Browser compatibility matrix, WebGPU vs WebAssembly execution, and Ollama support.
 - **[Model Reference](MODELS.md)**: Complete model table, download sizes, context windows, and benchmarks.
+- **[Local llama.cpp Guide](LLAMACPP.md)**: Setup guide for connecting Apogee to your own `llama-server` instance.
 - **[Local Ollama Guide](OLLAMA.md)**: Setup guide for running local models on macOS, Windows, and Linux.
 - **[Translation Reference](TRANSLATION.md)**: Overview of 29 supported target languages and Opus-MT model tiers.
 - **[Privacy Architecture](PRIVACY.md)**: Comprehensive explanation of network boundaries, storage, and permissions.

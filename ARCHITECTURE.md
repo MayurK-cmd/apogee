@@ -15,6 +15,8 @@ Apogee operates through four cooperating execution contexts that communicate usi
 
 Apogee runs quantized language models directly in your browser. On Chrome, Edge, and other Chromium browsers it defaults to WebLLM, which executes models on your GPU via WebGPU. On Firefox, which has no WebGPU offscreen support, it defaults to Transformers.js instead, which runs smaller ONNX models on your CPU via WebAssembly and performs well on a modern CPU. Transformers.js is also available as an opt-in alternative in Settings on Chrome and Edge, for machines without WebGPU or as a lighter-weight option. In every case the first use downloads the model weights (roughly 270 MB to 2.2 GB depending on the model) and caches them locally. After that, everything runs offline.
 
+Prefer larger models, or already run `llama.cpp` yourself? Switch to Local llama.cpp mode and the extension talks to your own `llama-server` over 127.0.0.1, reading the context window the server reports rather than inferring one from the model name. See the [Local llama.cpp Guide](LLAMACPP.md).
+
 Prefer larger models? Switch to Local Ollama mode and the extension talks directly to your own Ollama instance over 127.0.0.1, with no separate backend to install or run.
 
 Ask goes further than the summary itself: instead of blindly truncating long pages to the first few thousand characters, Apogee embeds the page locally (a small on-device model, same trust tier as the LLM weights above) and answers using only the passages most relevant to your question. This means asking about something buried deep in a long article, PDF, or video transcript still works, not just what fit in the opening truncated slice. (Retrieval currently runs on Chromium browsers; Firefox falls back to the plain truncated slice for now.)
@@ -55,6 +57,7 @@ flowchart TD
 
         STORE[("chrome.storage.local<br/>cached summaries, view state, settings")]
         OLLAMA["Ollama on 127.0.0.1:11434<br/>optional local server"]
+        LLAMACPP["llama-server on 127.0.0.1:8080<br/>optional local server"]
     end
 
     HF["Hugging Face<br/>model weights on first run"]
@@ -65,6 +68,7 @@ flowchart TD
     POPUP <==>|"send jobs and receive tokens"| ROUTER
     ROUTER <==>|"send prompts and receive streams"| host
     ROUTER <==>|"HTTP stream"| OLLAMA
+    ROUTER <==>|"SSE stream"| LLAMACPP
     POPUP <-->|"read cache"| STORE
     ROUTER <-->|"save results"| STORE
 
@@ -73,7 +77,7 @@ flowchart TD
 
     classDef local fill:#e6f4ea,stroke:#1e7e34,color:#12351f
     classDef remote fill:#fff4e0,stroke:#c2680a,color:#4a2905
-    class EX,HL,POPUP,ROUTER,STORE,WEBLLM,TJS,EMB,OLLAMA local
+    class EX,HL,POPUP,ROUTER,STORE,WEBLLM,TJS,EMB,OLLAMA,LLAMACPP local
     class HF,APIS remote
     style device fill:#f7fdf9,stroke:#1e7e34,stroke-width:2px,stroke-dasharray:6 4,color:#12351f
 ```
@@ -129,6 +133,7 @@ When you click a summary bullet in Chromium browsers, Apogee highlights the exac
 
 - **Chromium Browsers**: Use Manifest V3 offscreen documents (`chrome.offscreen`) to host WebLLM with full WebGPU hardware acceleration.
 - **Firefox**: Firefox extension APIs do not currently support offscreen documents. Transformers.js executes directly in Firefox background page using WebAssembly.
+- **Local llama.cpp**: Communicates over local loopback (`http://127.0.0.1:8080`) from the background service worker, using `llama-server`'s OpenAI-compatible `/v1/chat/completions` endpoint with SSE framing. Available on every build, since it needs neither WebGPU nor an offscreen document.
 - **Local Ollama**: Communicates directly over local loopback (`http://127.0.0.1:11434`) via HTTP streaming from the background service worker.
 - **Automation & Testing**: For E2E browser automation setup using Playwright or Puppeteer with Apogee loaded, see [DEVELOPMENT.md#browser-automation--e2e-testing](DEVELOPMENT.md#browser-automation--e2e-testing).
 

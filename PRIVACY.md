@@ -5,6 +5,7 @@ Privacy is the core pillar of Apogee. The key guarantee is simple: your page con
 ## Where Inference Happens
 
 - **In-Browser mode**: Tokenization and inference run entirely on your local device, on the GPU via WebGPU (WebLLM, default on Chrome and Edge) or on the CPU via WebAssembly (Transformers.js, default on Firefox and available as an opt-in on Chrome and Edge). Your page content and summaries are never transmitted anywhere.
+- **Local llama.cpp mode**: Page content travels exclusively over local loopback (`http://127.0.0.1`) to your own `llama-server` process, never to the cloud, the same way Local Ollama mode works. Apogee refuses any host that is not `127.0.0.1` or `localhost`, so a remote server cannot be configured even deliberately. If the server was started with `--api-key`, the key is stored alongside your other settings, sent only to that loopback address, and reported in diagnostics as `set` or `unset` rather than by value.
 - **Local Ollama mode**: Page content travels exclusively over local loopback (`http://127.0.0.1`) directly to your own Ollama instance HTTP API, never to the cloud. There is no intermediate backend process in the path; the extension is Ollama only client-side hop.
 
 ## Outbound Network Connection Details
@@ -36,6 +37,7 @@ Apogee includes no Google Analytics, Mixpanel, crash-reporting SDKs, or telemetr
 ## Activity & Privacy Audit View
 
 Settings includes an **Activity & Privacy Audit** panel that provides full visual transparency into local execution:
+
 - **Network Egress Verification**: Confirms that zero network egress requests were sent during inference (100% on-device local execution).
 - **Page Access Audit Log**: Displays a transparent, capped log of recent page extractions (title, URL, content character length, page type, and timestamp).
 - **Storage Retention Audit**: Displays active cache storage usage and history retention policies.
