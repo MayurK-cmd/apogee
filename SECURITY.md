@@ -23,7 +23,7 @@ Apogee's central claim is that page content, summaries, and answers never leave 
 - Prompt injection from page content that escapes the grounding rules to make the model exfiltrate data or act outside summarizing (injection that merely produces a wrong or silly summary is a bug, not a vulnerability)
 - Anything letting an attacker widen the extension's permissions or host access
 
-Please **do** report a mismatch between what the docs promise and what the code does, even if nothing is exploitable yet. The manifest, the README's Privacy and Permissions section, `PRIVACY.md`, and `store-listing.md` are supposed to describe the same permission set, and a drift between them is exactly the kind of thing that turns into a real problem later.
+Please **do** report a mismatch between what the docs promise and what the code does, even if nothing is exploitable yet. The manifest, the README's Privacy and Permissions section, `PRIVACY.md`, and `STORE-LISTING.md` are supposed to describe the same permission set, and a drift between them is exactly the kind of thing that turns into a real problem later.
 
 ## What doesn't
 

@@ -1,6 +1,6 @@
 # Apogee Product Roadmap
 
-Apogee is a private, in-browser AI summarizer for articles, videos (YouTube and Bilibili), and PDFs. It runs on-device through WebGPU (WebLLM), WebAssembly (Transformers.js), or Local Ollama (127.0.0.1).
+Apogee is a private, in-browser AI summarizer for articles, videos (YouTube and Bilibili), PDFs, DOCX files, and pasted text. It runs on-device through WebGPU (WebLLM), WebAssembly (Transformers.js), or Local Ollama (127.0.0.1) and llama.cpp.
 
 This document outlines current work, upcoming priorities, and long-term goals for Apogee.
 
@@ -11,12 +11,14 @@ This document outlines current work, upcoming priorities, and long-term goals fo
   - Zero-trust message context validation (`sender.id`), global scope isolation, prompt injection neutralization, and payload bounds. (#121-#127)
 - **Multi-Tab Context (Shipped)**:
   - Batch summarize and synthesize across multiple selected tabs via right-click context menu ("Summarize with Apogee"). (#116)
+- **Local Document Input (Shipped)**:
+  - Select or drag PDF, DOCX, TXT, Markdown, JSON, or HTML files into the popup, or paste arbitrary text for summarization. (#5, #6, #97)
 - **Extractor Expansion**:
   - Add page extractors for more platforms (GitLab, Dev.to, Bluesky).
   - Shipped extractors: YouTube, Bilibili, Wikipedia, Gmail, Reddit, Hacker News, GitHub, Lobsters, arXiv, Mastodon, Stack Overflow, Lemmy, Discourse.
   - Keep extractor creation simple so contributors can write unit-tested extractors in Node without running a browser.
 - **Test Coverage**:
-  - Expand test suites for existing extractors and core modules (316 tests passing).
+  - Expand test suites for existing extractors and core modules (426 tests passing).
 - **Firefox Feature Parity**:
   - Bring on-device vector retrieval (Ask) and sentence-level grounding (Highlight-in-page) to Firefox when browser APIs permit.
 - **Model and Performance Optimizations**:
@@ -29,8 +31,7 @@ This document outlines current work, upcoming priorities, and long-term goals fo
   - Create a generator tool and template for site extractors with pre-built test fixtures.
   - Support domain-specific prompt rules (such as custom prompts for research papers or tech blogs).
 - **UI Improvements**:
-  - Add Chrome Side Panel support as an alternative to the popup window.
-  - Export past summaries to Markdown, JSON, and note tools like Obsidian and Notion.
+  - Expand export integrations for past summaries to note tools like Obsidian and Notion.
 - **Ollama and Custom Host Settings**:
   - Allow custom host settings for self-hosted LLM endpoints with proper CORS handling.
 

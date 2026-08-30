@@ -9,7 +9,7 @@ Apogee operates through four cooperating execution contexts that communicate usi
 - **Popup / Side Panel UI**: The same user interface can run in the temporary toolbar popup or, on Chromium, a persistent side panel for triggering summaries, selecting output formats, asking follow-up questions, and searching past summaries.
 - **Service Worker**: The central router that coordinates tasks, buffers streaming tokens, manages background alarms, and persists results to local storage.
 - **Inference Host**: The environment where AI models execute. On Chromium browsers, this is a dedicated offscreen document supporting WebGPU and WebAssembly. On Firefox, model execution runs inside the background page.
-- **Content Extractors**: Specialized scripts injected into active browser tabs to clean page content, parse transcripts, process structured data, or read PDF documents.
+- **Content Extractors**: Specialized scripts injected into active browser tabs to clean page content, parse transcripts, process structured data, or read PDF documents. Popup-side extractors also parse dropped PDF and DOCX files without a tab.
 
 ## How It Works
 
@@ -20,6 +20,8 @@ Prefer larger models, or already run `llama.cpp` yourself? Switch to Local llama
 Prefer larger models? Switch to Local Ollama mode and the extension talks directly to your own Ollama instance over 127.0.0.1, with no separate backend to install or run.
 
 Ask goes further than the summary itself: instead of blindly truncating long pages to the first few thousand characters, Apogee embeds the page locally (a small on-device model, same trust tier as the LLM weights above) and answers using only the passages most relevant to your question. This means asking about something buried deep in a long article, PDF, or video transcript still works, not just what fit in the opening truncated slice. (Retrieval currently runs on Chromium browsers; Firefox falls back to the plain truncated slice for now.)
+
+Pasted text and local files use the same summarization pipeline as a page, but do not require a tab URL. PDF text is extracted with bundled `pdf.js`; DOCX text is extracted offline from the document's ZIP/XML structure. Local inputs receive a content-derived cache identity rather than a fabricated web origin.
 
 Highlight-in-page lets you check the summary against the source: click any bullet (or line, in Sentences/Paragraphs mode) and Apogee finds the passage of the original page it's most likely grounded in using the same on-device retrieval Ask uses, then scrolls to and highlights it in the live page. Useful for spot-checking a claim without re-reading the whole article. Chromium-only for now, same constraint as Ask's retrieval above.
 
@@ -42,7 +44,7 @@ flowchart TD
         end
 
         subgraph ui["Popup / Chromium Side Panel"]
-            POPUP["app.js<br/>Summarize, Ask, Settings"]
+            POPUP["app.js<br/>Summarize, Ask, Uploads, Settings"]
         end
 
         subgraph bg["Service Worker"]
@@ -98,8 +100,12 @@ sequenceDiagram
 
     Note over P,DB: Popup checks local cache first using page URL hash
     You->>P: Click Summarize
-    P->>Page: Inject extractors and read clean content
-    Page-->>P: Return clean text or timestamped transcript
+    alt Browser page
+        P->>Page: Inject extractors and read clean content
+        Page-->>P: Return clean text or timestamped transcript
+    else Local file or pasted text
+        P->>P: Read and parse local input
+    end
     P->>DB: Cache extracted content for fast reopening
     P->>SW: Start summarization job
     SW->>Engine: Clean text, chunk content, and run map-reduce pass
@@ -143,4 +149,5 @@ When you click a summary bullet in Chromium browsers, Apogee highlights the exac
 - **Global Scope Isolation**: Content scripts operate cleanly within isolated JavaScript worlds without leaking references onto DOM global scope objects (`window.__apogeeHighlight` and `window.extractPageContent` removed).
 - **Extractor Input Sanitization & Payload Validation**: Specialized site extractors (e.g., Gmail) sanitize header text and control characters to prevent prompt injection. YouTube and Bilibili extractors perform parameter cross-validation between target URLs (`videoId`, `bvid`, `aid`) and embedded script tag structures (`ytInitialPlayerResponse`, `__INITIAL_STATE__`).
 - **PDF Payload Bounds**: Binary PDF payloads processed via base64 in `extract-pdf` are validated for correct string typing and capped at a maximum size of 50 MB to prevent memory exhaustion attacks.
+- **Local File Parsing**: PDF and DOCX files selected or dropped into the popup are parsed inside extension code. DOCX ZIP entries are checked for valid structure, encrypted archives are rejected, and no document bytes are sent to a remote service.
 - **Memory Limits & Out-Of-Memory (OOM) Resilience**: In-browser models automatically intercept WebGPU buffer allocation failures and WASM memory limits, calling `resetEngineState` and falling back to bounded `chunkTextOverview` sampling to ensure reliable operation under tight memory constraints.

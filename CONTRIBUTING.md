@@ -82,7 +82,7 @@ Permissions and network behaviour are described in four places, and they have to
 - `apogee-extension/manifest.json`, the source of truth
 - [Privacy & Permissions](README.md#privacy--permissions) in the README
 - [PRIVACY.md](PRIVACY.md), the published policy the store listing links to
-- `store-listing.md`, which carries a justification per permission
+- `STORE-LISTING.md`, which carries a justification per permission
 
 Adding, removing, or repurposing a permission or a host means editing all four in the same PR.
 

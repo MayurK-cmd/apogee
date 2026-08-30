@@ -24,7 +24,11 @@ Every piece of executable code, JavaScript and WebAssembly alike, ships inside t
 
 ## Client-Side PDF Text Parsing
 
-PDF text extraction runs fully client-side using `pdf.js` bundled directly into the extension. The PDF is downloaded straight into the browser tab using that tab own network context and parsed there. Only the extracted text is ever handed to the model; the file itself never passes through any other process.
+PDF text extraction runs fully client-side using `pdf.js` bundled directly into the extension. A PDF opened in a tab is downloaded using that tab's network context; a PDF selected or dropped into the popup is read directly from the local `File` object. Only extracted text is handed to the model; the file itself never passes through any other process.
+
+## Client-Side DOCX and Text Input
+
+DOCX files selected or dropped into the popup are parsed locally from their ZIP/XML structure without a document-conversion service or heavyweight parser dependency. Text, Markdown, JSON, and HTML files, along with pasted text, are also read locally. These inputs are sent only to the selected on-device engine or the explicitly configured loopback Ollama/llama.cpp server.
 
 ## Local Ollama Connection Architecture
 
@@ -44,7 +48,7 @@ Settings includes an **Activity & Privacy Audit** panel that provides full visua
 
 ## Local Data Storage Controls
 
-- **Cached Summaries and Page Text**: To make reopening the popup instant, Apogee caches summaries, suggested prompts, extracted page text for articles, and your recent questions and answers in local extension storage (`chrome.storage.local`). This data is never transmitted, is capped in size, and is keyed by a truncated SHA-256 of the URL, so URLs with session tokens in their query strings are not stored in plaintext keys, and the key cannot be walked back to the URL it came from.
+- **Cached Summaries and Page Text**: To make reopening the popup instant, Apogee caches summaries, suggested prompts, extracted page text for articles, and your recent questions and answers in local extension storage (`chrome.storage.local`). This data is never transmitted and is capped in size. Web content is keyed by a truncated SHA-256 of its URL; pasted and local-file summaries use a content-derived local identity and do not invent a web origin.
 - **Sensitive Sites Exclusion List**: Sensitive sites are never cached. Pages on known webmail and messaging hosts (Gmail, Outlook, Proton Mail, Yahoo Mail, Google Messages, WhatsApp Web, Telegram Web, Slack, Discord, Microsoft Teams) are always treated as ephemeral regardless of your settings. This is a fixed list, not content detection. Under Settings under Privacy, you can name your own hosts (one per line) to be treated the same way, such as a bank, a health portal, your own mail server, or a smaller webmail provider. A host you add also covers its subdomains. Anything on neither list is cached like any other page unless you switch to "Don't save".
 - **Session-Only Storage and On-Demand Clearing**: Under Settings under Privacy, you can switch to "Don't save (this session only)" so nothing page-derived is written to disk, and clicking "Clear cached summaries & page data" wipes all cached content on demand while preserving your preferences.
 - **Model Weights Storage**: Model weights are stored locally in standard browser cache structures and are never transmitted.
@@ -53,7 +57,7 @@ Settings includes an **Activity & Privacy Audit** panel that provides full visua
 
 Apogee requests a precise set of browser permissions to enforce security sandboxes:
 
-- **`activeTab` and `scripting`**: Apogee cannot read your browsing history or inspect other open tabs. It reads the currently active tab only when you click Summarize or Ask, right-click and choose "Summarize this page", or use the keyboard shortcut.
+- **`activeTab` and `scripting`**: Apogee cannot read your browsing history or inspect other open tabs. It reads the currently active tab only when you click Summarize or Ask, right-click and choose "Summarize this page", or use the keyboard shortcut. Local files and pasted text are read only after you select or provide them in the popup.
 - **`storage`**: Holds your preferences plus the local cache described above.
 - **`unlimitedStorage`**: Lifts the default quota on `chrome.storage.local` so cached summaries and page text are not evicted under normal storage pressure. It does not grant access to anything beyond that cache.
 - **`offscreen` (Chrome and Edge only)**: Runs the in-browser WebLLM engine in a hidden document, since a service worker cannot access WebGPU directly, and also runs the Transformers.js engine there when selected, since a service worker cannot reliably load it either. Not used, and not requested, in the Firefox build, where Transformers.js runs directly in the background page instead.

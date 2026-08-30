@@ -64,7 +64,7 @@ Apogee extension codebase lives in `apogee-extension/`. Below is a breakdown of 
 
 ### 1. `content/` (Tab Context Extractor Scripts)
 
-- **What it Contains**: Scripts injected directly into active browser tabs when you trigger summarization or Q&A. Includes `content.js` (main injection script), `Readability.js` (bundled article parser from Mozilla themselves), and specialized site extractors in `content/extractors/` such as `youtube.js`, `bilibili.js`, `wikipedia.js`, `reddit.js`, `gmail.js`, `hackerNews.js`, `github.js`, `lobsters.js`, `arxiv.js`, `mastodon.js`, `stackoverflow.js`, `lemmy.js`, `discourse.js`, and `plainArticle.js`.
+- **What it Contains**: Scripts injected directly into active browser tabs when you trigger summarization or Q&A. Includes `content.js` (main injection script), `Readability.js` (bundled article parser from Mozilla), and specialized site extractors in `content/extractors/` such as `youtube.js`, `bilibili.js`, `wikipedia.js`, `reddit.js`, `gmail.js`, `hackerNews.js`, `github.js`, `lobsters.js`, `arxiv.js`, `mastodon.js`, `stackoverflow.js`, `lemmy.js`, and `discourse.js`.
 - **How to Contribute**: Create a new extractor file in `content/extractors/` that reads DOM nodes cleanly without mutating global window scope. Register your extractor in `lib/extract/pageExtraction.js`, create a static HTML test fixture in `tests/extractors/fixtures/`, and add unit test cases in `tests/extractors/`.
 
 ### 2. `lib/` (Core Application Libraries)
@@ -73,12 +73,12 @@ The `lib/` folder contains pure JavaScript logic split into clean functional sub
 
 #### `lib/engines/` (AI Model Runtime Adapters)
 
-- **What it Contains**: `webllm.js` (WebGPU hardware accelerated engine adapter), `transformers.js` (WebAssembly CPU fallback adapter), `ollama.js` (Local Ollama HTTP streaming client), and `providers.js` (model definitions and engine registry).
-- **How to Contribute**: Add new model configurations to `providers.js` or optimize token streaming handlers inside `webllm.js`, `transformers.js`, or `ollama.js`. Keep inference strictly on-device without cloud API dependencies.
+- **What it Contains**: `transformersEngine.js` (WebAssembly CPU engine), `ollamaClient.js` (Local Ollama HTTP streaming client), `llamaCppClient.js` (local llama.cpp SSE client), and `providers.js` (engine registry).
+- **How to Contribute**: Add new model configurations to `providers.js` or optimize token streaming handlers inside the provider clients and engine adapters. Keep inference strictly on-device without cloud API dependencies.
 
 #### `lib/extract/` (Text Extraction Routers)
 
-- **What it Contains**: `pageExtraction.js` (main extraction router and strategy selector) and `pdfExtract.js` (client-side PDF parsing using pdf.js).
+- **What it Contains**: `pageExtraction.js` (tab extraction router), `pdfExtract.js` (client-side PDF parsing using pdf.js), and `docxExtract.js` (dependency-free DOCX ZIP/XML parsing).
 - **How to Contribute**: Add routing rules for new extractors or refine fallback text extraction algorithms for complex web layouts.
 
 #### `lib/retrieval/` (On-Device RAG and Semantic Search)
@@ -93,7 +93,7 @@ The `lib/` folder contains pure JavaScript logic split into clean functional sub
 
 #### `lib/summarize/` (Prompt Engineering and Chunking)
 
-- **What it Contains**: `chunker.js` (dynamic token and character chunker), `prompts.js` (prompt template builders for articles, videos, and Q&A), and `summarize.js` (map-reduce pipeline orchestrator and translation directives).
+- **What it Contains**: `chunk.js` (dynamic token and character chunker), `prompts.js` (prompt template builders for articles, videos, and Q&A), and `ollamaSummarize.js` (map-reduce pipeline orchestrator and translation directives).
 - **How to Contribute**: Improve prompt templates for clarity, refine map-reduce chunking strategy, or enhance target language translation handling.
 
 #### `lib/util/` (Shared Helper Utilities)
@@ -113,7 +113,7 @@ The `lib/` folder contains pure JavaScript logic split into clean functional sub
 
 ### 5. `popup/` (User Interface)
 
-- **What it Contains**: `app.html`, `app.css`, `app.js`, and `icons.js` (inline SVG icons), rendering the shared popup and side-panel interface for Home, Summary, Ask, Past Summaries search, and Settings views.
+- **What it Contains**: `app.html`, `app.css`, `app.js`, and `icons.js` (inline SVG icons), rendering the shared popup and side-panel interface for Home, Summary, Ask, local file upload, Past Summaries search, and Settings views.
 - **How to Contribute**: Enhance UI components, update theme styles, improve accessibility, or add interactive controls while adhering to extension design standards.
 
 ### 6. `rules/` (Declarative Net Request Security Rules)
@@ -141,7 +141,7 @@ Before submitting a pull request, run the complete suite of tests and quality ch
   npm test
   ```
 
-  Executes all 270+ unit tests across extractors, engines, retrieval, storage, prompts, chunking, permissions, and error handlers.
+  Executes the complete unit test suite across extractors, local file parsing, engines, retrieval, storage, prompts, chunking, permissions, and error handlers.
 
 - **Run Linter Checks**:
 

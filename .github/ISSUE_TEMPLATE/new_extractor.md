@@ -52,5 +52,5 @@ an evening's work or a week's.
       No browser or model download needed for this part
 - [ ] `npm run format:check`, `npm run lint`, `npm test`, `npm run build` all pass
 - [ ] No new host permission (if the site needs one, say so in the PR: that
-      means updating the manifest, README, PRIVACY.md and store-listing.md
+      means updating the manifest, README, PRIVACY.md and STORE-LISTING.md
       together)

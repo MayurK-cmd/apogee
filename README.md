@@ -4,13 +4,13 @@
 
 # Apogee
 
-A private, in-browser AI summarizer for your articles, videos, and PDFs. Runs on WebGPU, WebAssembly, or your own local Ollama or llama.cpp server.
+A private, in-browser AI summarizer for your articles, videos, PDFs, DOCX files, and pasted text. Runs on WebGPU, WebAssembly, or your own local Ollama or llama.cpp server.
 
 <a href="https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog"><img alt="Available in Chrome Web Store" src=".github/assets/chrome-web-store.png" width="206" height="58"></a>
 &nbsp;
 <a href="https://addons.mozilla.org/en-US/firefox/addon/apogeeext/"><img alt="Get Add-on for Firefox" src=".github/assets/firefox-add-on.svg" width="152" height="53"></a>
 
-<a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="ARCHITECTURE.md">Architecture</a> | <a href="MODELS.md">Models</a> | <a href="BROWSERS.md">Browsers</a> | <a href="PRIVACY.md">Privacy</a> | <a href="ROADMAP.md">Roadmap</a> | <a href="llms.txt">llms.txt</a> | <a href="LICENSE">License</a>
+<a href="https://darshi1337.github.io/apogee/">Website</a> | <a href="ARCHITECTURE.md">Architecture</a> | <a href="MODELS.md">Models</a> | <a href="BROWSERS.md">Browsers</a> | <a href="PRIVACY.md">Privacy</a> | <a href="ROADMAP.md">Roadmap</a> | <a href="STORE-LISTING.md">Store listing</a> | <a href="LICENSE">License</a>
 
 <sub>An offline-first, privacy-respecting browser extension built with care by <a href="https://github.com/darshi1337">darshi1337</a> and <a href="https://github.com/darshi1337/apogee/graphs/contributors">contributors</a></sub>
 
@@ -20,26 +20,34 @@ A private, in-browser AI summarizer for your articles, videos, and PDFs. Runs on
 
 Apogee is an AI browser assistant for articles, videos, emails, and more. It runs entirely in your browser: on your GPU via WebGPU (Chrome, Edge, and other Chromium browsers) or on your CPU via WebAssembly, which now works everywhere. WebAssembly is the default on Firefox and an opt-in fallback on Chromium browsers, useful on machines without WebGPU. No backend, no API keys, no cloud. Just install the extension and go.
 
-For power users, Apogee also connects directly to a local Ollama instance over 127.0.0.1 to run larger models, or to a `llama-server` you run yourself if you already use llama.cpp directly.
+For power users, Apogee also connects directly to a local Ollama instance over `127.0.0.1` or to a `llama-server` you run yourself.
 
-> **TL;DR**: Apogee is an offline-first, private AI assistant that runs entirely in your browser, on WebGPU by default in Chromium browsers and on WebAssembly by default in Firefox (also available as an opt-in on Chromium), with zero cloud dependencies or API keys. It summarizes articles, YouTube and Bilibili videos, and PDFs, and answers questions about them using local retrieval, all with complete privacy. Power users can switch to Local Ollama or Local llama.cpp mode to run larger models on their own machine, still with nothing leaving it. Apogee is designed as a fully local, privacy-respecting alternative to cloud-dependent tools like Mozilla's discontinued Orbit.
+> **In short:** Apogee summarizes pages, videos, PDFs, DOCX files, and pasted text locally. No account, API key, backend, or cloud upload is required.
 
-## Inspiration: Orbit (Killed by Mozilla)
+## Get Started
 
-Apogee was inspired by Mozilla's discontinued Orbit project (read the [Review of Orbit by Mozilla](https://discourse.mozilla.org/t/review-of-orbit-by-mozilla/130283)). Orbit attempted to provide browser-based page summarization, but it relied on centralized API servers (Mistral 7B) and cached summaries on the server side using endpoints like `store_result`.
+1. Install Apogee from the [Chrome Web Store](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog) or [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/).
+2. Open a page, video, PDF, or DOCX file, or paste text into the Apogee popup.
+3. Choose a summary format and select **Summarize**.
+
+The first in-browser run downloads the selected model. After the model is cached, summaries run offline. For larger models, configure [Ollama](OLLAMA.md) or [llama.cpp](LLAMACPP.md) in Settings.
+
+## Why Apogee
+
+Apogee was inspired by Mozilla's discontinued Orbit project (read the [Review of Orbit by Mozilla](https://discourse.mozilla.org/t/review-of-orbit-by-mozilla/130283)). Orbit attempted to provide browser-based page summarization, but relied on centralized API servers and server-side summary caching.
 
 Apogee fixes Orbit's architectural and privacy flaws by being fully local-first:
 
-- **Zero Server Overhead**: Instead of routing queries through remote cloud APIs, Apogee performs tokenization and inference completely on-device via WebGPU.
-- **No Data Leaks**: Apogee does not send page content or generated summaries to any external endpoint, your data never leaves your machine.
-- **Corporate Independence**: Because Apogee has no server dependencies or cloud infrastructure to pay for, it can never be shut down or sunset.
+- **Local by default**: Tokenization, inference, retrieval, and caching happen on your device.
+- **Private by design**: Page content, transcripts, files, and summaries are not sent to cloud APIs.
+- **No account required**: There is no subscription, API key, telemetry service, or Apogee backend.
 
-## How Apogee Compares
+## At A Glance
 
-The table below provides a side by side comparison between Apogee, typical cloud based AI extensions, and Mozilla discontinued Orbit project.
+The table below compares Apogee with typical cloud-based AI extensions and Mozilla's discontinued Orbit project.
 
 | Feature or Architecture       | Apogee                                                  | Cloud AI Extensions                        | Mozilla Orbit Project                       |
-| ----------------------------- | ------------------------------------------------------- | ------------------------------------------ | ------------------------------------------- |
+|:------------------------------|:--------------------------------------------------------|:-------------------------------------------|:--------------------------------------------|
 | Local On-Device Inference     | Yes (WebGPU, WASM, Ollama, and llama.cpp)               | No (Requires cloud API endpoints)          | No (Relied on remote Mistral 7B servers)    |
 | Zero API Key Requirement      | Yes (No keys, subscriptions, or accounts)               | No (Requires API keys or paid tiers)       | Yes                                         |
 | Offline Functionality         | Yes (Works offline after initial weight cache)          | No (Requires active internet connection)   | No (Failed without server connection)       |
@@ -49,14 +57,15 @@ The table below provides a side by side comparison between Apogee, typical cloud
 | Local llama.cpp Integration   | Yes (Direct loopback HTTP connection to `llama-server`) | Rare                                       | No                                          |
 | Grounded Passage Highlighting | Yes (Interactive source sentence scroll)                | Rare                                       | No                                          |
 
-## Key Features
+## What It Can Do
 
 - **Articles and Web Pages**: Clean extraction of text using Readability and specialized site extractors.
 - **YouTube and Bilibili Videos**: Interactive timestamped timelines allowing you to click key moments to seek video playback directly.
-- **Client-Side PDF Support**: Parses PDF text locally in your browser without external conversion servers.
+- **Local documents and text**: Select or drag PDF, DOCX, TXT, Markdown, JSON, or HTML files into the popup, or paste text directly.
 - **Ask Q&A with Smart Retrieval**: Embedded passages are matched locally so you can ask questions about long documents without losing context.
 - **Grounding and Sentence Highlighting**: Click any summary bullet to scroll the webpage directly to the original source passage on Chromium browsers.
-- **Persistent Chrome Side Panel**: Open the same Apogee views beside the page when you want the summary or Ask flow to remain visible while browsing.
+- **Persistent Chrome Side Panel**: Keep the summary or Ask flow visible beside the page while browsing.
+- **Light and dark themes**: Switch themes from the home and summary headers.
 - **Custom Standing Instructions**: Set personal prompt guidance like simple explanations or technical summaries.
 - **Multi-Language Translation**: Summarize pages into 29 supported target languages using the default Helsinki-NLP Opus-MT engine or direct LLM translation.
 
@@ -65,23 +74,17 @@ The table below provides a side by side comparison between Apogee, typical cloud
 <table>
 <thead>
 <tr>
-<th align="center" width="50%">Home View</th>
-<th align="center" width="50%">Summary &amp; Ask</th>
+<th align="center" width="50%">Extension Popup</th>
+<th align="center" width="50%">Persistent Side Panel</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td align="center" valign="top">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/home-dark.png">
-  <img alt="Home View" src=".github/assets/home-light.png" width="100%">
-</picture>
+<img alt="Apogee extension popup home view" src=".github/assets/popup-light.png" width="342">
 </td>
 <td align="center" valign="top">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/summary-dark.png">
-  <img alt="Summary &amp; Ask" src=".github/assets/summary-light.png" width="100%">
-</picture>
+<img alt="Apogee persistent side panel home view" src=".github/assets/side-panel-light.png" width="520">
 </td>
 </tr>
 </tbody>

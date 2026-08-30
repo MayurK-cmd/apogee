@@ -25,7 +25,7 @@ What you expected to happen instead.
 **Debug logs**
 If the bug happened during a summarize/ask, engine logs help a lot. Turn on
 Settings, then Diagnostics, then "Record engine logs", reproduce the problem,
-and paste what the log panel (above the summary, with the model progress bar)
+and paste what the log panel (available from Settings while engine logging is enabled)
 collected. Recording is off by default, so switch it on before reproducing.
 
 ⚠️ Engine logs may contain details about the page that triggered the bug.

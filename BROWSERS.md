@@ -20,6 +20,8 @@ The table below outlines supported feature sets, runtime engine availability, an
 
 Local llama.cpp support matches Local Ollama everywhere: both are ordinary HTTP requests to a server on `127.0.0.1`, with none of the WebGPU or offscreen-document requirements that limit WebLLM. See the [Local llama.cpp Guide](LLAMACPP.md).
 
+PDF, DOCX, and pasted-text input is handled inside the extension popup on Chromium and Firefox. Browser-specific differences apply only to the inference provider and persistent side-panel APIs; local-file parsing does not require WebGPU, an offscreen document, or a browser tab.
+
 ## Hardware and Compatibility Notes
 
 See the MDN WebGPU API browser compatibility table for exact per-browser and per-OS WebGPU version support; it is a fast-moving target and a better source of truth than a number hardcoded here. A GPU with WebGPU support (most GPUs from the last several years) is required for In-Browser (WebLLM) mode specifically. Local Ollama mode has no GPU requirement of its own beyond whatever Ollama itself needs.

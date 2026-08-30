@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Local document input.** PDF and DOCX files can be selected or dragged into the popup, while TXT, Markdown, JSON, HTML, and pasted text use the same offline summarization pipeline. Local inputs preserve headings where available, use content-derived cache identities, and do not require a browser tab. (#5, #6, #97)
+
 - **llama.cpp (`llama-server`) as a local provider.** Apogee can now talk directly to a `llama-server` instance over loopback (`http://127.0.0.1:8080`), alongside Local Ollama. Selecting it in Settings reads the loaded model's name from the server rather than offering a list, since `llama-server` serves one GGUF at a time, and the field stays editable for proxies that route by model name. Streaming uses the OpenAI-compatible `/v1/chat/completions` endpoint with SSE framing. Servers started with `--api-key` are supported; the key is reported in diagnostics as `set` or `unset`, never by value. No CORS configuration is needed, unlike Ollama. See the new [Local llama.cpp Guide](LLAMACPP.md). (#91)
 - **Chunk sizing from a server-reported context window.** `getMaxChunkChars()` accepts a context length read from the provider. `llama-server` takes its window from its own `-c` launch flag, so the same GGUF may serve 4096 tokens or 32768 with an identical name, and inferring one from the model name could overflow it. Providers that cannot report a window are unaffected. (#91)
 
