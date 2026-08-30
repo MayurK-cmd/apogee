@@ -44,6 +44,7 @@ import {
   timeSavedInputsFor,
   formatTimeSavedFromInputs,
 } from "../lib/util/readingTime.js";
+import { formatTokensPerSecond } from "../lib/util/throughput.js";
 import {
   saveViewState,
   saveViewStateIfJobMatches,
@@ -132,11 +133,15 @@ const resummarizeHint = document.getElementById("resummarizeHint");
 const resummarizeHintText = document.getElementById("resummarizeHintText");
 const resummarizeHintBtn = document.getElementById("resummarizeHintBtn");
 const timeSavedBadge = document.getElementById("timeSavedBadge");
+const tokensPerSecBadgeSummary = document.getElementById(
+  "tokensPerSecBadgeSummary",
+);
 const copySummaryBtn = document.getElementById("copySummaryBtn");
 const copyMarkdownBtn = document.getElementById("copyMarkdownBtn");
 const copyPlainTextBtn = document.getElementById("copyPlainTextBtn");
 const copyAnswerBtn = document.getElementById("copyAnswerBtn");
 const cancelAskBtn = document.getElementById("cancelAskBtn");
+const tokensPerSecBadgeAsk = document.getElementById("tokensPerSecBadgeAsk");
 const pastSummariesSection = document.getElementById("pastSummariesSection");
 const pastSummariesList = document.getElementById("pastSummariesList");
 const pastSummariesFilter = document.getElementById("pastSummariesFilter");
@@ -1141,6 +1146,7 @@ function showSummarizingContext() {
   togglePromptsBtn.style.display = "none";
   setSummaryCopyButtonsVisible(false);
   updateTimeSavedBadge(null, null);
+  setTokensPerSecBadge(tokensPerSecBadgeSummary, null);
 }
 
 function setTimeSavedBadgeLabel(label) {
@@ -1158,6 +1164,13 @@ function updateTimeSavedBadge(pageData, summaryText) {
 
 function showTimeSavedFromInputs(inputs, summaryText) {
   setTimeSavedBadgeLabel(formatTimeSavedFromInputs(inputs, summaryText));
+}
+
+function setTokensPerSecBadge(el, rate) {
+  if (!el) return;
+  const label = rate != null ? formatTokensPerSecond(rate) : null;
+  el.textContent = label || "";
+  el.classList.toggle("hidden", !label);
 }
 
 function setSummaryCopyButtonsVisible(hasText) {
@@ -1322,6 +1335,7 @@ function showAskContext() {
   answerBox.textContent = "";
   togglePromptsBtn.style.display = "none";
   copyAnswerBtn.classList.add("hidden");
+  setTokensPerSecBadge(tokensPerSecBadgeAsk, null);
 }
 
 function showAnswerContext(question) {
@@ -1343,6 +1357,7 @@ function showAnswerContext(question) {
   answerBox.classList.remove("hidden");
   copyAnswerBtn.classList.add("hidden");
   setLoadingIndicator(answerBox, "Thinking");
+  setTokensPerSecBadge(tokensPerSecBadgeAsk, null);
 }
 
 function showCancelAskButton(streamId) {
@@ -1552,6 +1567,7 @@ async function summarizeActivePage() {
         language: settings.summaryLanguage,
         translationEngine: settings.translationEngine,
         finalize,
+        onStats: (rate) => setTokensPerSecBadge(tokensPerSecBadgeSummary, rate),
       }));
     } else {
       ({ streamId, stream } = await provider.summarize({
@@ -1563,6 +1579,7 @@ async function summarizeActivePage() {
         language: settings.summaryLanguage,
         translationEngine: settings.translationEngine,
         finalize,
+        onStats: (rate) => setTokensPerSecBadge(tokensPerSecBadgeSummary, rate),
       }));
     }
 
@@ -1690,6 +1707,7 @@ async function submitQuestion(question) {
       question: trimmed,
       language: settings.summaryLanguage,
       translationEngine: settings.translationEngine,
+      onStats: (rate) => setTokensPerSecBadge(tokensPerSecBadgeAsk, rate),
     });
 
     await saveViewState(tab.id, {
@@ -1904,11 +1922,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         let resumeFromCompletedState = false;
         try {
           await getPageData(tab);
-          await consumeSummaryStream(attachToStream(state.streamId), {
-            tab,
-            promptsCacheKey: state.promptsCacheKey,
-            jobId: state.jobId,
-          });
+          await consumeSummaryStream(
+            attachToStream(state.streamId, {
+              onStats: (rate) =>
+                setTokensPerSecBadge(tokensPerSecBadgeSummary, rate),
+            }),
+            {
+              tab,
+              promptsCacheKey: state.promptsCacheKey,
+              jobId: state.jobId,
+            },
+          );
         } catch (error) {
           if (error instanceof StreamCancelledError) {
             await returnHomeAfterCancel(tab.id, state.jobId);
@@ -1948,10 +1972,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         showAnswerContext(state.question || "");
         showCancelAskButton(state.streamId);
         try {
-          await consumeAnswerStream(attachToStream(state.streamId), {
-            tab,
-            question: state.question || "",
-          });
+          await consumeAnswerStream(
+            attachToStream(state.streamId, {
+              onStats: (rate) =>
+                setTokensPerSecBadge(tokensPerSecBadgeAsk, rate),
+            }),
+            {
+              tab,
+              question: state.question || "",
+            },
+          );
         } catch (error) {
           if (error instanceof StreamCancelledError) {
             returnToAskAfterCancel(tab.id);
@@ -2165,6 +2195,7 @@ async function summarizeCustomContent(title, content, url = "") {
       language: settings.summaryLanguage,
       customInstructions: settings.customInstructions,
       translationEngine: settings.translationEngine,
+      onStats: (rate) => setTokensPerSecBadge(tokensPerSecBadgeSummary, rate),
     });
 
     activeSummarizeStreamId = streamId;

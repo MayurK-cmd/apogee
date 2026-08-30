@@ -12,6 +12,12 @@ import {
   DEFAULT_CONTEXT_TOKENS as LLAMACPP_DEFAULT_CONTEXT_TOKENS,
 } from "../lib/engines/llamaCppClient.js";
 import { getMaxChunkChars } from "../lib/engines/modelLimits.js";
+import {
+  tokensForChunk,
+  isWarmedUp,
+  tokensPerSecond,
+  finalTokensPerSecond,
+} from "../lib/util/throughput.js";
 import { chunkBySections } from "../lib/summarize/sections.js";
 import { errorHelpUrl } from "../lib/util/errorHelp.js";
 import { toUserMessage } from "../lib/util/userError.js";
@@ -416,13 +422,29 @@ function createBufferedStream(streamId, { finalize, model, title, url }) {
     cancelled: false,
     subscribers: new Set(),
     controller: new AbortController(),
+    tokenCount: 0,
+    firstTokenTime: null,
+    tokensPerSec: null,
   };
   activeStreams.set(streamId, stream);
   startKeepAlive();
 
   const finish = (msg) => {
     if (stream.cancelled) return;
-    if (msg.type === "done") stream.done = true;
+    if (msg.type === "done") {
+      stream.done = true;
+      const elapsedMs =
+        stream.firstTokenTime != null
+          ? performance.now() - stream.firstTokenTime
+          : 0;
+      stream.tokensPerSec =
+        finalTokensPerSecond({
+          serverStats: msg.serverStats ?? null,
+          tokenCount: stream.tokenCount,
+          elapsedMs,
+        }) || null;
+      msg = { ...msg, tokensPerSec: stream.tokensPerSec };
+    }
     if (msg.type === "error") {
       stream.error = msg.error;
       stream.errorUserFacing = !!msg.userFacing;
@@ -438,7 +460,17 @@ function createBufferedStream(streamId, { finalize, model, title, url }) {
   const emitChunk = (text) => {
     if (!text || stream.cancelled) return;
     stream.text += text;
+    if (stream.firstTokenTime == null)
+      stream.firstTokenTime = performance.now();
+    stream.tokenCount += tokensForChunk(text);
     broadcastToStream(stream, { type: "chunk", text });
+    const elapsedMs = performance.now() - stream.firstTokenTime;
+    if (isWarmedUp(stream.tokenCount, elapsedMs)) {
+      broadcastToStream(stream, {
+        type: "stats",
+        tokensPerSec: tokensPerSecond(stream.tokenCount, elapsedMs),
+      });
+    }
   };
 
   return { stream, finish, emitChunk };
@@ -484,10 +516,21 @@ async function startLocalHttpStream(
 
   const { customInstructions } = await getSettings();
 
+  // Populated once the final chunk carries the backend's own token count and
+  // duration (Ollama's eval_count/eval_duration, llama.cpp's timings). It is
+  // more accurate than our own count since it excludes network transit.
+  let serverStats = null;
+
   // Ollama's client ignores the extra option; llama.cpp's uses it when the
   // server was started with --api-key.
   const chatStreamFn = (h, m, p, opts) =>
-    client.chatStream(h, m, p, { ...opts, apiKey });
+    client.chatStream(h, m, p, {
+      ...opts,
+      apiKey,
+      onFinalStats: (s) => {
+        serverStats = s;
+      },
+    });
 
   // Only a provider that can report its own window gets an explicit chunk
   // size; everyone else keeps the model-name inference in getMaxChunkChars.
@@ -577,7 +620,7 @@ async function startLocalHttpStream(
     for await (const token of generator) {
       emitChunk(token);
     }
-    finish({ type: "done" });
+    finish({ type: "done", serverStats });
   } catch (err) {
     finish({
       type: "error",
@@ -1493,8 +1536,21 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onConnect?.addListener) {
       } catch {}
     } else if (stream.done) {
       try {
-        popupPort.postMessage({ type: "done" });
+        popupPort.postMessage({
+          type: "done",
+          tokensPerSec: stream.tokensPerSec,
+        });
       } catch {}
+    } else if (stream.firstTokenTime != null) {
+      const elapsedMs = performance.now() - stream.firstTokenTime;
+      if (isWarmedUp(stream.tokenCount, elapsedMs)) {
+        try {
+          popupPort.postMessage({
+            type: "stats",
+            tokensPerSec: tokensPerSecond(stream.tokenCount, elapsedMs),
+          });
+        } catch {}
+      }
     }
 
     popupPort.onDisconnect.addListener(() => {

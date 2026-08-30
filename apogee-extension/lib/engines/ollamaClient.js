@@ -13,7 +13,7 @@ export async function* chatStream(
   host,
   model,
   prompt,
-  { signal, keepAlive = "5m", system } = {},
+  { signal, keepAlive = "5m", system, onFinalStats } = {},
 ) {
   const messages = system
     ? [
@@ -85,6 +85,12 @@ export async function* chatStream(
         }
         const text = parsed.message?.content;
         if (text) yield text;
+        if (parsed.eval_count != null && parsed.eval_duration != null) {
+          onFinalStats?.({
+            tokens: parsed.eval_count,
+            durationMs: parsed.eval_duration / 1e6,
+          });
+        }
       }
     }
     const trailing = buffer.trim();
@@ -92,6 +98,12 @@ export async function* chatStream(
       const parsed = JSON.parse(trailing);
       const text = parsed.message?.content;
       if (text) yield text;
+      if (parsed.eval_count != null && parsed.eval_duration != null) {
+        onFinalStats?.({
+          tokens: parsed.eval_count,
+          durationMs: parsed.eval_duration / 1e6,
+        });
+      }
     }
   } catch (err) {
     if (err instanceof OllamaError) throw err;

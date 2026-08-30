@@ -131,6 +131,48 @@ for (const { name, chunks, expected } of STREAM_CASES) {
   });
 }
 
+test("chatStream reports timings via onFinalStats when the server sends predicted_n", async () => {
+  const finalEvent = event({
+    choices: [{ finish_reason: "stop", index: 0, delta: {} }],
+    timings: { predicted_n: 84, predicted_ms: 3000 },
+  });
+  const restore = stubFetch(async () =>
+    streamingResponse([token("hi"), finalEvent, "data: [DONE]"]),
+  );
+  let stats = null;
+  try {
+    await collect(
+      chatStream(HOST, "test-model", "prompt", {
+        onFinalStats: (s) => {
+          stats = s;
+        },
+      }),
+    );
+  } finally {
+    restore();
+  }
+  assert.deepStrictEqual(stats, { tokens: 84, durationMs: 3000 });
+});
+
+test("chatStream does not call onFinalStats when timings has no predicted_n", async () => {
+  const restore = stubFetch(async () =>
+    streamingResponse([token("hi"), STOP, "data: [DONE]"]),
+  );
+  let called = false;
+  try {
+    await collect(
+      chatStream(HOST, "test-model", "prompt", {
+        onFinalStats: () => {
+          called = true;
+        },
+      }),
+    );
+  } finally {
+    restore();
+  }
+  assert.strictEqual(called, false);
+});
+
 test("chatStream throws rather than silently skipping a malformed data payload", async () => {
   const restore = stubFetch(async () =>
     streamingResponse([token("fine"), "data: {not json}\n\n"]),

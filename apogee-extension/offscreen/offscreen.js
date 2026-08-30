@@ -19,6 +19,12 @@ import {
   getTransformersStatus,
 } from "../lib/engines/transformersEngine.js";
 import { initDebugLogging } from "../lib/util/log.js";
+import {
+  tokensForChunk,
+  isWarmedUp,
+  tokensPerSecond,
+  finalTokensPerSecond,
+} from "../lib/util/throughput.js";
 
 initDebugLogging();
 
@@ -244,7 +250,22 @@ async function withEngine(modelId, fn, ownerStreamId = null) {
   }
 }
 
-async function* drainWebLLMStream(eng, completion, signal) {
+// WebLLM's engine can report its own decode rate on the final chunk's
+// `usage` field when the request asks for it (`stream_options.include_usage`).
+// That is more accurate than our own count, since it comes straight from the
+// engine rather than from chunk-arrival timing. Unverified against a live
+// build at time of writing: if the installed @mlc-ai/web-llm version does not
+// populate `usage.extra.decode_tokens_per_s`, this silently never fires and
+// the computed rate is used instead, which is already the designed fallback.
+function reportWebLLMFinalStats(chunk, onFinalStats) {
+  const tokens = chunk?.usage?.completion_tokens;
+  const rate = chunk?.usage?.extra?.decode_tokens_per_s;
+  if (tokens > 0 && rate > 0) {
+    onFinalStats?.({ tokens, durationMs: (tokens / rate) * 1000 });
+  }
+}
+
+async function* drainWebLLMStream(eng, completion, signal, onFinalStats) {
   let interrupted = false;
   for await (const chunk of completion) {
     if (signal?.aborted && !interrupted) {
@@ -254,10 +275,11 @@ async function* drainWebLLMStream(eng, completion, signal) {
     if (interrupted) continue;
     const text = chunk.choices?.[0]?.delta?.content || "";
     if (text) yield text;
+    reportWebLLMFinalStats(chunk, onFinalStats);
   }
 }
 
-function webllmChatFn(eng) {
+function webllmChatFn(eng, onFinalStats) {
   return async function* (prompt, { signal, system } = {}) {
     const messages = system
       ? [
@@ -268,10 +290,11 @@ function webllmChatFn(eng) {
     const completion = await eng.chat.completions.create({
       messages,
       stream: true,
+      stream_options: { include_usage: true },
       temperature: 0.3,
       max_tokens: 2048,
     });
-    yield* drainWebLLMStream(eng, completion, signal);
+    yield* drainWebLLMStream(eng, completion, signal, onFinalStats);
   };
 }
 
@@ -288,8 +311,11 @@ async function streamCompletion(
   language,
   translateFn,
 ) {
+  let serverStats = null;
   for await (const text of streamInTargetLanguage(
-    webllmChatFn(eng),
+    webllmChatFn(eng, (s) => {
+      serverStats = s;
+    }),
     prompt,
     language,
     { signal, translateFn },
@@ -297,7 +323,7 @@ async function streamCompletion(
     emit({ type: "chunk", text });
   }
 
-  emit({ type: "done" });
+  emit({ type: "done", serverStats });
 }
 
 function reportProgress(text, progress = 0) {
@@ -316,6 +342,7 @@ function opusTranslateFor(translationEngine) {
 }
 
 async function runSummarize(eng, pending, emit, signal) {
+  let serverStats = null;
   async function* webllmChatStream(_host, _model, prompt, opts) {
     const messages = opts?.system
       ? [
@@ -326,10 +353,13 @@ async function runSummarize(eng, pending, emit, signal) {
     const completion = await eng.chat.completions.create({
       messages,
       stream: true,
+      stream_options: { include_usage: true },
       temperature: 0.3,
       max_tokens: 2048,
     });
-    yield* drainWebLLMStream(eng, completion, signal);
+    yield* drainWebLLMStream(eng, completion, signal, (s) => {
+      serverStats = s;
+    });
   }
 
   const onProgress = (p) => {
@@ -370,7 +400,7 @@ async function runSummarize(eng, pending, emit, signal) {
   )) {
     emit({ type: "chunk", text: token });
   }
-  emit({ type: "done" });
+  emit({ type: "done", serverStats });
 }
 
 const streams = new Map();
@@ -499,13 +529,41 @@ async function runStream(streamId, pending, stream) {
 
   const emit = (msg) => {
     if (stream.cancelled) return;
-    if (msg.type === "chunk") stream.text += msg.text || "";
-    if (msg.type === "done") stream.done = true;
+    if (msg.type === "chunk") {
+      stream.text += msg.text || "";
+      if (stream.firstTokenTime == null) {
+        stream.firstTokenTime = performance.now();
+      }
+      stream.tokenCount += tokensForChunk(msg.text);
+    }
+    if (msg.type === "done") {
+      stream.done = true;
+      const elapsedMs =
+        stream.firstTokenTime != null
+          ? performance.now() - stream.firstTokenTime
+          : 0;
+      stream.tokensPerSec =
+        finalTokensPerSecond({
+          serverStats: msg.serverStats ?? null,
+          tokenCount: stream.tokenCount,
+          elapsedMs,
+        }) || null;
+      msg = { ...msg, tokensPerSec: stream.tokensPerSec };
+    }
     if (msg.type === "error") {
       stream.error = msg.error;
       stream.done = true;
     }
     broadcastToStream(stream, msg);
+    if (msg.type === "chunk" && stream.firstTokenTime != null) {
+      const elapsedMs = performance.now() - stream.firstTokenTime;
+      if (isWarmedUp(stream.tokenCount, elapsedMs)) {
+        broadcastToStream(stream, {
+          type: "stats",
+          tokensPerSec: tokensPerSecond(stream.tokenCount, elapsedMs),
+        });
+      }
+    }
 
     if (
       msg.type === "done" &&
@@ -648,8 +706,18 @@ chrome.runtime.onConnect.addListener((port) => {
     } catch {}
   } else if (stream.done) {
     try {
-      port.postMessage({ type: "done" });
+      port.postMessage({ type: "done", tokensPerSec: stream.tokensPerSec });
     } catch {}
+  } else if (stream.firstTokenTime != null) {
+    const elapsedMs = performance.now() - stream.firstTokenTime;
+    if (isWarmedUp(stream.tokenCount, elapsedMs)) {
+      try {
+        port.postMessage({
+          type: "stats",
+          tokensPerSec: tokensPerSecond(stream.tokenCount, elapsedMs),
+        });
+      } catch {}
+    }
   }
 
   port.onDisconnect.addListener(() => {
@@ -674,6 +742,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             error: null,
             cancelled: false,
             subscribers: new Set(),
+            tokenCount: 0,
+            firstTokenTime: null,
+            tokensPerSec: null,
           };
           streams.set(streamId, stream);
           sendResponse({ streamId });
