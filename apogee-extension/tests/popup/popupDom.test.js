@@ -3,19 +3,19 @@ import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { parseHTML } from "linkedom";
 
-const popupHtmlPath = new URL("../../popup/popup.html", import.meta.url);
+const popupHtmlPath = new URL("../../popup/app.html", import.meta.url);
 const popupHtmlRaw = readFileSync(popupHtmlPath, "utf8");
 
-test("popup.html parses into valid DOM structure", () => {
+test("app.html parses into valid DOM structure", () => {
   const { document } = parseHTML(popupHtmlRaw);
-  assert.ok(document.body, "popup.html body must exist");
+  assert.ok(document.body, "app.html body must exist");
   assert.ok(
     document.querySelector(".container"),
     "Container element must exist",
   );
 });
 
-test("popup.html includes all primary view panels", () => {
+test("app.html includes all primary view panels", () => {
   const { document } = parseHTML(popupHtmlRaw);
   const requiredViews = [
     "homeView",
@@ -26,32 +26,38 @@ test("popup.html includes all primary view panels", () => {
 
   requiredViews.forEach((id) => {
     const view = document.getElementById(id);
-    assert.ok(view, `Application view #${id} must exist in popup.html`);
+    assert.ok(view, `Application view #${id} must exist in app.html`);
   });
 });
 
-test("popup.html includes key UI action buttons", () => {
+test("app.html includes key UI action buttons", () => {
   const { document } = parseHTML(popupHtmlRaw);
   const requiredButtons = [
     "summarizeBtn",
     "askBtn",
     "openSidePanelBtn",
+    "openSidePanelBtn2",
+    "openSidePanelBtn3",
+    "openSidePanelBtn4",
     "settingsBtn",
-    "closeBtn",
   ];
 
   requiredButtons.forEach((id) => {
     const btn = document.getElementById(id);
-    assert.ok(btn, `Action button #${id} must exist in popup.html`);
+    assert.ok(btn, `Action button #${id} must exist in app.html`);
   });
 });
 
 test("side panel controls preserve Chrome's native panel chrome", () => {
   const { document } = parseHTML(popupHtmlRaw);
-  const closeButtons = document.querySelectorAll(".popup-close-btn");
+  const sidePanelButtons = document.querySelectorAll(".open-side-panel-btn");
 
-  assert.strictEqual(closeButtons.length, 4);
-  assert.ok(document.getElementById("openSidePanelBtn"));
+  assert.strictEqual(sidePanelButtons.length, 4);
+  sidePanelButtons.forEach((button) => {
+    assert.strictEqual(button.getAttribute("aria-label"), "Open in side panel");
+    assert.ok(button.querySelector('[data-ico="panel"]'));
+    assert.ok(button.querySelector('[data-ico="close"]'));
+  });
   assert.ok(document.getElementById("sidePanelThemeToggleBtn"));
   assert.strictEqual(
     document.querySelector(".side-panel-hero h1")?.textContent,
@@ -59,7 +65,7 @@ test("side panel controls preserve Chrome's native panel chrome", () => {
   );
 });
 
-test("popup.html includes summary text container and chat controls", () => {
+test("app.html includes summary text container and chat controls", () => {
   const { document } = parseHTML(popupHtmlRaw);
   const requiredElements = [
     "summaryText",
@@ -70,11 +76,11 @@ test("popup.html includes summary text container and chat controls", () => {
 
   requiredElements.forEach((id) => {
     const el = document.getElementById(id);
-    assert.ok(el, `UI element #${id} must exist in popup.html`);
+    assert.ok(el, `UI element #${id} must exist in app.html`);
   });
 });
 
-test("popup.html includes settings configuration controls", () => {
+test("app.html includes settings configuration controls", () => {
   const { document } = parseHTML(popupHtmlRaw);
   const requiredSettings = [
     "summaryLanguageSelect",
@@ -85,6 +91,6 @@ test("popup.html includes settings configuration controls", () => {
 
   requiredSettings.forEach((id) => {
     const el = document.getElementById(id);
-    assert.ok(el, `Settings control #${id} must exist in popup.html`);
+    assert.ok(el, `Settings control #${id} must exist in app.html`);
   });
 });

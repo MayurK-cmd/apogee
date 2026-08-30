@@ -11,7 +11,7 @@ test("browser-internal pages are rejected before injection", () => {
     "chrome://extensions",
     "about:addons",
     "edge://settings",
-    "chrome-extension://abcdef/popup.html",
+    "chrome-extension://abcdef/app.html",
     "",
     undefined,
   ]) {

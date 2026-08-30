@@ -124,6 +124,28 @@ function closeTransientSurface() {
   if (!isSidePanelSurface) window.close();
 }
 
+function sidePanelOpenFunction() {
+  return chrome.sidePanel?.open || chrome.sidebarAction?.open;
+}
+
+function setSidePanelButtons({ panelOpen, available }) {
+  const showClose = panelOpen && !isSidePanelSurface;
+  const showOpen = available && !panelOpen && !isSidePanelSurface;
+  for (const button of openSidePanelBtns) {
+    button.classList.toggle("hidden", !showClose && !showOpen);
+    button.dataset.sidePanelOpen = String(panelOpen);
+    button.setAttribute(
+      "aria-label",
+      showClose ? "Close" : "Open in side panel",
+    );
+    button.title = showClose ? "Close" : "Open in side panel";
+    button
+      .querySelector(".side-panel-icon")
+      ?.classList.toggle("hidden", !showOpen);
+    button.querySelector(".close-icon")?.classList.toggle("hidden", !showClose);
+  }
+}
+
 const summarizeBtn = document.getElementById("summarizeBtn");
 const summarizeShortcutHint = document.getElementById("summarizeShortcutHint");
 const summaryText = document.getElementById("summaryText");
@@ -147,14 +169,7 @@ const pastSummariesList = document.getElementById("pastSummariesList");
 const pastSummariesFilter = document.getElementById("pastSummariesFilter");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsBtn2 = document.getElementById("settingsBtn2");
-const openSidePanelBtn = document.getElementById("openSidePanelBtn");
-const sidePanelThemeToggleBtn = document.getElementById(
-  "sidePanelThemeToggleBtn",
-);
-const closeBtn = document.getElementById("closeBtn");
-const closeBtn2 = document.getElementById("closeBtn2");
-const closeBtn3 = document.getElementById("closeBtn3");
-const closeBtn4 = document.getElementById("closeBtn4");
+const openSidePanelBtns = document.querySelectorAll(".open-side-panel-btn");
 const homeView = document.getElementById("homeView");
 const summaryView = document.getElementById("summaryView");
 const settingsView = document.getElementById("settingsView");
@@ -181,6 +196,7 @@ const translationEngineRadios = document.querySelectorAll(
 );
 const providerRadios = document.querySelectorAll('input[name="provider"]');
 const themeRadios = document.querySelectorAll('input[name="theme"]');
+const themeToggleBtns = document.querySelectorAll(".side-panel-theme-btn");
 const backendUrlInput = document.getElementById("backendUrlInput");
 const promptsCloseBtn = document.querySelector(".prompts-toggle");
 const togglePromptsBtn = document.getElementById("togglePromptsBtn");
@@ -205,6 +221,10 @@ const webllmModelList = document.getElementById("webllmModelList");
 const transformersModelList = document.getElementById("transformersModelList");
 const localModelList = document.getElementById("localModelList");
 const localModelStatus = document.getElementById("localModelStatus");
+const pasteDialog = document.getElementById("pasteDialog");
+const pasteDialogForm = document.getElementById("pasteDialogForm");
+const pasteDialogInput = document.getElementById("pasteDialogInput");
+const pasteDialogCancel = document.getElementById("pasteDialogCancel");
 const webgpuWarning = document.getElementById("webgpuWarning");
 const modelProgress = document.getElementById("modelProgress");
 const modelProgressText = document.getElementById("modelProgressText");
@@ -1166,6 +1186,17 @@ function showTimeSavedFromInputs(inputs, summaryText) {
   setTimeSavedBadgeLabel(formatTimeSavedFromInputs(inputs, summaryText));
 }
 
+async function getTimeSavedInputsForTab(tab, state) {
+  if (state?.timeSaved) return state.timeSaved;
+  try {
+    const pageData = await getPageData(tab);
+    return timeSavedInputsFor(pageData);
+  } catch (error) {
+    console.warn("Could not restore time saved badge:", error);
+    return null;
+  }
+}
+
 function setTokensPerSecBadge(el, rate) {
   if (!el) return;
   const label = rate != null ? formatTokensPerSecond(rate) : null;
@@ -1306,6 +1337,7 @@ async function returnHomeAfterCancel(tabId, jobId = null) {
 }
 
 function showSummaryContext(questions = []) {
+  summaryView.classList.remove("ask-mode");
   summaryCard.classList.remove("hidden");
   promptsSection.classList.remove("hidden");
   questionHeading.textContent = "Suggested Prompts";
@@ -1323,6 +1355,7 @@ function showSummaryContext(questions = []) {
 }
 
 function showAskContext() {
+  summaryView.classList.add("ask-mode");
   summaryCard.classList.add("hidden");
   promptsSection.classList.add("hidden");
   answerHeading.textContent = "Ask Apogee";
@@ -1339,6 +1372,7 @@ function showAskContext() {
 }
 
 function showAnswerContext(question) {
+  summaryView.classList.add("ask-mode");
   const container = document.getElementById("questionContainer");
   container.innerHTML = "";
   const btn = document.createElement("button");
@@ -1683,13 +1717,22 @@ async function submitQuestion(question) {
       question: trimmed,
       answerText: "",
     });
-    let pageData = await getPageData(tab);
+    let pageData;
+    try {
+      pageData = await getPageData(tab);
+    } catch (error) {
+      if (!currentSummaryText) {
+        console.warn("Could not read page for Ask context:", error);
+      }
+    }
     if (!pageData) {
-      renderError(
-        answerBox,
-        "Couldn't read this page, try reloading it, or pick a different tab.",
-      );
-      return;
+      pageData = {
+        title: tab.title || "General question",
+        url: tab.url,
+        content:
+          currentSummaryText ||
+          "No page context is available. Answer the user's question using general knowledge.",
+      };
     }
     currentPageData = pageData;
 
@@ -1897,14 +1940,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const sidePanelOpen = await isSidePanelOpenForTab(tab?.id);
     if (
-      process.env.TARGET_BROWSER !== "firefox" &&
       !isSidePanelSurface &&
       !sidePanelOpen &&
-      typeof chrome.sidePanel?.open === "function"
+      typeof sidePanelOpenFunction() === "function"
     ) {
-      openSidePanelBtn?.classList.remove("hidden");
+      setSidePanelButtons({ panelOpen: false, available: true });
     } else {
-      openSidePanelBtn?.classList.add("hidden");
+      setSidePanelButtons({
+        panelOpen: sidePanelOpen,
+        available: typeof sidePanelOpenFunction() === "function",
+      });
     }
 
     let state = await loadViewState(tab.id);
@@ -2035,7 +2080,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           makeSummaryPassagesFocusable();
           setSummaryCopyButtonsVisible(!!state.summaryText.trim());
           updateResummarizeHint(settings);
-          showTimeSavedFromInputs(state.timeSaved, state.summaryText);
+          showTimeSavedFromInputs(
+            await getTimeSavedInputsForTab(tab, state),
+            state.summaryText,
+          );
           showOnlyView("summaryView");
           const selPromptsKey = state.promptsCacheKey;
           const stored = selPromptsKey
@@ -2091,7 +2139,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       updateResummarizeHint(settings);
       const badgeInputs =
         state && state.urlHash === (await hashUrl(tab.url))
-          ? state.timeSaved
+          ? await getTimeSavedInputsForTab(tab, state)
           : null;
       showTimeSavedFromInputs(badgeInputs, cached[cacheKey]);
       showOnlyView("summaryView");
@@ -2129,21 +2177,25 @@ settingsBtn2?.addEventListener("click", () => {
   saveViewState(activeTabId, { view: "settingsView" });
 });
 
-closeBtn?.addEventListener("click", closeTransientSurface);
-closeBtn2?.addEventListener("click", closeTransientSurface);
-closeBtn3?.addEventListener("click", closeTransientSurface);
-closeBtn4?.addEventListener("click", closeTransientSurface);
-
-openSidePanelBtn?.addEventListener("click", async () => {
-  try {
-    await chrome.sidePanel.open({
-      windowId: chrome.windows.WINDOW_ID_CURRENT,
-    });
-    closeTransientSurface();
-  } catch (error) {
-    console.error("Could not open the side panel:", error);
-  }
-});
+openSidePanelBtns.forEach((button) =>
+  button.addEventListener("click", async () => {
+    if (button.dataset.sidePanelOpen === "true") {
+      closeTransientSurface();
+      return;
+    }
+    try {
+      const openPanel = sidePanelOpenFunction();
+      if (chrome.sidePanel?.open) {
+        await openPanel({ windowId: chrome.windows.WINDOW_ID_CURRENT });
+      } else {
+        await openPanel();
+      }
+      closeTransientSurface();
+    } catch (error) {
+      console.error("Could not open the side panel:", error);
+    }
+  }),
+);
 
 document.getElementById("askBtn")?.addEventListener("click", async () => {
   showOnlyView("summaryView");
@@ -2162,6 +2214,7 @@ async function summarizeCustomContent(title, content, url = "") {
   if (activeSummarizeStreamId) {
     cancelStream(activeSummarizeStreamId);
   }
+  currentPageData = { type: "article", content };
   showOnlyView("summaryView");
   showSummarizingContext();
   setLoadingIndicator(summaryText, randomSummarizeVerb());
@@ -2207,7 +2260,7 @@ async function summarizeCustomContent(title, content, url = "") {
         streamId,
         jobId,
         summaryText: "",
-        timeSaved: null,
+        timeSaved: timeSavedInputsFor({ type: "article", content }),
         promptsCacheKey,
       });
     }
@@ -2236,18 +2289,50 @@ document.getElementById("pasteTextBtn")?.addEventListener("click", async () => {
       text = await navigator.clipboard.readText();
     }
     if (!text || !text.trim()) {
-      text = prompt("Paste the text you want to summarize:");
+      text = await requestPasteText();
     }
     if (text && text.trim()) {
       await summarizeCustomContent("Pasted Text", text.trim());
     }
   } catch (err) {
     console.error("Paste text failed:", err);
-    const text = prompt("Paste the text you want to summarize:");
+    const text = await requestPasteText();
     if (text && text.trim()) {
       await summarizeCustomContent("Pasted Text", text.trim());
     }
   }
+});
+
+let pasteDialogResolver = null;
+
+function closePasteDialog(value = null) {
+  pasteDialog?.classList.add("hidden");
+  const resolve = pasteDialogResolver;
+  pasteDialogResolver = null;
+  resolve?.(value);
+}
+
+function requestPasteText() {
+  if (!pasteDialog || !pasteDialogInput) return Promise.resolve(null);
+  pasteDialogInput.value = "";
+  pasteDialog.classList.remove("hidden");
+  pasteDialogInput.focus();
+  return new Promise((resolve) => {
+    pasteDialogResolver = resolve;
+  });
+}
+
+pasteDialogForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  closePasteDialog(pasteDialogInput?.value || "");
+});
+
+pasteDialogCancel?.addEventListener("click", () => closePasteDialog());
+pasteDialog?.addEventListener("click", (event) => {
+  if (event.target === pasteDialog) closePasteDialog();
+});
+pasteDialog?.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closePasteDialog();
 });
 
 const fileUploadInput = document.getElementById("fileUploadInput");
@@ -2408,7 +2493,7 @@ themeRadios.forEach((radio) => {
   });
 });
 
-sidePanelThemeToggleBtn?.addEventListener("click", async () => {
+async function toggleTheme() {
   const nextTheme = document.documentElement.classList.contains("theme-dark")
     ? "light"
     : "dark";
@@ -2418,6 +2503,10 @@ sidePanelThemeToggleBtn?.addEventListener("click", async () => {
   );
   if (themeRadio) themeRadio.checked = true;
   applyTheme(settings.theme);
+}
+
+themeToggleBtns.forEach((button) => {
+  button.addEventListener("click", toggleTheme);
 });
 
 function hideHistoryWipeConfirm() {

@@ -113,7 +113,7 @@ The `lib/` folder contains pure JavaScript logic split into clean functional sub
 
 ### 5. `popup/` (User Interface)
 
-- **What it Contains**: `popup.html`, `popup.css`, `popup.js`, and `icons.js` (inline SVG icons), rendering the popup user interface for Home, Summary, Ask, Past Summaries search, and Settings views.
+- **What it Contains**: `app.html`, `app.css`, `app.js`, and `icons.js` (inline SVG icons), rendering the shared popup and side-panel interface for Home, Summary, Ask, Past Summaries search, and Settings views.
 - **How to Contribute**: Enhance UI components, update theme styles, improve accessibility, or add interactive controls while adhering to extension design standards.
 
 ### 6. `rules/` (Declarative Net Request Security Rules)

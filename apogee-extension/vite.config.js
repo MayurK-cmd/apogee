@@ -25,6 +25,11 @@ function copyStaticPlugin(targetBrowser) {
         }
         delete manifest.side_panel;
         delete manifest.minimum_chrome_version;
+        manifest.sidebar_action = {
+          default_title: "Apogee",
+          default_panel: "popup/app.html?surface=side-panel",
+          default_icon: "assets/icon.png",
+        };
       } else {
         if (manifest.background) {
           delete manifest.background.scripts;
@@ -47,6 +52,11 @@ function copyStaticPlugin(targetBrowser) {
       cpSync(resolve(__dirname, "rules"), resolve(dist, "rules"), {
         recursive: true,
       });
+
+      cpSync(
+        resolve(__dirname, "../docs/assets/pixel-dissolve.svg"),
+        resolve(dist, "assets/pixel-dissolve.svg"),
+      );
     },
   };
 }
@@ -76,7 +86,7 @@ export default defineConfig(() => {
   const isFirefox = targetBrowser === "firefox";
 
   const input = {
-    popup: resolve(__dirname, "popup/popup.html"),
+    app: resolve(__dirname, "popup/app.html"),
     "background/service-worker": resolve(
       __dirname,
       "background/service-worker.js",
@@ -136,14 +146,14 @@ export default defineConfig(() => {
         },
         transform(code, id) {
           if (this._isWatch) return null;
-          if (!id.endsWith("popup/popup.js")) return null;
+          if (!id.endsWith("popup/app.js")) return null;
           const stripped = code.replace(
             /if \(\s*typeof chrome === "undefined"[\s\S]*?await import\("\.\/mock\.js"\);\s*\}\n?/,
             "",
           );
           if (stripped === code) {
             this.warn(
-              "strip-dev-mock: mock.js import guard not found in popup.js; " +
+              "strip-dev-mock: mock.js import guard not found in app.js; " +
                 "the strip pattern may be stale (mock chunk may still ship).",
             );
             return null;

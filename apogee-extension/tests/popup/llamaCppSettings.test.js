@@ -7,15 +7,15 @@ import { PROVIDERS, DEFAULT_SETTINGS } from "../../lib/constants.js";
 import { formatDiagnosticSettings } from "../../lib/util/diagnostics.js";
 
 const popupHtml = readFileSync(
-  new URL("../../popup/popup.html", import.meta.url),
+  new URL("../../popup/app.html", import.meta.url),
   "utf8",
 );
 const popupJs = readFileSync(
-  new URL("../../popup/popup.js", import.meta.url),
+  new URL("../../popup/app.js", import.meta.url),
   "utf8",
 );
 
-test("popup.html offers llama.cpp in the provider list", () => {
+test("app.html offers llama.cpp in the provider list", () => {
   const { document } = parseHTML(popupHtml);
   const radio = document.querySelector(
     'input[name="provider"][value="llamacpp"]',
@@ -28,7 +28,7 @@ test("popup.html offers llama.cpp in the provider list", () => {
   );
 });
 
-test("popup.html carries the llama.cpp settings fields", () => {
+test("app.html carries the llama.cpp settings fields", () => {
   const { document } = parseHTML(popupHtml);
   for (const id of [
     "llamaSettingsCard",
@@ -38,7 +38,7 @@ test("popup.html carries the llama.cpp settings fields", () => {
     "llamaModelInput",
     "llamaModelStatus",
   ]) {
-    assert.ok(document.getElementById(id), `#${id} must exist in popup.html`);
+    assert.ok(document.getElementById(id), `#${id} must exist in app.html`);
   }
 });
 
@@ -85,7 +85,7 @@ test("the llama.cpp cards reuse existing card and field classes", () => {
   );
 });
 
-test("popup.js toggles the llama.cpp cards on the provider", () => {
+test("app.js toggles the llama.cpp cards on the provider", () => {
   assert.match(popupJs, /PROVIDERS\.LLAMACPP/);
   assert.match(popupJs, /llamaSettingsCard\?\.classList\.toggle\("hidden"/);
   assert.match(popupJs, /llamaModelsCard\?\.classList\.toggle\("hidden"/);
@@ -93,7 +93,7 @@ test("popup.js toggles the llama.cpp cards on the provider", () => {
 
 // Auto-fill must only touch an empty field, so a name the user typed and a
 // name detected earlier both survive the next health check.
-test("popup.js only auto-fills the model field when it is empty", () => {
+test("app.js only auto-fills the model field when it is empty", () => {
   const guard =
     /if \(detected\.length > 0 && !llamaModelInput\.value\.trim\(\)\)/;
   assert.match(popupJs, guard, "auto-fill must be guarded on an empty field");

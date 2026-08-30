@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>apogee</title>
-    <link rel="stylesheet" href="popup.css" />
+    <link rel="stylesheet" href="app.css" />
   </head>
 
   <body>
@@ -45,11 +45,22 @@
             </button>
 
             <button
-              id="closeBtn"
-              class="icon-btn popup-close-btn"
-              aria-label="Close"
+              id="openSidePanelBtn"
+              class="icon-btn open-side-panel-btn hidden"
+              type="button"
+              aria-label="Open in side panel"
+              title="Open in side panel"
             >
-              <span class="ico" data-ico="close" aria-hidden="true"></span>
+              <span
+                class="ico side-panel-icon"
+                data-ico="panel"
+                aria-hidden="true"
+              ></span>
+              <span
+                class="ico close-icon hidden"
+                data-ico="close"
+                aria-hidden="true"
+              ></span>
             </button>
           </div>
         </header>
@@ -95,12 +106,24 @@
             <div class="chip-row">
               <button id="pasteTextBtn" class="chip-btn" type="button">
                 <span class="ico" data-ico="copy" aria-hidden="true"></span>
-                <span>Paste text to summarize</span>
+                <span>Paste text</span>
               </button>
 
               <button id="uploadFileBtn" class="chip-btn" type="button">
                 <span class="ico" data-ico="upload" aria-hidden="true"></span>
-                <span>Upload file to summarize</span>
+                <span>Upload file</span>
+              </button>
+
+              <button
+                id="summarizeSelectionBtn"
+                class="chip-btn"
+                type="button"
+                disabled
+                title="Summarize selection (coming soon)"
+                aria-label="Summarize selection (coming soon)"
+              >
+                <span class="ico" data-ico="inspect" aria-hidden="true"></span>
+                <span>Selection</span>
               </button>
             </div>
 
@@ -110,15 +133,6 @@
               accept=".pdf,.txt,.md,.json,.docx,.html"
               class="hidden"
             />
-
-            <button
-              id="openSidePanelBtn"
-              class="side-panel-launch-btn hidden"
-              type="button"
-            >
-              <span class="ico" data-ico="panel" aria-hidden="true"></span>
-              <span>Open in side panel</span>
-            </button>
           </div>
 
           <div id="webgpuWarning" class="webgpu-warning hidden">
@@ -179,16 +193,37 @@
           </div>
 
           <div class="header-actions">
+            <button
+              id="summaryThemeToggleBtn"
+              class="icon-btn side-panel-theme-btn"
+              type="button"
+              aria-label="Toggle theme"
+              title="Toggle theme"
+            >
+              <span class="ico" data-ico="contrast" aria-hidden="true"></span>
+            </button>
+
             <button id="settingsBtn2" class="icon-btn" aria-label="Settings">
               <span class="ico" data-ico="sliders" aria-hidden="true"></span>
             </button>
 
             <button
-              id="closeBtn2"
-              class="icon-btn popup-close-btn"
-              aria-label="Close"
+              id="openSidePanelBtn2"
+              class="icon-btn open-side-panel-btn hidden"
+              type="button"
+              aria-label="Open in side panel"
+              title="Open in side panel"
             >
-              <span class="ico" data-ico="close" aria-hidden="true"></span>
+              <span
+                class="ico side-panel-icon"
+                data-ico="panel"
+                aria-hidden="true"
+              ></span>
+              <span
+                class="ico close-icon hidden"
+                data-ico="close"
+                aria-hidden="true"
+              ></span>
             </button>
           </div>
         </header>
@@ -306,11 +341,16 @@
             </div>
 
             <div class="summary-footer">
-              <span id="timeSavedBadge" class="time-saved-badge hidden"></span>
-              <span
-                id="tokensPerSecBadgeSummary"
-                class="tokens-per-sec-badge hidden"
-              ></span>
+              <div class="summary-footer-badges">
+                <span
+                  id="timeSavedBadge"
+                  class="time-saved-badge hidden"
+                ></span>
+                <span
+                  id="tokensPerSecBadgeSummary"
+                  class="tokens-per-sec-badge hidden"
+                ></span>
+              </div>
 
               <div class="summary-footer-actions">
                 <button
@@ -423,11 +463,22 @@
 
           <div class="header-actions">
             <button
-              id="closeBtn3"
-              class="icon-btn popup-close-btn"
-              aria-label="Close"
+              id="openSidePanelBtn3"
+              class="icon-btn open-side-panel-btn hidden"
+              type="button"
+              aria-label="Open in side panel"
+              title="Open in side panel"
             >
-              <span class="ico" data-ico="close" aria-hidden="true"></span>
+              <span
+                class="ico side-panel-icon"
+                data-ico="panel"
+                aria-hidden="true"
+              ></span>
+              <span
+                class="ico close-icon hidden"
+                data-ico="close"
+                aria-hidden="true"
+              ></span>
             </button>
           </div>
         </header>
@@ -838,11 +889,22 @@
 
           <div class="header-actions">
             <button
-              id="closeBtn4"
-              class="icon-btn popup-close-btn"
-              aria-label="Close"
+              id="openSidePanelBtn4"
+              class="icon-btn open-side-panel-btn hidden"
+              type="button"
+              aria-label="Open in side panel"
+              title="Open in side panel"
             >
-              <span class="ico" data-ico="close" aria-hidden="true"></span>
+              <span
+                class="ico side-panel-icon"
+                data-ico="panel"
+                aria-hidden="true"
+              ></span>
+              <span
+                class="ico close-icon hidden"
+                data-ico="close"
+                aria-hidden="true"
+              ></span>
             </button>
           </div>
         </header>
@@ -909,9 +971,33 @@
       </div>
     </div>
 
+    <div
+      id="pasteDialog"
+      class="dialog-backdrop hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pasteDialogTitle"
+    >
+      <form id="pasteDialogForm" class="input-dialog">
+        <h2 id="pasteDialogTitle">Paste text to summarize</h2>
+        <label for="pasteDialogInput">Add text below</label>
+        <textarea id="pasteDialogInput" rows="7" autofocus></textarea>
+        <div class="input-dialog-actions">
+          <button
+            id="pasteDialogCancel"
+            class="dialog-cancel-btn"
+            type="button"
+          >
+            Cancel
+          </button>
+          <button class="dialog-submit-btn" type="submit">Summarize</button>
+        </div>
+      </form>
+    </div>
+
     <p id="a11yAnnouncer" class="sr-only" role="status" aria-live="polite"></p>
 
     <script type="module" src="icons.js"></script>
-    <script type="module" src="popup.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

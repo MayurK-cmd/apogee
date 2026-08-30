@@ -318,28 +318,29 @@ body {
 .chip-row {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  margin-top: 10px;
+  gap: 0;
+  margin-top: 12px;
   width: 100%;
 }
 
 .chip-btn {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 6px 6px;
-  border-radius: 0;
-  background: var(--card-bg);
+  padding: 8px 6px;
+  margin-left: -1px;
   border: 1px solid var(--btn-border);
-  color: var(--text-main);
+  border-radius: 0;
+  background: var(--btn-bg);
+  color: var(--text-secondary);
   font-family: var(--font-body);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
@@ -349,22 +350,118 @@ body {
 .chip-btn:hover {
   background: var(--btn-hover-bg);
   border-color: var(--btn-hover-border);
-  transform: translateY(-1px);
+  color: var(--text-main);
+  position: relative;
+  z-index: 1;
+}
+
+.chip-btn:first-child {
+  margin-left: 0;
 }
 
 .chip-btn:active {
   transform: translateY(0) scale(0.97);
 }
 
+.chip-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .chip-btn .ico svg {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   color: var(--accent);
   flex-shrink: 0;
 }
 
 .chip-btn span:last-child {
   white-space: nowrap;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 10, 12, 0.72);
+}
+
+.input-dialog {
+  width: min(100%, 360px);
+  padding: 18px;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.input-dialog h2 {
+  margin: 0 0 14px;
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.input-dialog label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.input-dialog textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  padding: 10px;
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 13px;
+  outline: none;
+}
+
+.input-dialog textarea:focus {
+  border-color: var(--input-focus-border);
+}
+
+.input-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.input-dialog-actions button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--btn-border);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dialog-cancel-btn {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.dialog-submit-btn {
+  border-color: var(--accent) !important;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.input-dialog-actions button:hover {
+  filter: brightness(1.1);
 }
 
 .action-btn {
@@ -561,6 +658,12 @@ body {
   display: flex;
   align-items: center;
   margin-top: 12px;
+}
+
+.summary-footer-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .summary-footer:not(:has(.time-saved-badge:not(.hidden))):not(
@@ -2134,38 +2237,6 @@ body {
   margin-top: 8px;
 }
 
-.side-panel-launch-btn {
-  width: 100%;
-  min-height: 42px;
-  margin-top: 12px;
-  padding: 9px 14px;
-  border: 1px solid var(--btn-border);
-  background: transparent;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 600;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
-}
-
-.side-panel-launch-btn:hover {
-  background: var(--btn-hover-bg);
-  border-color: var(--btn-hover-border);
-  color: var(--text-main);
-}
-
-.side-panel-launch-btn .ico svg {
-  width: 16px;
-  height: 16px;
-}
-
 .side-panel-theme-btn,
 .side-panel-hero {
   display: none;
@@ -2180,27 +2251,38 @@ html[data-surface="side-panel"] body {
 }
 
 html[data-surface="side-panel"] body {
-  background-image: radial-gradient(
-    rgba(136, 134, 255, 0.08) 1px,
-    transparent 1px
-  );
-  background-size: 24px 24px;
+  position: relative;
+  background-image: none;
 }
 
-html[data-surface="side-panel"].theme-light body {
-  background-image: radial-gradient(
-    rgba(88, 85, 255, 0.06) 1px,
-    transparent 1px
-  );
+html[data-surface="side-panel"] body::before {
+  content: "";
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  width: 210px;
+  height: 210px;
+  background: url("../../docs/assets/pixel-dissolve.svg") no-repeat right
+    bottom / contain;
+  transform: rotate(180deg);
+  pointer-events: none;
 }
 
 html[data-surface="side-panel"] .container {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
 }
 
 html[data-surface="side-panel"] #homeView .header {
   background: transparent;
   border-bottom-color: transparent;
+}
+
+html[data-surface="side-panel"] #homeView {
+  overflow: hidden;
+  border-radius: 8px;
 }
 
 html[data-surface="side-panel"] #homeView .brand {
@@ -2216,7 +2298,8 @@ html[data-surface="side-panel"] .side-panel-hero {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: clamp(36px, 8vh, 72px) 20px 22px;
+  margin-top: 0;
+  padding: 22px 20px;
 }
 
 html[data-surface="side-panel"] .side-panel-hero img {
@@ -2264,6 +2347,20 @@ html[data-surface="side-panel"] .contact-content {
   overflow-y: auto;
 }
 
+html[data-surface="side-panel"] #homeView .view-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transform: translateY(-48px);
+}
+
+html[data-surface="side-panel"]
+  #homeView:has(.past-summary-card.expanded)
+  .view-body {
+  justify-content: flex-start;
+  transform: none;
+}
+
 html[data-surface="side-panel"] #summaryView .view-body {
   display: flex;
   flex-direction: column;
@@ -2271,6 +2368,10 @@ html[data-surface="side-panel"] #summaryView .view-body {
 
 html[data-surface="side-panel"] .chat-section {
   margin-top: auto;
+}
+
+html[data-surface="side-panel"] #summaryView.ask-mode .chat-section {
+  margin-top: 20px;
 }
 
 html[data-surface="side-panel"] .chat-box:has(#questionInput:not(.hidden)) {
@@ -2281,7 +2382,6 @@ html[data-surface="side-panel"] .chat-box:has(#questionInput:not(.hidden)) {
   box-shadow: 0 -12px 20px var(--bg-color);
 }
 
-html[data-surface="side-panel"] .popup-close-btn,
-html[data-surface="side-panel"] .side-panel-launch-btn {
+html[data-surface="side-panel"] .open-side-panel-btn {
   display: none !important;
 }

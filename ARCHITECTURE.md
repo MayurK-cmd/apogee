@@ -42,7 +42,7 @@ flowchart TD
         end
 
         subgraph ui["Popup / Chromium Side Panel"]
-            POPUP["popup.js<br/>Summarize, Ask, Settings"]
+            POPUP["app.js<br/>Summarize, Ask, Settings"]
         end
 
         subgraph bg["Service Worker"]
