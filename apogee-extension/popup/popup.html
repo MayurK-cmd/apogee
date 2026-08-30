@@ -470,13 +470,15 @@
 
             <label class="radio-option">
               <input type="radio" name="provider" value="local" />
-              <span>Local Ollama</span>
+              <span
+                >Local Ollama <small class="provider-badge">ollama</small></span
+              >
             </label>
 
             <label class="radio-option" id="llamacppProviderOption">
               <input type="radio" name="provider" value="llamacpp" />
               <span
-                >llama.cpp
+                >Local LLaMA.cpp
                 <small class="provider-badge">llama-server</small></span
               >
             </label>
@@ -529,11 +531,11 @@
           <div id="llamaSettingsCard" class="settings-card hidden">
             <div class="card-title">
               <span class="ico" data-ico="server" aria-hidden="true"></span>
-              <span>llama.cpp</span>
+              <span>Local LLaMA.cpp</span>
             </div>
 
             <label class="settings-field">
-              <span>Server URL</span>
+              <span>Local LLaMA.cpp URL</span>
               <input
                 id="llamaHostInput"
                 type="url"
@@ -557,7 +559,7 @@
           <div id="llamaModelsCard" class="settings-card hidden">
             <div class="card-title">
               <span class="ico" data-ico="robot" aria-hidden="true"></span>
-              <span>Loaded Model</span>
+              <span>Local LLM</span>
             </div>
 
             <label class="settings-field">
