@@ -1,13 +1,7 @@
 import { UserFacingError } from "../util/userError.js";
+import { createConnectionError } from "../util/connectionError.js";
 
 class OllamaError extends UserFacingError {}
-
-function connectError(host, err) {
-  return new OllamaError(
-    `Could not connect to Ollama at ${host}. Is it running and listening on ` +
-      `that address? Error: ${err?.message ?? err}`,
-  );
-}
 
 export async function* chatStream(
   host,
@@ -38,7 +32,7 @@ export async function* chatStream(
   } catch (err) {
     if (err?.name === "AbortError")
       throw new OllamaError("Generation was cancelled.");
-    throw connectError(host, err);
+    throw createConnectionError(OllamaError, "Ollama", host, err);
   }
 
   if (!response.ok) {
@@ -115,7 +109,7 @@ export async function* chatStream(
         `Ollama sent a malformed response for model '${model}': ${err.message}`,
       );
     }
-    throw connectError(host, err);
+    throw createConnectionError(OllamaError, "Ollama", host, err);
   }
 }
 

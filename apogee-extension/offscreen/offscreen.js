@@ -19,6 +19,7 @@ import {
   getTransformersStatus,
 } from "../lib/engines/transformersEngine.js";
 import { initDebugLogging } from "../lib/util/log.js";
+import { broadcastToStream } from "../lib/util/streamBroadcast.js";
 import {
   tokensForChunk,
   isWarmedUp,
@@ -417,14 +418,6 @@ function scheduleStreamCleanup(streamId) {
       } catch {}
     }
   }, STREAM_CLEANUP_MS);
-}
-
-function broadcastToStream(stream, msg) {
-  for (const port of stream.subscribers) {
-    try {
-      port.postMessage(msg);
-    } catch {}
-  }
 }
 
 async function runTransformersJob(

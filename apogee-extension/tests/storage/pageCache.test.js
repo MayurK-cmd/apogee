@@ -188,6 +188,25 @@ test("shouldPersist respects saveHistory for a non-sensitive host", async () => 
   assert.strictEqual(await shouldPersist("https://example.com/"), true);
 });
 
+test("URL-less summaries can be persisted without throwing", async () => {
+  const data = installFakeStorage({ settings: { saveHistory: true } });
+
+  assert.strictEqual(await shouldPersist(""), true);
+  assert.strictEqual(
+    await persistSummaryIfAllowed(
+      "",
+      "summary:local-paste",
+      "suggested-prompts:local-paste",
+      "A pasted summary.",
+      "Pasted Text",
+      null,
+      { embedTextsFn: null },
+    ),
+    true,
+  );
+  assert.strictEqual(data["summary:local-paste"], "A pasted summary.");
+});
+
 test("shouldPersist is always false for a sensitive host, regardless of saveHistory", async () => {
   installFakeStorage({ settings: { saveHistory: true } });
   assert.strictEqual(await shouldPersist("https://mail.google.com/"), false);

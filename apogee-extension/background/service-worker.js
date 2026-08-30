@@ -50,6 +50,7 @@ import { NotificationTargetManager } from "../lib/util/notificationTargets.js";
 import {
   getSummaryCacheKey,
   getPromptsCacheKey,
+  hashUrl,
   persistSummaryIfAllowed,
   persistContent,
   shouldPersist,
@@ -65,6 +66,7 @@ import {
   getModelForSettings,
 } from "../lib/engines/providers.js";
 import { PROVIDERS, TRANSLATION_ENGINES } from "../lib/constants.js";
+import { broadcastToStream } from "../lib/util/streamBroadcast.js";
 import {
   saveViewState,
   saveViewStateIfJobMatches,
@@ -192,19 +194,22 @@ async function buildTrustedFinalize(payload) {
   if (!payload || typeof payload !== "object") return null;
 
   const rawFinalize = payload.finalize || {};
+  const customContent = rawFinalize.customContent === true;
   const rawUrl =
     typeof payload.url === "string"
       ? payload.url
       : typeof rawFinalize.persistUrl === "string"
         ? rawFinalize.persistUrl
         : "";
-  if (!rawUrl) return null;
+  if (!rawUrl && !customContent) return null;
 
   const settings = await getSettings();
   const model = payload.model || getModelForSettings(settings);
   const providerType = getProviderType(settings);
   const isSelection = Boolean(rawFinalize.isSelection);
-  const cacheUrl = isSelection ? `${rawUrl}#apogee-selection` : rawUrl;
+  const cacheUrl = isSelection
+    ? `${rawUrl}#apogee-selection`
+    : rawUrl || `local:${await hashUrl(payload.content || "")}`;
 
   const cacheKey = await getSummaryCacheKey(
     cacheUrl,
@@ -243,6 +248,7 @@ async function buildTrustedFinalize(payload) {
     persist,
     persistUrl: rawUrl,
     isSelection,
+    customContent,
     providerType,
     host: settings.ollamaHost,
     notifyOnFinish,
@@ -294,14 +300,6 @@ function startKeepAlive() {
       chrome.runtime.getPlatformInfo(() => void chrome.runtime.lastError);
     } catch {}
   }, KEEPALIVE_MS);
-}
-
-function broadcastToStream(stream, msg) {
-  for (const port of stream.subscribers) {
-    try {
-      port.postMessage(msg);
-    } catch {}
-  }
 }
 
 function relayToOffscreenStream(popupPort, streamId) {

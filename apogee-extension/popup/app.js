@@ -649,7 +649,7 @@ const EXTRACTOR_INFO = {
   pdf: { label: "PDF", icon: "filetext" },
 };
 
-export function updateExtractorChip(pageData) {
+function updateExtractorChip(pageData) {
   const type = pageData?.isPdf ? "pdf" : pageData?.type;
   const info = EXTRACTOR_INFO[type];
   const chips = [
@@ -2230,9 +2230,11 @@ async function summarizeCustomContent(title, content, url = "") {
     const model = getModelForSettings(settings);
     currentSummaryLanguage = settings.summaryLanguage;
     currentTranslationEngine = settings.translationEngine;
+    const sourceUrl = url || "";
+    const cacheIdentity = sourceUrl || `local:${await hashUrl(content)}`;
 
     const promptsCacheKey = await getPromptsCacheKey(
-      url || tab?.url || "https://local.paste",
+      cacheIdentity,
       settings.responseFormat,
       model,
       settings.summaryLanguage,
@@ -2242,13 +2244,21 @@ async function summarizeCustomContent(title, content, url = "") {
 
     const { streamId, stream } = await provider.summarize({
       title,
-      url: url || tab?.url || "https://local.paste",
+      url: sourceUrl,
       content,
-      responseFormat: settings.responseFormat,
+      mode: settings.responseFormat,
       language: settings.summaryLanguage,
       customInstructions: settings.customInstructions,
       translationEngine: settings.translationEngine,
       onStats: (rate) => setTokensPerSecBadge(tokensPerSecBadgeSummary, rate),
+      finalize: {
+        customContent: true,
+        tabId: tab?.id,
+        jobId,
+        persistUrl: "",
+        language: settings.summaryLanguage,
+        translationEngine: settings.translationEngine,
+      },
     });
 
     activeSummarizeStreamId = streamId;
@@ -2337,39 +2347,60 @@ pasteDialog?.addEventListener("keydown", (event) => {
 
 const fileUploadInput = document.getElementById("fileUploadInput");
 
+async function summarizeFile(file) {
+  let text;
+  if (file.name.toLowerCase().endsWith(".pdf")) {
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    const { extractPdfText } = await import("../lib/extract/pdfExtract.js");
+    text = await extractPdfText(base64);
+  } else if (file.name.toLowerCase().endsWith(".docx")) {
+    const { extractDocxText } = await import("../lib/extract/docxExtract.js");
+    text = await extractDocxText(await file.arrayBuffer());
+  } else {
+    text = await file.text();
+  }
+
+  if (!text || !text.trim()) {
+    throw new Error("The file contains no readable text.");
+  }
+  await summarizeCustomContent(file.name, text.trim());
+}
+
 document.getElementById("uploadFileBtn")?.addEventListener("click", () => {
   fileUploadInput?.click();
 });
 
-fileUploadInput?.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
+async function handleFile(file) {
   if (!file) return;
 
   try {
-    let text = "";
-    if (file.name.toLowerCase().endsWith(".pdf")) {
-      const arrayBuffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = "";
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const base64 = btoa(binary);
-      const { extractPdfText } = await import("../lib/extract/pdfExtract.js");
-      text = await extractPdfText(base64);
-    } else {
-      text = await file.text();
-    }
-
-    if (text && text.trim()) {
-      await summarizeCustomContent(file.name, text.trim());
-    }
+    await summarizeFile(file);
   } catch (err) {
     console.error("File read failed:", err);
     alert(`Failed to read file: ${err.message || err}`);
   } finally {
     if (fileUploadInput) fileUploadInput.value = "";
   }
+}
+
+fileUploadInput?.addEventListener("change", async (e) => {
+  await handleFile(e.target.files?.[0]);
+});
+
+document.getElementById("homeView")?.addEventListener("dragover", (e) => {
+  if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+});
+
+document.getElementById("homeView")?.addEventListener("drop", async (e) => {
+  if (!e.dataTransfer?.files?.length) return;
+  e.preventDefault();
+  await handleFile(e.dataTransfer.files[0]);
 });
 
 sendBtn?.addEventListener("click", () => submitQuestion(questionInput.value));

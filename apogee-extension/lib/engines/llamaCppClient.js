@@ -1,4 +1,5 @@
 import { UserFacingError } from "../util/userError.js";
+import { createConnectionError } from "../util/connectionError.js";
 
 class LlamaCppError extends UserFacingError {}
 
@@ -20,13 +21,6 @@ const SSE_DONE = "[DONE]";
 function authHeaders(apiKey) {
   const key = (apiKey || "").trim();
   return key ? { Authorization: `Bearer ${key}` } : {};
-}
-
-function connectError(host, err) {
-  return new LlamaCppError(
-    `Could not connect to llama.cpp at ${host}. Is llama-server running and ` +
-      `listening on that address? Error: ${err?.message ?? err}`,
-  );
 }
 
 // Every llama-server failure comes back as {error:{message,type,code}}, but a
@@ -160,7 +154,7 @@ export async function* chatStream(
   } catch (err) {
     if (err?.name === "AbortError")
       throw new LlamaCppError("Generation was cancelled.");
-    throw connectError(base, err);
+    throw createConnectionError(LlamaCppError, "llama.cpp", base, err);
   }
 
   if (!response.ok) {
@@ -213,7 +207,7 @@ export async function* chatStream(
     if (err?.name === "AbortError" || signal?.aborted) {
       throw new LlamaCppError("Generation was cancelled.");
     }
-    throw connectError(base, err);
+    throw createConnectionError(LlamaCppError, "llama.cpp", base, err);
   } finally {
     // Breaking out of the loop early, which is what cancelling a summary does,
     // resumes this generator with a return completion: that skips the catch
