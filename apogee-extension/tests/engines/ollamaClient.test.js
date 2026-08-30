@@ -110,6 +110,37 @@ test("chatStream: streams content chunks successfully", async (t) => {
   ]);
 });
 
+test("chatStream: reports eval_count/eval_duration via onFinalStats", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = async () => {
+    const ndjson = [
+      JSON.stringify({ message: { content: "Hi" } }) + "\n",
+      JSON.stringify({
+        message: { content: "" },
+        done: true,
+        eval_count: 42,
+        eval_duration: 2_000_000_000,
+      }) + "\n",
+    ];
+    return createMockStreamResponse(ndjson);
+  };
+
+  let stats = null;
+  await collectStream(
+    chatStream("http://127.0.0.1:11434", "llama3.2", "Hi", {
+      onFinalStats: (s) => {
+        stats = s;
+      },
+    }),
+  );
+
+  assert.deepStrictEqual(stats, { tokens: 42, durationMs: 2000 });
+});
+
 test("chatStream: handles non-OK HTTP status with JSON error payload", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => {

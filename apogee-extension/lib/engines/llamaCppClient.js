@@ -81,7 +81,7 @@ function dataPayloadsOf(block) {
   return payloads;
 }
 
-function readEventBlock(block, model) {
+function readEventBlock(block, model, onFinalStats) {
   const tokens = [];
   for (const payload of dataPayloadsOf(block)) {
     if (payload === SSE_DONE) return { tokens, done: true };
@@ -112,6 +112,16 @@ function readEventBlock(block, model) {
     // type skips both, while still passing a single-space token through, which
     // a truthiness check would drop.
     if (typeof content === "string" && content !== "") tokens.push(content);
+
+    // llama.cpp's own `timings` (a native extension, not part of the OpenAI
+    // schema) rides on the final chunk when the request asks for usage. It is
+    // more accurate than our own count: it excludes network transit.
+    if (parsed?.timings?.predicted_n != null) {
+      onFinalStats?.({
+        tokens: parsed.timings.predicted_n,
+        durationMs: parsed.timings.predicted_ms,
+      });
+    }
   }
   return { tokens, done: false };
 }
@@ -120,7 +130,7 @@ export async function* chatStream(
   host,
   model,
   prompt,
-  { signal, system, apiKey } = {},
+  { signal, system, apiKey, onFinalStats } = {},
 ) {
   const messages = system
     ? [
@@ -139,7 +149,12 @@ export async function* chatStream(
         "Content-Type": "application/json",
         ...authHeaders(apiKey),
       },
-      body: JSON.stringify({ model, messages, stream: true }),
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: true,
+        stream_options: { include_usage: true },
+      }),
       signal,
     });
   } catch (err) {
@@ -174,7 +189,11 @@ export async function* chatStream(
       while ((boundary = buffer.indexOf("\n\n")) !== -1) {
         const block = buffer.slice(0, boundary);
         buffer = buffer.slice(boundary + 2);
-        const { tokens, done: finished } = readEventBlock(block, model);
+        const { tokens, done: finished } = readEventBlock(
+          block,
+          model,
+          onFinalStats,
+        );
         yield* tokens;
         if (finished) return;
       }
@@ -186,7 +205,7 @@ export async function* chatStream(
     // for the same reason.
     const trailing = buffer.trim();
     if (trailing) {
-      const { tokens } = readEventBlock(trailing, model);
+      const { tokens } = readEventBlock(trailing, model, onFinalStats);
       yield* tokens;
     }
   } catch (err) {

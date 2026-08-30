@@ -22,7 +22,7 @@ function sendToServiceWorker(message) {
 
 export class StreamCancelledError extends Error {}
 
-export async function* attachToStream(streamId) {
+export async function* attachToStream(streamId, { onStats } = {}) {
   const port = chrome.runtime.connect({ name: `popup-stream-${streamId}` });
   const queue = [];
   let resolvePromise = null;
@@ -34,8 +34,11 @@ export async function* attachToStream(streamId) {
   port.onMessage.addListener((msg) => {
     if (msg.type === "chunk") {
       queue.push(msg.text);
+    } else if (msg.type === "stats") {
+      onStats?.(msg.tokensPerSec);
     } else if (msg.type === "done") {
       done = true;
+      if (msg.tokensPerSec != null) onStats?.(msg.tokensPerSec);
     } else if (msg.type === "cancelled") {
       cancelled = true;
       done = true;
@@ -94,7 +97,7 @@ export function cancelStream(streamId) {
   );
 }
 
-async function startWebllmStream(action, payload) {
+async function startWebllmStream(action, payload, { onStats } = {}) {
   const { streamId } = await sendToServiceWorker({
     target: "service-worker",
     action,
@@ -103,10 +106,10 @@ async function startWebllmStream(action, payload) {
   if (!streamId) {
     throw new Error("No streamId returned from service worker");
   }
-  return { streamId, stream: attachToStream(streamId) };
+  return { streamId, stream: attachToStream(streamId, { onStats }) };
 }
 
-async function startOllamaStream(action, payload) {
+async function startOllamaStream(action, payload, { onStats } = {}) {
   const { streamId } = await sendToServiceWorker({
     target: "service-worker",
     action: "ollama-stream",
@@ -115,10 +118,10 @@ async function startOllamaStream(action, payload) {
   if (!streamId) {
     throw new Error("No streamId returned from service worker");
   }
-  return { streamId, stream: attachToStream(streamId) };
+  return { streamId, stream: attachToStream(streamId, { onStats }) };
 }
 
-async function startTransformersStream(action, payload) {
+async function startTransformersStream(action, payload, { onStats } = {}) {
   const { streamId } = await sendToServiceWorker({
     target: "service-worker",
     action: "transformers-stream",
@@ -127,10 +130,10 @@ async function startTransformersStream(action, payload) {
   if (!streamId) {
     throw new Error("No streamId returned from service worker");
   }
-  return { streamId, stream: attachToStream(streamId) };
+  return { streamId, stream: attachToStream(streamId, { onStats }) };
 }
 
-async function startLlamaCppStream(action, payload) {
+async function startLlamaCppStream(action, payload, { onStats } = {}) {
   const { streamId } = await sendToServiceWorker({
     target: "service-worker",
     action: "llamacpp-stream",
@@ -139,7 +142,7 @@ async function startLlamaCppStream(action, payload) {
   if (!streamId) {
     throw new Error("No streamId returned from service worker");
   }
-  return { streamId, stream: attachToStream(streamId) };
+  return { streamId, stream: attachToStream(streamId, { onStats }) };
 }
 
 class WebLLMProvider {
@@ -156,30 +159,39 @@ class WebLLMProvider {
     finalize,
     language,
     translationEngine,
+    onStats,
   }) {
-    return startWebllmStream("summarize", {
-      title,
-      url,
-      content,
-      mode,
-      type,
-      model: this.model,
-      finalize,
-      language,
-      translationEngine,
-    });
+    return startWebllmStream(
+      "summarize",
+      {
+        title,
+        url,
+        content,
+        mode,
+        type,
+        model: this.model,
+        finalize,
+        language,
+        translationEngine,
+      },
+      { onStats },
+    );
   }
 
-  ask({ title, url, content, question, language, translationEngine }) {
-    return startWebllmStream("ask", {
-      title,
-      url,
-      content,
-      question,
-      model: this.model,
-      language,
-      translationEngine,
-    });
+  ask({ title, url, content, question, language, translationEngine, onStats }) {
+    return startWebllmStream(
+      "ask",
+      {
+        title,
+        url,
+        content,
+        question,
+        model: this.model,
+        language,
+        translationEngine,
+      },
+      { onStats },
+    );
   }
 
   async checkReady() {
@@ -205,30 +217,39 @@ class TransformersProvider {
     finalize,
     language,
     translationEngine,
+    onStats,
   }) {
-    return startTransformersStream("summarize", {
-      title,
-      url,
-      content,
-      mode,
-      type,
-      model: this.model,
-      finalize,
-      language,
-      translationEngine,
-    });
+    return startTransformersStream(
+      "summarize",
+      {
+        title,
+        url,
+        content,
+        mode,
+        type,
+        model: this.model,
+        finalize,
+        language,
+        translationEngine,
+      },
+      { onStats },
+    );
   }
 
-  ask({ title, url, content, question, language, translationEngine }) {
-    return startTransformersStream("ask", {
-      title,
-      url,
-      content,
-      question,
-      model: this.model,
-      language,
-      translationEngine,
-    });
+  ask({ title, url, content, question, language, translationEngine, onStats }) {
+    return startTransformersStream(
+      "ask",
+      {
+        title,
+        url,
+        content,
+        question,
+        model: this.model,
+        language,
+        translationEngine,
+      },
+      { onStats },
+    );
   }
 
   async checkReady() {
@@ -255,32 +276,41 @@ class DirectOllamaProvider {
     finalize,
     language,
     translationEngine,
+    onStats,
   }) {
-    return startOllamaStream("summarize", {
-      title,
-      url,
-      content,
-      mode,
-      type,
-      model: this.model,
-      host: this.host,
-      finalize,
-      language,
-      translationEngine,
-    });
+    return startOllamaStream(
+      "summarize",
+      {
+        title,
+        url,
+        content,
+        mode,
+        type,
+        model: this.model,
+        host: this.host,
+        finalize,
+        language,
+        translationEngine,
+      },
+      { onStats },
+    );
   }
 
-  ask({ title, url, content, question, language, translationEngine }) {
-    return startOllamaStream("ask", {
-      title,
-      url,
-      content,
-      question,
-      model: this.model,
-      host: this.host,
-      language,
-      translationEngine,
-    });
+  ask({ title, url, content, question, language, translationEngine, onStats }) {
+    return startOllamaStream(
+      "ask",
+      {
+        title,
+        url,
+        content,
+        question,
+        model: this.model,
+        host: this.host,
+        language,
+        translationEngine,
+      },
+      { onStats },
+    );
   }
 
   async checkReady() {
@@ -313,34 +343,43 @@ class DirectLlamaCppProvider {
     finalize,
     language,
     translationEngine,
+    onStats,
   }) {
-    return startLlamaCppStream("summarize", {
-      title,
-      url,
-      content,
-      mode,
-      type,
-      model: this.model,
-      host: this.host,
-      apiKey: this.apiKey,
-      finalize,
-      language,
-      translationEngine,
-    });
+    return startLlamaCppStream(
+      "summarize",
+      {
+        title,
+        url,
+        content,
+        mode,
+        type,
+        model: this.model,
+        host: this.host,
+        apiKey: this.apiKey,
+        finalize,
+        language,
+        translationEngine,
+      },
+      { onStats },
+    );
   }
 
-  ask({ title, url, content, question, language, translationEngine }) {
-    return startLlamaCppStream("ask", {
-      title,
-      url,
-      content,
-      question,
-      model: this.model,
-      host: this.host,
-      apiKey: this.apiKey,
-      language,
-      translationEngine,
-    });
+  ask({ title, url, content, question, language, translationEngine, onStats }) {
+    return startLlamaCppStream(
+      "ask",
+      {
+        title,
+        url,
+        content,
+        question,
+        model: this.model,
+        host: this.host,
+        apiKey: this.apiKey,
+        language,
+        translationEngine,
+      },
+      { onStats },
+    );
   }
 
   // `contextTokens` rides along because llama-server reports the window it is

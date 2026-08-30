@@ -492,7 +492,8 @@ body {
   gap: 8px;
 }
 
-.time-saved-badge {
+.time-saved-badge,
+.tokens-per-sec-badge {
   padding: 3px 8px;
   background: var(--badge-bg);
   color: var(--badge-text);
@@ -563,8 +564,8 @@ body {
 }
 
 .summary-footer:not(:has(.time-saved-badge:not(.hidden))):not(
-    :has(.summary-footer-actions button:not(.hidden))
-  ) {
+    :has(.tokens-per-sec-badge:not(.hidden))
+  ):not(:has(.summary-footer-actions button:not(.hidden))) {
   margin-top: 0;
 }
 
@@ -598,10 +599,23 @@ body {
   cursor: default;
 }
 
+.ask-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ask-footer:not(:has(.tokens-per-sec-badge:not(.hidden))):not(
+    :has(#cancelAskBtn:not(.hidden))
+  ) {
+  margin-top: 0;
+}
+
 #cancelAskBtn {
   display: block;
   width: fit-content;
-  margin: 12px 0 0 auto;
 }
 
 .resummarize-btn {
