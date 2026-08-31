@@ -55,3 +55,8 @@ coverage/
 ._*
 Thumbs.db
 desktop.ini
+
+# Locally generated social preview source and render
+.github/social-preview.html
+.github/social-preview.css
+.github/assets/apogee-social-preview-1280x640.png

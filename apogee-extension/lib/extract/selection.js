@@ -15,21 +15,26 @@ export async function activateSelectionCapture(tab) {
     func: (minLength) => {
       if (window.__apogeeSelectionCapture) return;
       window.__apogeeSelectionCapture = true;
+      let sent = false;
       const capture = () => {
+        if (sent) return;
         const text = window
           .getSelection()
           ?.toString()
           .replace(/\s+/g, " ")
           .trim();
         if (!text || text.length < minLength) return;
+        sent = true;
         chrome.runtime.sendMessage({
           target: "service-worker",
           action: "summarize-selection",
           payload: { selectionText: text },
         });
+        document.removeEventListener("selectionchange", capture, true);
         window.removeEventListener("mouseup", capture, true);
         delete window.__apogeeSelectionCapture;
       };
+      document.addEventListener("selectionchange", capture, true);
       window.addEventListener("mouseup", capture, true);
     },
     args: [MIN_SELECTION_LENGTH],

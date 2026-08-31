@@ -46,18 +46,6 @@ export async function getPageAccessLog() {
 }
 
 /**
- * Clear page access audit logs.
- */
-export async function clearPageAccessLog() {
-  if (typeof chrome === "undefined" || !chrome.storage?.local) return;
-  try {
-    await chrome.storage.local.remove([AUDIT_LOG_KEY]);
-  } catch {
-    // Safe fallback: ignore removal error
-  }
-}
-
-/**
  * Get comprehensive Privacy & Activity audit summary.
  */
 export async function getActivityAuditSummary() {

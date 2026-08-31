@@ -132,6 +132,18 @@ function sidePanelOpenFunction() {
   return chrome.sidePanel?.open || chrome.sidebarAction?.open;
 }
 
+async function openSidePanel() {
+  const openPanel = sidePanelOpenFunction();
+  if (typeof openPanel !== "function") {
+    throw new Error("Side panel is not available.");
+  }
+  if (chrome.sidePanel?.open) {
+    await openPanel({ windowId: chrome.windows.WINDOW_ID_CURRENT });
+  } else {
+    await openPanel();
+  }
+}
+
 function setSidePanelButtons({ panelOpen, available }) {
   const showClose = panelOpen && !isSidePanelSurface;
   const showOpen = available && !panelOpen && !isSidePanelSurface;
@@ -2221,12 +2233,7 @@ openSidePanelBtns.forEach((button) =>
       return;
     }
     try {
-      const openPanel = sidePanelOpenFunction();
-      if (chrome.sidePanel?.open) {
-        await openPanel({ windowId: chrome.windows.WINDOW_ID_CURRENT });
-      } else {
-        await openPanel();
-      }
+      await openSidePanel();
       closeTransientSurface();
     } catch (error) {
       console.error("Could not open the side panel:", error);
@@ -2390,8 +2397,12 @@ async function summarizeFile(file) {
     const arrayBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
     let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+      binary += String.fromCharCode.apply(
+        null,
+        bytes.subarray(i, i + chunkSize),
+      );
     }
     const base64 = btoa(binary);
     const { extractPdfText } = await import("../lib/extract/pdfExtract.js");
@@ -2409,9 +2420,21 @@ async function summarizeFile(file) {
   await summarizeCustomContent(file.name, text.trim());
 }
 
-document.getElementById("uploadFileBtn")?.addEventListener("click", () => {
-  fileUploadInput?.click();
-});
+document
+  .getElementById("uploadFileBtn")
+  ?.addEventListener("click", async () => {
+    if (!isSidePanelSurface) {
+      try {
+        await openSidePanel();
+        closeTransientSurface();
+      } catch (err) {
+        console.error("Could not open side panel for file upload:", err);
+        announce(`Could not open side panel: ${err.message || err}`);
+      }
+      return;
+    }
+    fileUploadInput?.click();
+  });
 
 async function handleFile(file) {
   if (!file) return;
@@ -2420,7 +2443,8 @@ async function handleFile(file) {
     await summarizeFile(file);
   } catch (err) {
     console.error("File read failed:", err);
-    alert(`Failed to read file: ${err.message || err}`);
+    showOnlyView("homeView");
+    announce(`Failed to read file: ${err.message || err}`);
   } finally {
     if (fileUploadInput) fileUploadInput.value = "";
   }

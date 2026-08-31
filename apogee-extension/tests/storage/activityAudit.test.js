@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   recordPageAccessEvent,
   getPageAccessLog,
-  clearPageAccessLog,
   getActivityAuditSummary,
 } from "../../lib/storage/activityAudit.js";
 
@@ -38,7 +37,7 @@ globalThis.chrome = {
 };
 
 test("recordPageAccessEvent stores audit entries and caps at 20", async () => {
-  await clearPageAccessLog();
+  storageMap.clear();
   for (let i = 1; i <= 25; i++) {
     await recordPageAccessEvent({
       title: `Test Page ${i}`,
@@ -54,7 +53,7 @@ test("recordPageAccessEvent stores audit entries and caps at 20", async () => {
 });
 
 test("getActivityAuditSummary returns privacy & activity audit metrics", async () => {
-  await clearPageAccessLog();
+  storageMap.clear();
   await recordPageAccessEvent({
     title: "Privacy Test",
     url: "https://example.org",

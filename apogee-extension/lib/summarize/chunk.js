@@ -31,29 +31,3 @@ export function truncateForPrompt(text, maxChars = MAX_SINGLE_PROMPT_CHARS) {
   if (clean.length <= maxChars) return clean;
   return clean.slice(0, maxChars).trim() + "\n\n[...content truncated...]";
 }
-
-export function chunkTextOverview(
-  text,
-  maxChars = MAX_CHUNK_CHARS,
-  maxChunks = 3,
-) {
-  const chunks = chunkText(text, maxChars);
-  if (chunks.length <= maxChunks) return chunks;
-
-  const selected = [];
-  selected.push(chunks[0]);
-  const innerCount = maxChunks - 2;
-  if (innerCount > 0) {
-    const step = (chunks.length - 2) / (innerCount + 1);
-    for (let i = 1; i <= innerCount; i++) {
-      const index = Math.floor(i * step);
-      if (index > 0 && index < chunks.length - 1) {
-        selected.push(chunks[index]);
-      }
-    }
-  }
-  if (chunks.length > 1) {
-    selected.push(chunks[chunks.length - 1]);
-  }
-  return selected;
-}
