@@ -7,11 +7,11 @@ import { PROVIDERS, DEFAULT_SETTINGS } from "../../lib/constants.js";
 import { formatDiagnosticSettings } from "../../lib/util/diagnostics.js";
 
 const popupHtml = readFileSync(
-  new URL("../../popup/app.html", import.meta.url),
+  new URL("../../ui/app.html", import.meta.url),
   "utf8",
 );
 const popupJs = readFileSync(
-  new URL("../../popup/app.js", import.meta.url),
+  new URL("../../ui/app.js", import.meta.url),
   "utf8",
 );
 

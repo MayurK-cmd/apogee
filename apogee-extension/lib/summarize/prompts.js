@@ -130,7 +130,14 @@ export function buildScaledBulletsStyle(chunkCount) {
   return bulletsStyle(min, max);
 }
 
-export function buildSummaryPrompt(title, url, content, mode, styleOverride) {
+export function buildSummaryPrompt(
+  title,
+  url,
+  content,
+  mode,
+  styleOverride,
+  isSelection = false,
+) {
   const style = styleOverride || SUMMARY_STYLES[mode] || SUMMARY_STYLES.bullets;
   return [
     "You are Apogee, a strict factual browser summarizer.",
@@ -157,6 +164,12 @@ export function buildSummaryPrompt(title, url, content, mode, styleOverride) {
     "",
     "ARTICLE URL:",
     url,
+    ...(isSelection
+      ? [
+          "SOURCE CONTEXT:",
+          "This summary was generated from text selected on the webpage, not the full page.",
+        ]
+      : []),
     "",
     "SUMMARY STYLE:",
     style,

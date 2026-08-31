@@ -462,6 +462,7 @@ async function runTransformersJob(
             model: pending.model,
             language,
             customInstructions,
+            isSelection: pending.isSelection,
             signal,
           },
           {

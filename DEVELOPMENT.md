@@ -111,7 +111,7 @@ The `lib/` folder contains pure JavaScript logic split into clean functional sub
 - **What it Contains**: `offscreen.html` and `offscreen.js`, providing an offscreen document context on Chromium browsers to execute WebLLM WebGPU and Transformers.js WebAssembly models outside service worker constraints.
 - **How to Contribute**: Update offscreen message handlers, manage WebGPU device initialization, or handle ONNX model weight caching.
 
-### 5. `popup/` (User Interface)
+### 5. `ui/` (Popup and Side Panel Interface)
 
 - **What it Contains**: `app.html`, `app.css`, `app.js`, and `icons.js` (inline SVG icons), rendering the shared popup and side-panel interface for Home, Summary, Ask, local file upload, Past Summaries search, and Settings views.
 - **How to Contribute**: Enhance UI components, update theme styles, improve accessibility, or add interactive controls while adhering to extension design standards.

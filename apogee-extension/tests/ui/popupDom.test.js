@@ -3,7 +3,7 @@ import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { parseHTML } from "linkedom";
 
-const popupHtmlPath = new URL("../../popup/app.html", import.meta.url);
+const popupHtmlPath = new URL("../../ui/app.html", import.meta.url);
 const popupHtmlRaw = readFileSync(popupHtmlPath, "utf8");
 
 test("app.html parses into valid DOM structure", () => {

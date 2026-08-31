@@ -40,9 +40,9 @@ test("manifest.json exposes the popup UI as a Chrome side panel", () => {
   );
   assert.strictEqual(
     manifest.side_panel?.default_path,
-    "popup/app.html?surface=side-panel",
+    "ui/app.html?surface=side-panel",
   );
-  assert.strictEqual(manifest.action?.default_popup, "popup/app.html");
+  assert.strictEqual(manifest.action?.default_popup, "ui/app.html");
 });
 
 test("manifest.json permissions enforce local-first privacy boundary", () => {

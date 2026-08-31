@@ -159,6 +159,7 @@ class WebLLMProvider {
     finalize,
     language,
     translationEngine,
+    isSelection,
     onStats,
   }) {
     return startWebllmStream(
@@ -173,6 +174,7 @@ class WebLLMProvider {
         finalize,
         language,
         translationEngine,
+        isSelection,
       },
       { onStats },
     );
@@ -217,6 +219,7 @@ class TransformersProvider {
     finalize,
     language,
     translationEngine,
+    isSelection,
     onStats,
   }) {
     return startTransformersStream(
@@ -231,6 +234,7 @@ class TransformersProvider {
         finalize,
         language,
         translationEngine,
+        isSelection,
       },
       { onStats },
     );
@@ -276,6 +280,7 @@ class DirectOllamaProvider {
     finalize,
     language,
     translationEngine,
+    isSelection,
     onStats,
   }) {
     return startOllamaStream(
@@ -291,6 +296,7 @@ class DirectOllamaProvider {
         finalize,
         language,
         translationEngine,
+        isSelection,
       },
       { onStats },
     );
@@ -343,6 +349,7 @@ class DirectLlamaCppProvider {
     finalize,
     language,
     translationEngine,
+    isSelection,
     onStats,
   }) {
     return startLlamaCppStream(
@@ -359,6 +366,7 @@ class DirectLlamaCppProvider {
         finalize,
         language,
         translationEngine,
+        isSelection,
       },
       { onStats },
     );

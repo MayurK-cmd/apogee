@@ -68,6 +68,10 @@ import {
   extractFromActiveTab,
   extractPdfContent,
 } from "../lib/extract/pageExtraction.js";
+import {
+  activateSelectionCapture,
+  MIN_SELECTION_LENGTH,
+} from "../lib/extract/selection.js";
 import { ensurePermissionsForUrl } from "../lib/util/permissions.js";
 import { icon, ICONS } from "./icons.js";
 
@@ -147,6 +151,7 @@ function setSidePanelButtons({ panelOpen, available }) {
 }
 
 const summarizeBtn = document.getElementById("summarizeBtn");
+const summarizeSelectionBtn = document.getElementById("summarizeSelectionBtn");
 const summarizeShortcutHint = document.getElementById("summarizeShortcutHint");
 const summaryText = document.getElementById("summaryText");
 const cancelSummarizeBtn = document.getElementById("cancelSummarizeBtn");
@@ -681,7 +686,8 @@ async function getPageData(tab) {
   if (
     currentPageData &&
     currentPageData.url === tab.url &&
-    (CACHEABLE_PAGE_TYPES.has(currentPageData.type) ||
+    (currentPageData.type === "selection" ||
+      CACHEABLE_PAGE_TYPES.has(currentPageData.type) ||
       (currentPageData.isPdf && currentPageData.content))
   ) {
     updateExtractorChip(currentPageData);
@@ -720,6 +726,10 @@ async function getPageData(tab) {
 let modelProgressHideTimer = null;
 
 chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "selection-summary-started" && isSidePanelSurface) {
+    window.location.reload();
+    return;
+  }
   if (message.type === "model-progress" && message.progress) {
     const p = message.progress;
     clearTimeout(modelProgressHideTimer);
@@ -1455,6 +1465,10 @@ async function consumeSummaryStream(stream, { tab, promptsCacheKey, jobId }) {
     }),
     summaryLanguage: currentSummaryLanguage,
     translationEngine: currentTranslationEngine,
+    isSelection: currentPageData?.type === "selection",
+    ...(currentPageData?.type === "selection"
+      ? { selectionText: currentPageData.content }
+      : {}),
   };
   if (jobId) {
     await saveViewStateIfJobMatches(
@@ -1954,6 +1968,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let state = await loadViewState(tab.id);
 
+    if (state?.isSelection && state.selectionText) {
+      currentPageData = {
+        title: tab.title || "Selected text",
+        url: tab.url,
+        content: state.selectionText,
+        type: "selection",
+        isPdf: false,
+      };
+      updateExtractorChip(currentPageData);
+    }
+
     if (state && state.urlHash === (await hashUrl(tab.url)) && state.streamId) {
       currentSummaryLanguage =
         state.summaryLanguage ?? settings.summaryLanguage;
@@ -2164,6 +2189,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 summarizeBtn?.addEventListener("click", () => summarizeActivePage());
+
+summarizeSelectionBtn?.addEventListener("click", async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  try {
+    await activateSelectionCapture(tab);
+    announce(
+      `Now select at least ${MIN_SELECTION_LENGTH} characters on the webpage.`,
+    );
+  } catch (error) {
+    renderError(summaryText, toUserMessage(error));
+  }
+});
 
 settingsBtn?.addEventListener("click", () => {
   settingsEntryView = "homeView";

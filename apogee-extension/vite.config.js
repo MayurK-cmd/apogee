@@ -27,7 +27,7 @@ function copyStaticPlugin(targetBrowser) {
         delete manifest.minimum_chrome_version;
         manifest.sidebar_action = {
           default_title: "Apogee",
-          default_panel: "popup/app.html?surface=side-panel",
+          default_panel: "ui/app.html?surface=side-panel",
           default_icon: "assets/icon.png",
         };
       } else {
@@ -86,7 +86,7 @@ export default defineConfig(() => {
   const isFirefox = targetBrowser === "firefox";
 
   const input = {
-    app: resolve(__dirname, "popup/app.html"),
+    app: resolve(__dirname, "ui/app.html"),
     "background/service-worker": resolve(
       __dirname,
       "background/service-worker.js",
@@ -146,7 +146,7 @@ export default defineConfig(() => {
         },
         transform(code, id) {
           if (this._isWatch) return null;
-          if (!id.endsWith("popup/app.js")) return null;
+          if (!id.endsWith("ui/app.js")) return null;
           const stripped = code.replace(
             /if \(\s*typeof chrome === "undefined"[\s\S]*?await import\("\.\/mock\.js"\);\s*\}\n?/,
             "",

@@ -16,6 +16,19 @@ import {
   END_FENCE,
 } from "../../lib/summarize/prompts.js";
 
+test("selection summaries identify their selected-text source", () => {
+  const prompt = buildSummaryPrompt(
+    "Selected text from Example",
+    "https://example.com/article",
+    "Only the selected passage.",
+    "bullets",
+    undefined,
+    true,
+  );
+  assert.match(prompt, /generated from text selected on the webpage/i);
+  assert.match(prompt, /Only the selected passage/);
+});
+
 test("youtubeSummaryScale grows key-moment and gist targets with video length", () => {
   const short = youtubeSummaryScale(3 * 60);
   const medium = youtubeSummaryScale(23 * 60);

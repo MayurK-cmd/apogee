@@ -62,6 +62,11 @@ import {
   extractPdfContent,
 } from "../lib/extract/pageExtraction.js";
 import {
+  normalizeSelectedText,
+  isSummarizableSelection,
+  MIN_SELECTION_LENGTH,
+} from "../lib/extract/selection.js";
+import {
   getProviderType,
   getModelForSettings,
 } from "../lib/engines/providers.js";
@@ -489,6 +494,7 @@ async function startLocalHttpStream(
     finalize,
     language,
     translationEngine,
+    isSelection,
     apiKey,
   },
   client = OLLAMA_PROVIDER,
@@ -574,6 +580,7 @@ async function startLocalHttpStream(
           model,
           language: await resolveEffectiveLanguage(content, language),
           customInstructions,
+          isSelection,
           host: validHost,
           signal: stream.controller.signal,
         },
@@ -642,6 +649,7 @@ async function startTransformersStream(
     finalize,
     language,
     translationEngine,
+    isSelection,
   },
 ) {
   const { stream, finish, emitChunk } = createBufferedStream(streamId, {
@@ -686,6 +694,7 @@ async function startTransformersStream(
             model,
             language: effectiveLanguage,
             customInstructions,
+            isSelection,
             signal: stream.controller.signal,
           },
           {
@@ -786,7 +795,15 @@ async function runBackgroundSummarize(
   const providerType = getProviderType(settings);
   const model = getModelForSettings(settings);
 
-  const selection = selectionText ? selectionText.trim() : "";
+  const selection = normalizeSelectedText(selectionText);
+  if (selection && !isSummarizableSelection(selection)) {
+    if (notifyOnFinish) {
+      notifyNothingToSummarize(
+        `Select at least ${MIN_SELECTION_LENGTH} characters to summarize.`,
+      );
+    }
+    return;
+  }
   const isSelection = selection.length > 0;
 
   let pageData;
@@ -888,6 +905,7 @@ async function runBackgroundSummarize(
     tabId: tab.id,
     jobId,
     windowId: tab.windowId,
+    ...(isSelection ? { selectionText: selection } : {}),
   };
 
   const common = {
@@ -901,6 +919,7 @@ async function runBackgroundSummarize(
     language: settings.summaryLanguage,
     translationEngine: settings.translationEngine,
     customInstructions: settings.customInstructions,
+    isSelection,
     finalize,
   };
 
@@ -934,6 +953,7 @@ async function runBackgroundSummarize(
     promptsCacheKey: finalize.promptsCacheKey,
     summaryLanguage: settings.summaryLanguage,
     translationEngine: settings.translationEngine,
+    ...(isSelection ? { isSelection: true, selectionText: selection } : {}),
   });
 
   if (providerType === PROVIDERS.LOCAL) {
@@ -1565,6 +1585,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const ALLOWED_CONTENT_SCRIPT_ACTIONS = new Set([
     "sponsorblock-segments",
     "bilibili-subtitles",
+    "summarize-selection",
   ]);
   if (
     sender.tab &&
@@ -1598,6 +1619,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         modelId: message.modelId,
       })
       .catch(() => {});
+    return false;
+  }
+
+  if (message.action === "summarize-selection" && sender.tab) {
+    runBackgroundSummarize(sender.tab, {
+      notifyOnFinish: true,
+      selectionText: message.payload?.selectionText,
+    })
+      .then(() =>
+        chrome.runtime
+          .sendMessage({ type: "selection-summary-started" })
+          .catch(() => {}),
+      )
+      .catch((err) => notifyJobFailed(err));
     return false;
   }
 

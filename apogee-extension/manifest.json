@@ -63,10 +63,10 @@
     "128": "assets/icon.png"
   },
   "action": {
-    "default_popup": "popup/app.html"
+    "default_popup": "ui/app.html"
   },
   "side_panel": {
-    "default_path": "popup/app.html?surface=side-panel"
+    "default_path": "ui/app.html?surface=side-panel"
   },
   "browser_specific_settings": {
     "gecko": {

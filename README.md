@@ -62,6 +62,7 @@ The table below compares Apogee with typical cloud-based AI extensions and Mozil
 ## What It Can Do
 
 - **Articles and Web Pages**: Clean extraction of text using Readability and specialized site extractors.
+- **Selected Text**: Select at least 20 characters on a supported webpage and use **Selection** in the popup or the browser context menu to summarize only that text. Follow-up Ask questions keep the selected text as their source context.
 - **YouTube and Bilibili Videos**: Interactive timestamped timelines allowing you to click key moments to seek video playback directly.
 - **Local documents and text**: Select or drag PDF, DOCX, TXT, Markdown, JSON, or HTML files into the popup, or paste text directly.
 - **Ask Q&A with Smart Retrieval**: Embedded passages are matched locally so you can ask questions about long documents without losing context.
