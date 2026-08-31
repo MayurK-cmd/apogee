@@ -24,6 +24,8 @@ For power users, Apogee also connects directly to a local Ollama instance over `
 
 > **In short:** Apogee summarizes pages, videos, PDFs, DOCX files, and pasted text locally. No account, API key, backend, or cloud upload is required.
 
+⭐ If Apogee is useful to you, consider [starring the repository](https://github.com/darshi1337/apogee). It helps the project reach more contributors.
+
 ## Get Started
 
 1. Install Apogee from the [Chrome Web Store](https://chromewebstore.google.com/detail/apogee/pgemlpomhkdcjjjcpnjlebalnfglomog) or [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/apogeeext/).
