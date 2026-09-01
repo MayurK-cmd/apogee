@@ -20,7 +20,7 @@ import {
 } from "../lib/util/throughput.js";
 import { chunkBySections } from "../lib/summarize/sections.js";
 import { errorHelpUrl } from "../lib/util/errorHelp.js";
-import { toUserMessage } from "../lib/util/userError.js";
+import { toUserMessage, UserFacingError } from "../lib/util/userError.js";
 import { hasHostPermissions } from "../lib/util/permissions.js";
 import {
   buildAnswerPrompt,
@@ -344,21 +344,29 @@ function relayToOffscreenStream(popupPort, streamId) {
 
 const ALLOWED_LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost"]);
 
-// The label is woven into the thrown messages, which ERROR.md documents word
-// for word, so the Ollama default has to keep producing exactly the strings it
-// produced before.
+// The rejected value stays in the console line only. The user-facing message
+// states the rule instead, so a mistyped host reads as guidance rather than
+// an internal assertion. ERROR.md documents this message word for word.
+function rejectLoopbackHost(label, host, reason) {
+  console.error(`${label} host rejected (${reason}): ${host}`);
+  const allowed = [...ALLOWED_LOOPBACK_HOSTS].join(" or ");
+  return new UserFacingError(
+    `Apogee can only reach ${label} over http on ${allowed}. Check the host in Settings.`,
+  );
+}
+
 function validateLoopbackHost(host, label = "Ollama") {
   let url;
   try {
     url = new URL(host);
   } catch {
-    throw new Error(`Invalid ${label} host`);
+    throw rejectLoopbackHost(label, host, "unparseable URL");
   }
   if (url.protocol !== "http:") {
-    throw new Error(`Disallowed ${label} protocol: ${url.protocol}`);
+    throw rejectLoopbackHost(label, host, `protocol ${url.protocol}`);
   }
   if (!ALLOWED_LOOPBACK_HOSTS.has(url.hostname)) {
-    throw new Error(`Disallowed ${label} host: ${url.hostname}`);
+    throw rejectLoopbackHost(label, host, `hostname ${url.hostname}`);
   }
   return url.toString().replace(/\/+$/, "");
 }
