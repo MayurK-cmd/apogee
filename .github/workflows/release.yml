@@ -44,13 +44,22 @@ jobs:
 
       - name: Publish to Chrome Web Store
         if: env.CWS_CLIENT_ID != ''
-        uses: fregante/chrome-webstore-upload-action@v4
-        with:
-          extension-id: ${{ secrets.CWS_EXTENSION_ID }}
-          client-id: ${{ secrets.CWS_CLIENT_ID }}
-          client-secret: ${{ secrets.CWS_CLIENT_SECRET }}
-          refresh-token: ${{ secrets.CWS_REFRESH_TOKEN }}
-          file-name: 'apogee-*-chrome.zip'
+        run: |
+          ZIP_FILE=$(ls ../apogee-*-chrome.zip 2>/dev/null | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Chrome zip not found: ../apogee-*-chrome.zip"
+            ls -la ../*.zip 2>/dev/null || ls -la . 2>/dev/null
+            exit 1
+          fi
+          echo "Uploading $ZIP_FILE to Chrome Web Store"
+          npx chrome-webstore-upload-cli@4 --source "$ZIP_FILE" --extension-id "$EXTENSION_ID" --publisher-id "$PUBLISHER_ID"
+        env:
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
 
       - name: Publish to Mozilla Add-ons (AMO)
         if: env.AMO_API_KEY != ''
