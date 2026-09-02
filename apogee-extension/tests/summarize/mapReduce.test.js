@@ -29,7 +29,8 @@ function makePrompts() {
   return {
     buildSingle: (chunk) => `SINGLE: ${chunk}`,
     buildMap: (chunk, i, total) => `MAP[${i}/${total}]: ${chunk}`,
-    buildReduce: (partials) => `REDUCE(${partials.length}): ${partials.join(" | ")}`,
+    buildReduce: (partials) =>
+      `REDUCE(${partials.length}): ${partials.join(" | ")}`,
   };
 }
 
@@ -118,8 +119,15 @@ test("mapReduceStream: 13 chunks, budget 12 → 13 map + 1 reduce of all 13 (no 
   // Exactly one final reduce event, and >= 1 intermediate reduce event.
   const reduces = progress.filter((p) => p.stage === "reduce");
   const intermediate = reduces.filter((p) => p.depth === 1);
-  assert.ok(intermediate.length >= 1, "expected at least one intermediate reduce event");
-  assert.strictEqual(reduces[reduces.length - 1].depth, undefined, "final reduce has no depth");
+  assert.ok(
+    intermediate.length >= 1,
+    "expected at least one intermediate reduce event",
+  );
+  assert.strictEqual(
+    reduces[reduces.length - 1].depth,
+    undefined,
+    "final reduce has no depth",
+  );
 });
 
 test("mapReduceStream: 48 chunks, budget 12 → 48 map + 12 first-level reduce + 1 final reduce (fanIn=4)", async () => {
@@ -164,12 +172,18 @@ test("mapReduceStream: 48 chunks, budget 12 → 48 map + 12 first-level reduce +
   // The first reduce must come after all maps.
   const firstReduceIdx = stages.indexOf("r1");
   const lastMapIdx = stages.lastIndexOf("m");
-  assert.ok(firstReduceIdx > lastMapIdx, "intermediate reduce must follow all maps");
+  assert.ok(
+    firstReduceIdx > lastMapIdx,
+    "intermediate reduce must follow all maps",
+  );
 
   // The final reduce must come after all intermediate reduces.
   const finalReduceIdx = stages.indexOf("rf");
   const lastR1Idx = stages.lastIndexOf("r1");
-  assert.ok(finalReduceIdx > lastR1Idx, "final reduce must follow intermediate reduces");
+  assert.ok(
+    finalReduceIdx > lastR1Idx,
+    "final reduce must follow intermediate reduces",
+  );
 });
 
 test("mapReduceStream: 24 chunks, budget 12 → fanIn=2 → 24 map + 12 reduce + 1 final", async () => {
@@ -179,7 +193,11 @@ test("mapReduceStream: 24 chunks, budget 12 → fanIn=2 → 24 map + 12 reduce +
   await collect(
     mapReduceStream(
       { text: "irrelevant", model: "m", host: "h" },
-      { chunkTextFn: () => chunks, chatStreamFn: fn, onProgress: NOOP_PROGRESS },
+      {
+        chunkTextFn: () => chunks,
+        chatStreamFn: fn,
+        onProgress: NOOP_PROGRESS,
+      },
       makePrompts(),
     ),
   );
@@ -210,12 +228,15 @@ test("mapReduceStream: tree-reduce groups partials in input order", async () => 
   await collect(
     mapReduceStream(
       { text: "irrelevant", model: "m", host: "h" },
-      { chunkTextFn: () => chunks, chatStreamFn: fn, onProgress: NOOP_PROGRESS },
+      {
+        chunkTextFn: () => chunks,
+        chatStreamFn: fn,
+        onProgress: NOOP_PROGRESS,
+      },
       {
         buildSingle: (c) => `SINGLE: ${c}`,
         buildMap: (c, i, t) => `MAP[${i}/${t}]: ${c}`,
-        buildReduce: (ps) =>
-          `REDUCE(${ps.length}): ${ps.join(" || ")}`,
+        buildReduce: (ps) => `REDUCE(${ps.length}): ${ps.join(" || ")}`,
       },
     ),
   );
@@ -231,12 +252,15 @@ test("mapReduceStream: tree-reduce groups partials in input order", async () => 
         model: "HuggingFaceTB/SmolLM2-360M-Instruct",
         host: "h",
       },
-      { chunkTextFn: () => chunks, chatStreamFn: fn, onProgress: NOOP_PROGRESS },
+      {
+        chunkTextFn: () => chunks,
+        chatStreamFn: fn,
+        onProgress: NOOP_PROGRESS,
+      },
       {
         buildSingle: (c) => `SINGLE: ${c}`,
         buildMap: (c, i, t) => `MAP[${i}/${t}]: ${c}`,
-        buildReduce: (ps) =>
-          `REDUCE(${ps.length}): ${ps.join(" || ")}`,
+        buildReduce: (ps) => `REDUCE(${ps.length}): ${ps.join(" || ")}`,
       },
     ),
   );
@@ -274,7 +298,11 @@ test("mapReduceStream: intermediate reduce tokens reach the consumer", async () 
   const out = await collect(
     mapReduceStream(
       { text: "irrelevant", model: "m", host: "h" },
-      { chunkTextFn: () => chunks, chatStreamFn: fn, onProgress: NOOP_PROGRESS },
+      {
+        chunkTextFn: () => chunks,
+        chatStreamFn: fn,
+        onProgress: NOOP_PROGRESS,
+      },
       makePrompts(),
     ),
   );
@@ -300,13 +328,21 @@ test("mapReduceStream: abort between map and reduce stops further model calls", 
   const out = await collect(
     mapReduceStream(
       { text: "irrelevant", model: "m", host: "h", signal: controller.signal },
-      { chunkTextFn: () => chunks, chatStreamFn: fn, onProgress: NOOP_PROGRESS },
+      {
+        chunkTextFn: () => chunks,
+        chatStreamFn: fn,
+        onProgress: NOOP_PROGRESS,
+      },
       makePrompts(),
     ),
   );
 
   assert.deepStrictEqual(out, []);
-  assert.strictEqual(calls, 3, "should not call the model for further chunks or any reduce");
+  assert.strictEqual(
+    calls,
+    3,
+    "should not call the model for further chunks or any reduce",
+  );
 });
 
 test("mapReduceStream: OOM during map skips the tree and runs final reduce with partials so far", async () => {
@@ -451,7 +487,11 @@ test("mapReduceStream: final reduce sees at most maxChunks partials, even when m
   await collect(
     mapReduceStream(
       { text: "irrelevant", model: "m", host: "h" },
-      { chunkTextFn: () => chunks, chatStreamFn: fn, onProgress: NOOP_PROGRESS },
+      {
+        chunkTextFn: () => chunks,
+        chatStreamFn: fn,
+        onProgress: NOOP_PROGRESS,
+      },
       makePrompts(),
     ),
   );

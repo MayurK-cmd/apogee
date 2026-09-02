@@ -16,7 +16,8 @@ function isOomError(err) {
 // intermediates remain, then run the final reduce. Each group emits
 // its own streamed partial, so the consumer can interleave or buffer.
 function pickFanIn(partialCount, maxChunks) {
-  if (partialCount <= maxChunks) return partialCount;
+  // Caller guarantees partialCount > maxChunks (while guard in reduceTree),
+  // so no need for the <= branch.
   return Math.max(2, Math.ceil(partialCount / maxChunks));
 }
 
@@ -130,13 +131,7 @@ async function reduceTree({
       let merged;
       try {
         merged = await collectStream(
-          streamReduceStep(
-            chatStreamFn,
-            host,
-            model,
-            group,
-            stepOpts,
-          ),
+          streamReduceStep(chatStreamFn, host, model, group, stepOpts),
         );
       } catch (err) {
         if (isOomError(err)) {
@@ -144,6 +139,11 @@ async function reduceTree({
           return [...next, ...current.slice(i)];
         }
         throw err;
+      }
+      // OOM signaled via onOom inside streamReduceStep does not throw;
+      // treat it as failure of this group and preserve its originals.
+      if (hitOom) {
+        return [...next, ...current.slice(i)];
       }
       const trimmed = merged.trim();
       if (trimmed) next.push(trimmed);
@@ -172,12 +172,7 @@ export async function* mapReduceStream(
 
   const maxChunks = getMaxChunks(model);
   if (chunks.length > maxChunks) {
-    chunks = choosePartialChunks(
-      chunks,
-      maxChunks,
-      selectChunksFn,
-      onProgress,
-    );
+    chunks = choosePartialChunks(chunks, maxChunks, selectChunksFn, onProgress);
   }
   if (signal?.aborted) return;
 
@@ -250,5 +245,21 @@ export async function* mapReduceStream(
   if (signal?.aborted) return;
   if (intermediates.length === 0) return;
   onProgress?.({ stage: "reduce" });
-  yield* streamFinal(buildReduce(intermediates));
+  try {
+    yield* streamFinal(buildReduce(intermediates));
+  } catch (err) {
+    if (isOomError(err)) {
+      onProgress?.({ stage: "oom_fallback", index: -1 });
+      // Final reduce OOM means even the folded intermediates are too large
+      // (e.g. tree was aborted mid-way and intermediates > maxChunks).
+      // Fall back to streaming the concatenated partials without a model
+      // call so the user still gets coverage of every chunk.
+      for (const p of intermediates) {
+        if (signal?.aborted) return;
+        yield p + "\n\n";
+      }
+      return;
+    }
+    throw err;
+  }
 }
