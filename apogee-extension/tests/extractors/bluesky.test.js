@@ -98,14 +98,8 @@ test("extractBluesky pulls the thread from the AT Protocol public API", async ()
     result.content,
     /Local-first summarizers beat cloud extensions on privacy\./,
   );
-  assert.match(
-    result.content,
-    /\[1\][^\n]*Bob[^\n]*Strong agree/,
-  );
-  assert.match(
-    result.content,
-    /\[1\.1\][^\n]*Carol[^\n]*Even on WebAssembly/,
-  );
+  assert.match(result.content, /\[1\][^\n]*Bob[^\n]*Strong agree/);
+  assert.match(result.content, /\[1\.1\][^\n]*Carol[^\n]*Even on WebAssembly/);
 
   // The single fetch should target the public API with the right URI.
   assert.strictEqual(fetched.length, 1);

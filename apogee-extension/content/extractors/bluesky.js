@@ -57,7 +57,9 @@ function blueskyCollectReplies(replies, depth, items) {
       reply.post.author?.handle,
     );
     const likeCount =
-      typeof reply.post.likeCount === "number" ? reply.post.likeCount : undefined;
+      typeof reply.post.likeCount === "number"
+        ? reply.post.likeCount
+        : undefined;
     // Bluesky has no downvotes; likes map to `score` which renders as
     // `(score: N)` in `formatThreadComments`, not `{downvotes: N}`.
     items.push({ depth, author, text, score: likeCount });
@@ -69,8 +71,7 @@ function blueskyCollectReplies(replies, depth, items) {
 
 function blueskyBuildContent({ opAuthor, opText, opLikes, items }) {
   const nodes = buildThreadNodes(items);
-  const eligible = (n) =>
-    n.text && n.depth <= BLUESKY_MAX_DEPTH;
+  const eligible = (n) => n.text && n.depth <= BLUESKY_MAX_DEPTH;
   const comments = selectThreadComments(nodes, eligible, BLUESKY_MAX_POSTS);
 
   let content = `Bluesky discussion\n\nTitle: Post by ${opAuthor}\nAuthor: ${opAuthor}\n`;
@@ -162,9 +163,7 @@ async function extractBlueskyFromApi(atUri) {
 function extractBlueskyFromDom() {
   if (!isBlueskyPage()) return null;
 
-  const threadRoot = document.querySelector(
-    '[data-testid="postThreadItem"]',
-  );
+  const threadRoot = document.querySelector('[data-testid="postThreadItem"]');
   if (!threadRoot) return null;
 
   // The OP is the first postThreadItem; replies are siblings/descendants
