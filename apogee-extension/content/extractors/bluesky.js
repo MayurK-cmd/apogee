@@ -58,6 +58,8 @@ function blueskyCollectReplies(replies, depth, items) {
     );
     const likeCount =
       typeof reply.post.likeCount === "number" ? reply.post.likeCount : undefined;
+    // Bluesky has no downvotes; likes map to `score` which renders as
+    // `(score: N)` in `formatThreadComments`, not `{downvotes: N}`.
     items.push({ depth, author, text, score: likeCount });
     if (Array.isArray(reply.replies) && reply.replies.length) {
       blueskyCollectReplies(reply.replies, depth + 1, items);

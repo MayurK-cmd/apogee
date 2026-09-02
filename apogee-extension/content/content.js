@@ -70,10 +70,8 @@ async function extractPageContent() {
   const discourseData = extractDiscourse();
   if (discourseData) return { ...discourseData, isPdf: false };
 
-  if (isHost("bsky.app")) {
-    const data = await extractBluesky();
-    if (data) return { ...data, isPdf: false };
-  }
+  const blueskyData = await extractBluesky();
+  if (blueskyData) return { ...blueskyData, isPdf: false };
 
   const data = extractGeneric();
   return { ...data, isPdf: false };
